@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "./LandingPage.css";
 
 const hackathons = [
@@ -52,18 +52,59 @@ const steps = [
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [videoOpen, setVideoOpen] = useState(false);
+  const videoRef = useRef(null);
+  const videoSectionRef = useRef(null);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(true);
 
+  // Autoplay the film (muted) when the Experience section
+  // scrolls into view; pause when it scrolls away.
   useEffect(() => {
-    if (!videoOpen) return;
-    const onKey = (e) => { if (e.key === "Escape") setVideoOpen(false); };
-    window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
+    const section = videoSectionRef.current;
+    const video = videoRef.current;
+    if (!section || !video) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            video.play().catch(() => {});
+          } else {
+            video.pause();
+          }
+        });
+      },
+      { threshold: 0.4 }
+    );
+
+    const onPlay = () => setVideoPlaying(true);
+    const onPause = () => setVideoPlaying(false);
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
+
+    observer.observe(section);
     return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      observer.disconnect();
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("pause", onPause);
     };
-  }, [videoOpen]);
+  }, []);
+
+  const toggleVideo = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      // First tap also unmutes — browsers only allow
+      // autoplay muted, sound needs a user gesture.
+      if (videoMuted) {
+        video.muted = false;
+        setVideoMuted(false);
+      }
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  };
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -307,18 +348,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* EXPERIENCE */}
+      {/* EXPERIENCE — inline film, autoplay on scroll */}
       <section
-        className={`landing-video ${
-          videoOpen ? "experience-active" : ""
-        }`}
+        ref={videoSectionRef}
+        className="landing-video experience-inline"
       >
         <div className="video-grid" />
 
-        <div className="video-rings">
-          <div />
-          <div />
-          <div />
+        <div className="video-top">
+          <span>02 — EXPERIENCE</span>
+          <span>00:30</span>
         </div>
 
         <div className="video-center">
@@ -329,65 +368,39 @@ export default function LandingPage() {
             <br />
             TOGETHER.
           </strong>
-
-          <button
-            className={`experience-play ${
-              videoOpen ? "active" : ""
-            }`}
-            onClick={() => setVideoOpen(true)}
-            aria-label="Play the What is CampusCode film"
-          >
-            ▶
-          </button>
         </div>
 
-        <div className="video-top">
-          <span>02 — EXPERIENCE</span>
-          <span>00:30</span>
+        <div
+          className="experience-film"
+          onClick={toggleVideo}
+          role="button"
+          tabIndex={0}
+          aria-label={videoPlaying ? "Pause the What is CampusCode film" : "Play the What is CampusCode film"}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleVideo(); } }}
+        >
+          <video
+            ref={videoRef}
+            src="/videos/what-is-campuscode.mp4"
+            muted
+            loop
+            playsInline
+            preload="metadata"
+          />
+          {!videoPlaying && (
+            <span className="experience-play-badge">▶</span>
+          )}
+          <span className="experience-hint">
+            {videoPlaying
+              ? (videoMuted ? "TAP FOR SOUND" : "TAP TO PAUSE")
+              : "TAP TO PLAY"}
+          </span>
         </div>
 
         <div className="video-bottom">
           <span>WATCH THE STORY</span>
-          <button
-            type="button"
-            className="video-play-film"
-            onClick={() => setVideoOpen(true)}
-          >
-            PLAY FILM ↗
-          </button>
+          <span className="video-auto-note">PLAYS AS YOU SCROLL ↗</span>
         </div>
       </section>
-
-      {videoOpen && (
-        <div
-          className="video-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label="What is CampusCode — film"
-          onClick={() => setVideoOpen(false)}
-        >
-          <div
-            className="video-modal-box"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="video-modal-close"
-              onClick={() => setVideoOpen(false)}
-              aria-label="Close film"
-            >
-              ×
-            </button>
-            <video
-              src="/videos/what-is-campuscode.mp4"
-              controls
-              autoPlay
-              playsInline
-              preload="metadata"
-            />
-          </div>
-        </div>
-      )}
 
       {/* HOW IT WORKS */}
       <section id="how" className="landing-how">

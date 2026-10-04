@@ -2632,3 +2632,18 @@ body,
 .video-play-film{background:none;border:0;color:inherit;font:inherit;letter-spacing:inherit;cursor:pointer;padding:0;transition:.25s}
 .video-play-film:hover{color:#a8e62e}
 @media (prefers-reduced-motion:reduce){.video-modal,.video-modal-box{animation:none}}
+
+/* =========================================================
+   EXPERIENCE — inline film (replaces the popup modal)
+   The film lives inside the section and autoplays muted
+   when scrolled into view. Tap toggles play/pause + sound.
+========================================================= */
+.experience-inline .video-rings{display:none}
+.experience-film{position:relative;z-index:2;width:min(880px,92%);margin:26px auto 0;border-radius:20px;overflow:hidden;cursor:pointer;border:1px solid rgba(20,20,20,.1);box-shadow:0 30px 80px rgba(118,101,255,.18);background:#0b0b0b;transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s}
+.experience-film:hover{transform:translateY(-4px) scale(1.01);box-shadow:0 40px 100px rgba(118,101,255,.28)}
+.experience-film video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
+.experience-play-badge{position:absolute;inset:0;margin:auto;width:84px;height:84px;border-radius:50%;background:rgba(10,10,10,.72);backdrop-filter:blur(6px);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;pointer-events:none;animation:filmPulse 2s ease-in-out infinite;border:1px solid rgba(255,255,255,.25)}
+@keyframes filmPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(168,230,46,.5)}50%{transform:scale(1.06);box-shadow:0 0 0 18px rgba(168,230,46,0)}}
+.experience-hint{position:absolute;left:14px;bottom:12px;font-size:11px;letter-spacing:.18em;color:#fff;background:rgba(10,10,10,.6);backdrop-filter:blur(6px);padding:7px 12px;border-radius:99px;pointer-events:none;border:1px solid rgba(255,255,255,.16)}
+.video-auto-note{letter-spacing:.18em;font-size:11px;opacity:.75}
+@media (prefers-reduced-motion:reduce){.experience-film,.experience-film:hover{transform:none}.experience-play-badge{animation:none}}
