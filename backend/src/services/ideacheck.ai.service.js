@@ -1,6 +1,6 @@
 
-const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/interactions";
+const GEMINI_API_BASE =
+  "https://generativelanguage.googleapis.com/v1beta";
 
 const DEFAULT_MODEL =
   process.env.GEMINI_MODEL || "gemini-3.6-flash";
@@ -226,7 +226,7 @@ async function callGeminiModel(prompt, model) {
       );
 
       const response = await fetch(
-        `${GEMINI_API_URL}?key=${process.env.GEMINI_API_KEY}`,
+        `${GEMINI_API_BASE}/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
         {
           method: "POST",
 
@@ -235,16 +235,16 @@ async function callGeminiModel(prompt, model) {
           },
 
           body: JSON.stringify({
-            model,
+            contents: [
+              {
+                parts: [{ text: prompt }],
+              },
+            ],
 
-            input: prompt,
+            generationConfig: {
+              responseMimeType: "application/json",
 
-            response_format: {
-              type: "text",
-
-              mime_type: "application/json",
-
-              schema: {
+              responseSchema: {
                 type: "object",
 
                 properties: {
@@ -354,22 +354,10 @@ async function callGeminiModel(prompt, model) {
       );
 
       const outputText =
-        data.steps
-          ?.filter(
-            (step) =>
-              step.type === "model_output"
-          )
-          ?.flatMap(
-            (step) =>
-              step.content || []
-          )
-          ?.filter(
-            (content) =>
-              content.type === "text"
-          )
+        data.candidates?.[0]?.content?.parts
           ?.map(
-            (content) =>
-              content.text
+            (part) =>
+              part?.text || ""
           )
           ?.join("")
           ?.trim() || "";
