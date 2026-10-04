@@ -123,6 +123,12 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
 
 const app = express();
 
+// Render (and most hosts) run behind a reverse proxy.
+// Trust the first proxy hop so express-rate-limit reads the
+// real client IP from X-Forwarded-For instead of throwing
+// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+app.set("trust proxy", 1);
+
 const PORT = process.env.PORT || 5000;
 
 /* =========================================================
