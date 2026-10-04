@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Trophy, Clock3, Users, FolderGit2, Send, Code2,
@@ -2735,6 +2735,55 @@ function StudentLeaderboardPage() {
   );
 }
 
+function MilestoneConfetti() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = (canvas.width = window.innerWidth);
+    const H = (canvas.height = window.innerHeight);
+    const COLORS = ["#a7f37a", "#7665ff", "#ffffff", "#e8b93c", "#23f39a"];
+    const pieces = [];
+    const burst = (x, spread) => {
+      for (let i = 0; i < 70; i++) {
+        pieces.push({
+          x, y: H * 0.72,
+          vx: (Math.random() - 0.5) * spread,
+          vy: -Math.random() * 13 - 5,
+          s: Math.random() * 7 + 4,
+          r: Math.random() * Math.PI * 2,
+          vr: (Math.random() - 0.5) * 0.3,
+          c: COLORS[(Math.random() * COLORS.length) | 0],
+          life: 1,
+        });
+      }
+    };
+    burst(W * 0.5, 16);
+    setTimeout(() => burst(W * 0.22, 10), 180);
+    setTimeout(() => burst(W * 0.78, 10), 320);
+    let raf;
+    const tick = () => {
+      ctx.clearRect(0, 0, W, H);
+      for (const p of pieces) {
+        p.vy += 0.32; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.life -= 0.008;
+        if (p.life <= 0 || p.y > H + 20) continue;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.translate(p.x, p.y); ctx.rotate(p.r);
+        ctx.fillStyle = p.c;
+        ctx.fillRect(-p.s / 2, -p.s / 2, p.s * 0.62);
+        ctx.restore();
+      }
+      if (pieces.some((p) => p.life > 0 && p.y < H + 20)) raf = requestAnimationFrame(tick);
+      else ctx.clearRect(0, 0, W, H);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return <canvas ref={ref} className="milestone-confetti" aria-hidden="true" />;
+}
+
 function StudentMilestoneOverlay({ milestone, onClose }) {
   if (!milestone) return null;
   const config = milestone.type === "registered"
@@ -2742,7 +2791,7 @@ function StudentMilestoneOverlay({ milestone, onClose }) {
     : milestone.type === "advanced"
       ? { eyebrow: "NEXT ROUND UNLOCKED", title: "YOU MADE IT THROUGH.", copy: `Your Round ${milestone.fromRound || 1} submission was selected. Round ${milestone.toRound || 2} is now unlocked.` }
       : { eyebrow: "WINNER", title: "YOU DID IT.", copy: `Congratulations — you won ${milestone.hackathon || "the hackathon"}.` };
-  return <div className="student-milestone-backdrop"><div className="student-milestone-card"><div className="student-milestone-icon">✦</div><span>{config.eyebrow}</span><h2>{config.title}</h2><p>{config.copy}</p><button onClick={onClose}>CONTINUE BUILDING</button></div></div>;
+  return <div className="student-milestone-backdrop"><MilestoneConfetti /><div className="student-milestone-card"><div className="student-milestone-icon">✦</div><span>{config.eyebrow}</span><h2>{config.title}</h2><p>{config.copy}</p><button onClick={onClose}>CONTINUE BUILDING</button></div></div>;
 }
 
 function ParticipantAgreementModal({ open, hackathonName, accepted, onClose, onAccept }) {
