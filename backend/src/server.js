@@ -173,9 +173,27 @@ app.use("/api/", apiLimiter);
 
 app.use(
   cors({
-    origin:
-      process.env.CLIENT_URL ||
-      "http://localhost:5173",
+    origin: (origin, callback) => {
+      const clientUrl =
+        process.env.CLIENT_URL ||
+        "http://localhost:5173";
+
+      // Allow: the configured frontend, local dev, and any
+      // *.vercel.app deployment (production + previews).
+      // Requests without an Origin header (curl, Postman,
+      // server-to-server) are also allowed.
+      if (
+        !origin ||
+        origin === clientUrl ||
+        /\.vercel\.app$/.test(origin) ||
+        origin.startsWith("http://localhost:")
+      ) {
+        return callback(null, true);
+      }
+      return callback(
+        new Error(`CORS blocked for origin: ${origin}`)
+      );
+    },
 
     credentials: true,
   })
