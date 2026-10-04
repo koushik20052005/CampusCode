@@ -6,214 +6,11 @@ import { pipeline } from "stream/promises";
 import { PDFParse } from "pdf-parse";
 
 import {
-  analyzeRound2ProjectWithAI,
-} from "../services/ai.service.js";
+  enqueueAnalysisJob,
+} from "../services/aiAnalysis.worker.js";
 // ============================================================
 // HELPERS
 // ============================================================
-// ============================================================
-// BACKGROUND ROUND 2 AI ANALYSIS
-//
-// PDF extraction remains synchronous because the extracted
-// content is required for the submission.
-//
-// Gemini itself starts only AFTER the database submission
-// has been successfully created.
-// ============================================================
-
-function startRound2AIAnalysis({
-  submission,
-  hackathon,
-}) {
-  setImmediate(async () => {
-    try {
-      console.log(
-        `Round 2 automatic AI analysis started: submission=${submission.id}`
-      );
-
-      const analysis =
-        await analyzeRound2ProjectWithAI({
-          hackathon_title:
-            hackathon.title,
-
-          github_url:
-            submission.github_url,
-
-          pdf_text:
-            submission.extracted_text,
-        });
-
-      const feedback = {
-        strengths:
-          Array.isArray(
-            analysis.strengths
-          )
-            ? analysis.strengths
-            : [],
-
-        weaknesses:
-          Array.isArray(
-            analysis.weaknesses
-          )
-            ? analysis.weaknesses
-            : [],
-
-        suggestions:
-          Array.isArray(
-            analysis.suggestions
-          )
-            ? analysis.suggestions
-            : [],
-
-        feedback:
-          String(
-            analysis.feedback || ""
-          ),
-      };
-
-      await pool.query(
-        `
-        INSERT INTO round2_ai_analysis (
-          round2_submission_id,
-          novelty_score,
-          relevance_score,
-          innovation_score,
-          technical_score,
-          impact_score,
-          overall_score,
-          recommendation,
-          feedback,
-          model_name,
-          created_at
-        )
-        VALUES (
-          $1,
-          $2,
-          $3,
-          $4,
-          $5,
-          $6,
-          $7,
-          $8,
-          $9,
-          $10,
-          NOW()
-        )
-        ON CONFLICT (round2_submission_id)
-        DO UPDATE SET
-          novelty_score =
-            EXCLUDED.novelty_score,
-
-          relevance_score =
-            EXCLUDED.relevance_score,
-
-          innovation_score =
-            EXCLUDED.innovation_score,
-
-          technical_score =
-            EXCLUDED.technical_score,
-
-          impact_score =
-            EXCLUDED.impact_score,
-
-          overall_score =
-            EXCLUDED.overall_score,
-
-          recommendation =
-            EXCLUDED.recommendation,
-
-          feedback =
-            EXCLUDED.feedback,
-
-          model_name =
-            EXCLUDED.model_name,
-
-          created_at =
-            NOW()
-        `,
-        [
-          submission.id,
-
-          analysis.novelty_score,
-
-          analysis.relevance_score,
-
-          analysis.innovation_score,
-
-          analysis.technical_score,
-
-          analysis.impact_score,
-
-          analysis.overall_score,
-
-          analysis.recommendation,
-
-          JSON.stringify(
-            feedback
-          ),
-
-          analysis.model_name,
-        ]
-      );
-
-      await pool.query(
-        `
-        UPDATE round2_submissions
-        SET
-          status = 'REVIEWED',
-          updated_at = NOW()
-        WHERE id = $1
-        `,
-        [submission.id]
-      );
-
-      console.log(
-        `Round 2 automatic AI analysis completed: submission=${submission.id}, model=${analysis.model_name}`
-      );
-    } catch (error) {
-      console.error(
-        `Round 2 automatic AI analysis failed: submission=${submission.id}`,
-        error
-      );
-
-      /*
-       * Keep the submission available for
-       * organizer manual Analyze / Re-analyze.
-       */
-      try {
-        await pool.query(
-          `
-          UPDATE round2_submissions
-          SET
-            status = 'SUBMITTED',
-            updated_at = NOW()
-          WHERE id = $1
-            AND status <> 'REVIEWED'
-          `,
-          [submission.id]
-        );
-      } catch (statusError) {
-        console.error(
-          `Failed to restore Round 2 submission status: submission=${submission.id}`,
-          statusError
-        );
-      }
-    }
-  });
-}
-const normalizeText = (value) => {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value
-    .replace(/\u0000/g, "")
-    .replace(/\r/g, "")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-};
-
 // ============================================================
 // EXTRACT GOOGLE DRIVE FILE ID
 // ============================================================
@@ -1300,13 +1097,22 @@ export const submitRound2 = async (
     const submission =
       insertResult.rows[0];
     // --------------------------------------------------------
-// START GEMINI IN BACKGROUND
-// --------------------------------------------------------
+    // ENQUEUE AUTOMATIC AI ANALYSIS (persistent queue)
+    // Fire-and-forget: a queue failure must never break
+    // the student's submission.
+    // --------------------------------------------------------
 
-startRound2AIAnalysis({
-  submission,
-  hackathon,
-});
+    enqueueAnalysisJob({
+      hackathonId,
+      teamId: team.id,
+      round: 2,
+      submissionId: submission.id,
+    }).catch((queueError) => {
+      console.error(
+        "AI ANALYSIS ENQUEUE FAILED (R2):",
+        queueError?.message || queueError
+      );
+    });
     // --------------------------------------------------------
     // SUCCESS
     // --------------------------------------------------------

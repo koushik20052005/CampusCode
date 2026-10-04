@@ -1,126 +1,8 @@
 import pool from "../config/db.js";
 
 import {
-  analyzeProjectWithAI,
-} from "../services/ai.service.js";
-/* =========================================================
-   BACKGROUND ROUND 1 AI ANALYSIS
-
-   Gemini runs AFTER the submission is saved.
-
-   The student's HTTP request does not wait for Gemini.
-========================================================= */
-
-function startRound1AIAnalysis({
-  submission,
-  hackathon,
-  team,
-}) {
-  setImmediate(async () => {
-    try {
-      console.log(
-        `Round 1 automatic AI analysis started: submission=${submission.id}`
-      );
-
-      const analysis =
-        await analyzeProjectWithAI({
-          submission_id:
-            submission.id,
-
-          submission_status:
-            submission.status,
-
-          project_id:
-            submission.id,
-
-          title:
-            team.team_name ||
-            `Round 1 Submission - ${submission.id}`,
-
-          track:
-            "ROUND_1",
-
-          problem_statement:
-            submission.problem_statement,
-
-          solution:
-            submission.problem_statement,
-
-          technologies:
-            "Not specified in Round 1",
-
-          github_url:
-            null,
-
-          live_demo_url:
-            null,
-
-          team_id:
-            submission.team_id,
-
-          team_name:
-            team.team_name,
-
-          hackathon_id:
-            submission.hackathon_id,
-
-          hackathon_title:
-            hackathon.title,
-
-          hackathon_description:
-            hackathon.description ||
-            null,
-        });
-
-      const overallScore =
-        Number(
-          Number(
-            analysis.overall_score
-          ).toFixed(2)
-        );
-
-      await pool.query(
-        `
-        UPDATE round1_submissions
-        SET
-          ai_score = $1,
-          ai_feedback = $2,
-          ai_recommendation = $3,
-          ai_analyzed_at = NOW(),
-          updated_at = NOW()
-        WHERE id = $4
-        `,
-        [
-          overallScore,
-
-          analysis.feedback ||
-            null,
-
-          analysis.recommendation ||
-            "REVIEW",
-
-          submission.id,
-        ]
-      );
-
-      console.log(
-        `Round 1 automatic AI analysis completed: submission=${submission.id}, model=${analysis.model_name}`
-      );
-    } catch (error) {
-      console.error(
-        `Round 1 automatic AI analysis failed: submission=${submission.id}`,
-        error
-      );
-
-      /*
-       * Do not delete or invalidate the submission.
-       *
-       * Organizer can still manually click
-       * Analyze / Re-analyze.
-       */
-    }
-  });
-}
+  enqueueAnalysisJob,
+} from "../services/aiAnalysis.worker.js";
 /* =========================================================
    GET ROUND 1 STATUS
    GET /api/student/round1/hackathons/:hackathonId
@@ -704,6 +586,25 @@ export async function submitRound1(req, res) {
 
     const submission =
       submissionResult.rows[0];
+
+
+    // -----------------------------------------------------
+    // 6b. ENQUEUE AUTOMATIC AI ANALYSIS
+    // Fire-and-forget: a queue failure must never break
+    // the student's submission.
+    // -----------------------------------------------------
+
+    enqueueAnalysisJob({
+      hackathonId,
+      teamId: team.team_id,
+      round: 1,
+      submissionId: submission.id,
+    }).catch((queueError) => {
+      console.error(
+        "AI ANALYSIS ENQUEUE FAILED (R1):",
+        queueError?.message || queueError
+      );
+    });
 
 
     // -----------------------------------------------------

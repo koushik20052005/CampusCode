@@ -44,8 +44,7 @@ export async function getFinalLeaderboard(req, res) {
           h.status,
           h.current_round,
           h.organizer_id,
-          u.name AS organizer_name,
-          u.email AS organizer_email
+          u.name AS organizer_name
         FROM hackathons h
         LEFT JOIN users u
           ON u.id = h.organizer_id
@@ -304,7 +303,6 @@ export async function getFinalLeaderboard(req, res) {
         organizer: {
           id: hackathon.organizer_id,
           name: hackathon.organizer_name,
-          email: hackathon.organizer_email,
         },
       },
 

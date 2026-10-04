@@ -272,6 +272,7 @@ function OrganizerPanel({
             />
           )}
 
+          <div className="org-view" key={workspaceId ? "workspace" : section}>
           {workspaceId ? (
             <Workspace
               hackathon={hackathons.find(
@@ -387,6 +388,7 @@ function OrganizerPanel({
               {section === "profile" && <Profile user={user} />}
             </>
           )}
+          </div>
         </main>
       </div>
     </div>

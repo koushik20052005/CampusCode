@@ -91,6 +91,29 @@ export const updateStudentProfile = async (req, res) => {
     }
 
     // --------------------------------------------------
+    // Validate avatar_url if provided:
+    // must be an http(s) URL, sane length, no javascript:/data: schemes
+    // --------------------------------------------------
+    if (avatar_url !== undefined && avatar_url !== null && avatar_url !== "") {
+      let parsed;
+      try {
+        parsed = new URL(String(avatar_url));
+      } catch {
+        parsed = null;
+      }
+      if (
+        !parsed ||
+        !["http:", "https:"].includes(parsed.protocol) ||
+        String(avatar_url).length > 2048
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "avatar_url must be a valid http(s) URL",
+        });
+      }
+    }
+
+    // --------------------------------------------------
     // Validate skills if provided
     // --------------------------------------------------
     if (

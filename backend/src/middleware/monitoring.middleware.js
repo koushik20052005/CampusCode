@@ -87,7 +87,9 @@ export function monitoringMiddleware(req, res, next) {
         [
           requestId,
           req.method,
-          req.originalUrl,
+          // Log the path only — never the raw query string,
+          // which may carry tokens, emails, or other PII.
+          req.path,
           res.statusCode,
           Number(responseTimeMs.toFixed(2)),
           user.id || null,
@@ -112,4 +114,30 @@ export function monitoringMiddleware(req, res, next) {
   });
 
   next();
+}
+/* =========================================================
+   LOG RETENTION — keep monitoring_logs from growing forever.
+   Call startMonitoringRetention() once at server boot.
+========================================================= */
+
+const RETENTION_DAYS = Number(process.env.MONITORING_RETENTION_DAYS) || 30;
+
+export async function pruneMonitoringLogs() {
+  try {
+    const result = await pool.query(
+      "DELETE FROM monitoring_logs WHERE created_at < NOW() - ($1 || ' days')::interval",
+      [String(RETENTION_DAYS)]
+    );
+    if (result.rowCount > 0) {
+      console.log(`🧹 Pruned ${result.rowCount} monitoring log(s) older than ${RETENTION_DAYS} days`);
+    }
+  } catch (error) {
+    console.error("⚠️ Monitoring retention prune failed:", error?.message || error);
+  }
+}
+
+export function startMonitoringRetention() {
+  // Run once at boot, then every 6 hours. Never throws.
+  pruneMonitoringLogs();
+  setInterval(pruneMonitoringLogs, 6 * 60 * 60 * 1000).unref?.();
 }

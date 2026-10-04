@@ -20,6 +20,33 @@ if (!fs.existsSync(uploadDirectory)) {
 }
 
 /* =========================================================
+   MAGIC-BYTE VERIFICATION
+   Extension + mimetype are client-controlled and spoofable.
+   A real PDF always starts with the "%PDF-" signature.
+========================================================= */
+
+const PDF_SIGNATURE = Buffer.from("%PDF-");
+
+export function isPdfBuffer(buffer) {
+  return (
+    Buffer.isBuffer(buffer) &&
+    buffer.length >= PDF_SIGNATURE.length &&
+    buffer.subarray(0, PDF_SIGNATURE.length).equals(PDF_SIGNATURE)
+  );
+}
+
+export function verifyPdfMagicBytes(filePath) {
+  const handle = fs.openSync(filePath, "r");
+  try {
+    const header = Buffer.alloc(8);
+    fs.readSync(handle, header, 0, 8, 0);
+    return isPdfBuffer(header);
+  } finally {
+    fs.closeSync(handle);
+  }
+}
+
+/* =========================================================
    STORAGE
    ========================================================= */
 
@@ -67,7 +94,7 @@ const fileFilter = (req, file, cb) => {
    MULTER
    ========================================================= */
 
-const uploadRulesPDF = multer({
+const rawUploadRulesPDF = multer({
   storage,
   fileFilter,
 
@@ -76,4 +103,38 @@ const uploadRulesPDF = multer({
   },
 });
 
-export default uploadRulesPDF;
+/* =========================================================
+   VERIFIED SINGLE-FILE UPLOAD
+   Use uploadVerifiedRulesPDF instead of uploadRulesPDF.single()
+   so spoofed non-PDF files are rejected AND deleted.
+========================================================= */
+
+export function uploadVerifiedRulesPDF(fieldName) {
+  const single = rawUploadRulesPDF.single(fieldName);
+  return (req, res, next) => {
+    single(req, res, (err) => {
+      if (err) return next(err);
+      if (!req.file) return next();
+      try {
+        if (!verifyPdfMagicBytes(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+          return next(
+            new Error("Uploaded file failed PDF signature verification")
+          );
+        }
+      } catch (verifyError) {
+        try {
+          if (req.file?.path && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+          }
+        } catch { /* cleanup best-effort */ }
+        return next(
+          new Error("Could not verify uploaded PDF file")
+        );
+      }
+      return next();
+    });
+  };
+}
+
+export default rawUploadRulesPDF;

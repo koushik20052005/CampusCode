@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 
 import pool from "./config/db.js";
 
@@ -10,7 +12,9 @@ import pool from "./config/db.js";
 
 import {
   monitoringMiddleware,
+  startMonitoringRetention,
 } from "./middleware/monitoring.middleware.js";
+import { startAiAnalysisWorker } from "./services/aiAnalysis.worker.js";
 
 /* =========================================================
    GENERAL ROUTES
@@ -90,6 +94,7 @@ import adminDashboardRoutes from "./routes/admin-dashboard.routes.js";
 
 import aiRoutes from "./routes/ai.routes.js";
 import rulebotRoutes from "./routes/rulebot.routes.js";
+import aiAnalysisRoutes from "./routes/aiAnalysis.routes.js";
 
 /* =========================================================
    MONITORING ROUTES
@@ -103,9 +108,58 @@ import monitoringRoutes from "./routes/monitoring.routes.js";
 
 dotenv.config();
 
+/* =========================================================
+   STARTUP SECURITY CHECKS — fail fast, never boot insecure
+========================================================= */
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  console.error(
+    "❌ FATAL: JWT_SECRET must be set and at least 32 characters long. Refusing to start."
+  );
+  process.exit(1);
+}
+
 const app = express();
 
 const PORT = process.env.PORT || 5000;
+
+/* =========================================================
+   SECURITY HEADERS
+========================================================= */
+
+app.use(helmet());
+
+/* =========================================================
+   RATE LIMITING
+========================================================= */
+
+// Strict limiter for auth endpoints (brute-force protection)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // 20 attempts per IP per window
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many attempts. Please try again in 15 minutes.",
+  },
+});
+
+// General API limiter
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 600,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many requests. Please slow down.",
+  },
+});
+
+app.use("/api/", apiLimiter);
 
 /* =========================================================
    CORS
@@ -125,7 +179,7 @@ app.use(
    BODY PARSER
 ========================================================= */
 
-app.use(express.json());
+app.use(express.json({ limit: "256kb" }));
 
 /* =========================================================
    LIVE API MONITORING
@@ -191,6 +245,7 @@ app.get("/api/health", async (req, res) => {
 
 app.use(
   "/api/auth",
+  authLimiter,
   authRoutes
 );
 
@@ -525,6 +580,15 @@ app.use(
 );
 
 /* =========================================================
+   AI ANALYSIS JOBS (auto R1/R2 scoring status)
+========================================================= */
+
+app.use(
+  "/api/analysis",
+  aiAnalysisRoutes
+);
+
+/* =========================================================
    SYSTEM MONITORING
 ========================================================= */
 
@@ -606,5 +670,14 @@ app.listen(
     console.log(
       "Live API Monitoring Middleware: ENABLED"
     );
+
+    // Prune monitoring logs older than retention window (default 30 days)
+    startMonitoringRetention();
+
+    // Automatic R1/R2 AI analysis worker (persistent queue, no Redis)
+    // Disabled with AI_WORKER_ENABLED=false (e.g. local dev without DB)
+    if (process.env.AI_WORKER_ENABLED !== "false") {
+      startAiAnalysisWorker();
+    }
   }
 );

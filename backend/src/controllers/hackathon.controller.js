@@ -1,4 +1,5 @@
 import pool from "../config/db.js";
+import { getPagination, buildPaginationMeta } from "../utils/pagination.js";
 
 export async function createHackathon(req, res) {
   try {
@@ -672,6 +673,13 @@ export async function createTeam(req, res) {
 
 export async function getHackathons(req, res) {
   try {
+    const { page, limit, offset } = getPagination(req);
+
+    const countResult = await pool.query(
+      "SELECT COUNT(*)::int AS total FROM hackathons"
+    );
+    const total = countResult.rows[0]?.total || 0;
+
     const result = await pool.query(
       `
       SELECT
@@ -696,13 +704,16 @@ export async function getHackathons(req, res) {
       FROM hackathons h
       JOIN users u ON u.id = h.organizer_id
       ORDER BY h.created_at DESC
-      `
+      LIMIT $1 OFFSET $2
+      `,
+      [limit, offset]
     );
 
     return res.json({
       success: true,
       count: result.rows.length,
       hackathons: result.rows,
+      pagination: buildPaginationMeta(page, limit, total),
     });
   } catch (error) {
     console.error("GET HACKATHONS ERROR:", error);
@@ -787,7 +798,13 @@ export async function updateHackathon(req, res) {
 
     const existing = await pool.query(
       `
-      SELECT *
+      SELECT
+        id, title, description, organizer_id, track, location,
+        start_date, end_date, registration_deadline, max_teams,
+        status, approval_status, approval_feedback,
+        approved_by, approved_at, publication_status,
+        published_at, published_by, current_round, settings,
+        created_at, updated_at
       FROM hackathons
       WHERE id = $1
       `,
@@ -1138,7 +1155,13 @@ export async function submitHackathonForApproval(req, res) {
 
     const result = await pool.query(
       `
-      SELECT *
+      SELECT
+        id, title, description, organizer_id, track, location,
+        start_date, end_date, registration_deadline, max_teams,
+        status, approval_status, approval_feedback,
+        approved_by, approved_at, publication_status,
+        published_at, published_by, current_round, settings,
+        created_at, updated_at
       FROM hackathons
       WHERE id = $1
       `,
@@ -1213,7 +1236,13 @@ export async function publishHackathon(req, res) {
 
     const result = await pool.query(
       `
-      SELECT *
+      SELECT
+        id, title, description, organizer_id, track, location,
+        start_date, end_date, registration_deadline, max_teams,
+        status, approval_status, approval_feedback,
+        approved_by, approved_at, publication_status,
+        published_at, published_by, current_round, settings,
+        created_at, updated_at
       FROM hackathons
       WHERE id = $1
       `,
@@ -1555,7 +1584,13 @@ export async function scheduleHackathonRounds(req, res) {
 
     const hackathonResult = await client.query(
       `
-      SELECT *
+      SELECT
+        id, title, description, organizer_id, track, location,
+        start_date, end_date, registration_deadline, max_teams,
+        status, approval_status, approval_feedback,
+        approved_by, approved_at, publication_status,
+        published_at, published_by, current_round, settings,
+        created_at, updated_at
       FROM hackathons
       WHERE id = $1
       `,

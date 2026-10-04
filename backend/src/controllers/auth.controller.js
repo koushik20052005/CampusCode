@@ -15,7 +15,9 @@ const createToken = (user) => {
     },
     process.env.JWT_SECRET,
     {
-      expiresIn: "7d",
+      // Configurable lifetime; defaults to 1 day.
+      // Set JWT_EXPIRES_IN=7d in .env if longer sessions are needed.
+      expiresIn: process.env.JWT_EXPIRES_IN || "1d",
     }
   );
 };

@@ -14,7 +14,9 @@ if (!databaseUrl) {
 const pool = new Pool({
   connectionString: databaseUrl,
   ssl: {
-    rejectUnauthorized: false,
+    // Verify the DB server certificate by default (Neon uses public CA certs).
+    // Set DB_SSL_REJECT_UNAUTHORIZED=false only for local/dev databases.
+    rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false",
   },
   max: 10,
   idleTimeoutMillis: 30000,

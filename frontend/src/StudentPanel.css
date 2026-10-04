@@ -4882,3 +4882,17 @@ html, body, #root {
   .student-primary-btn::after{display:none}
   *{transition-duration:.01ms !important}
 }
+
+/* ============ CELEBRATION FX (join / advance / win) ============ */
+.milestone-confetti{position:fixed;inset:0;z-index:101;pointer-events:none}
+.student-milestone-card{position:relative;z-index:102;overflow:hidden}
+.student-milestone-card::before{content:"";position:absolute;inset:-40%;background:conic-gradient(from 0deg,transparent 0 70%,rgba(167,243,122,.14) 85%,transparent 100%);animation:milestoneGlowSpin 3.2s linear infinite;pointer-events:none}
+@keyframes milestoneGlowSpin{to{transform:rotate(360deg)}}
+.student-milestone-icon{display:grid;place-items:center;width:64px;height:64px;margin:0 auto 18px;border-radius:50%;background:#a7f37a;color:#0a0a0a;font-size:26px;animation:milestoneIconPop .7s cubic-bezier(.34,1.56,.64,1) .15s both;box-shadow:0 0 0 0 rgba(167,243,122,.5)}
+@keyframes milestoneIconPop{0%{transform:scale(0) rotate(-120deg);box-shadow:0 0 0 0 rgba(167,243,122,.55)}60%{transform:scale(1.15) rotate(8deg);box-shadow:0 0 0 18px rgba(167,243,122,0)}100%{transform:scale(1) rotate(0);box-shadow:0 0 0 0 rgba(167,243,122,0)}}
+.student-milestone-card span,.student-milestone-card h2,.student-milestone-card p{position:relative;animation:milestoneTextUp .55s cubic-bezier(.22,1,.36,1) both}
+.student-milestone-card h2{animation-delay:.12s}
+.student-milestone-card p{animation-delay:.22s}
+.student-milestone-card button{position:relative;animation:milestoneTextUp .55s cubic-bezier(.22,1,.36,1) .32s both;transition:transform .2s,box-shadow .2s}
+.student-milestone-card button:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(167,243,122,.35)}
+@keyframes milestoneTextUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}

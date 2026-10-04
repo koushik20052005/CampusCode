@@ -223,6 +223,17 @@ function AdminSidebar({ section, navigate, open, onLogout, user }) {
         </button>
       </div>
 
+      <div className="admin-user-card">
+        <div className="admin-avatar">
+          {(user?.name || "A").charAt(0).toUpperCase()}
+        </div>
+
+        <div>
+          <b>{value(user?.name, "Administrator")}</b>
+          <span>ADMIN</span>
+        </div>
+      </div>
+
       <div className="admin-sidebar-scroll">
         {navGroups.map((group) => (
           <div className="admin-nav-group" key={group.label}>
@@ -249,17 +260,6 @@ function AdminSidebar({ section, navigate, open, onLogout, user }) {
       </div>
 
       <div className="admin-sidebar-bottom">
-        <div className="admin-mini-user">
-          <div className="admin-avatar">
-            {(user?.name || "A").charAt(0).toUpperCase()}
-          </div>
-
-          <div className="admin-mini-user-copy">
-            <strong>{value(user?.name, "Administrator")}</strong>
-            <span>ADMIN</span>
-          </div>
-        </div>
-
         <button className="admin-logout" onClick={onLogout}>
           <LogOut size={16} />
           Sign out
@@ -3301,6 +3301,7 @@ export default function AdminPanel({
         />
 
         <main className="admin-content">
+          <div className="admin-view" key={section}>
           {section === "dashboard" && (
             <Dashboard onNavigate={go} />
           )}
@@ -3367,6 +3368,7 @@ export default function AdminPanel({
           ].includes(section) && (
             <Dashboard onNavigate={go} />
           )}
+          </div>
         </main>
       </div>
     </div>

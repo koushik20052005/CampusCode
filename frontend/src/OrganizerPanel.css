@@ -3017,3 +3017,65 @@ body,
     justify-content: center !important;
   }
 }
+
+/* ============ MOTION LAYER (additive only — no layout/color changes) ============ */
+
+/* 1. View transitions */
+.org-view{animation:orgViewIn .45s cubic-bezier(.22,1,.36,1)}
+@keyframes orgViewIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+/* 2. Sidebar nav — sliding indicator, hover, press */
+.org-nav-item{overflow:hidden}
+.org-nav-item::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--org-neon);transform:scaleY(0);transition:transform .28s cubic-bezier(.22,1,.36,1);box-shadow:0 0 12px rgba(35,243,154,.7)}
+.org-nav-item.active::before{transform:scaleY(1)}
+.org-nav-item:active{transform:scale(.98)}
+.org-nav-item .org-nav-icon{transition:transform .25s,background .25s,color .25s}
+.org-nav-item:hover .org-nav-icon{transform:scale(1.1)}
+
+/* 3. Buttons — shine sweep, lift, press */
+.hero-create,.primary-btn,.live-btn,.approve-btn,.green-btn{position:relative;overflow:hidden}
+.hero-create::after,.primary-btn::after,.live-btn::after,.approve-btn::after,.green-btn::after{content:"";position:absolute;top:0;left:-80%;width:55%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.4),transparent);transform:skewX(-20deg);transition:left .55s ease;pointer-events:none}
+.hero-create:hover::after,.primary-btn:hover::after,.live-btn:hover::after,.approve-btn:hover::after,.green-btn:hover::after{left:130%}
+.hero-create:active,.primary-btn:active,.live-btn:active,.approve-btn:active,.green-btn:active,.outline-btn:active,.ghost-btn:active,.danger-btn:active{transform:translateY(0) scale(.96)}
+.hero-create:disabled::after,.primary-btn:disabled::after,.live-btn:disabled::after,.approve-btn:disabled::after{display:none}
+
+/* 4. Cards — hover lift + mint border glow */
+.metric-card,.org-panel,.dashboard-intro,.event-facts div{transition:transform .3s cubic-bezier(.22,1,.36,1),border-color .3s,box-shadow .3s}
+.metric-card:hover{transform:translateY(-4px);border-color:rgba(35,243,154,.3);box-shadow:0 18px 44px rgba(0,0,0,.4),0 0 0 1px rgba(35,243,154,.1)}
+.org-panel:hover{border-color:rgba(35,243,154,.18);box-shadow:0 26px 80px rgba(0,0,0,.18),0 0 40px rgba(35,243,154,.04)}
+.dashboard-intro:hover,.event-facts div:hover{border-color:rgba(35,243,154,.22);transform:translateY(-2px)}
+
+/* Tables — row highlight */
+.table-wrap tbody tr{transition:background .2s}
+.table-wrap tbody tr:hover{background:rgba(35,243,154,.045)}
+.team-member-row{transition:background .2s,padding-left .2s}
+.team-member-row:hover{background:rgba(35,243,154,.04)}
+
+/* 5. AI analyzing states */
+@keyframes orgShimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+.org-shimmer{background:linear-gradient(110deg,rgba(255,255,255,.03) 35%,rgba(35,243,154,.12) 50%,rgba(255,255,255,.03) 65%);background-size:200% 100%;animation:orgShimmer 1.6s linear infinite}
+.org-analyzing-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--org-neon);box-shadow:0 0 10px var(--org-neon);animation:orgAnalyzingPulse 1.2s ease-in-out infinite}
+@keyframes orgAnalyzingPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
+
+/* 6. Modals — entrance */
+.organizer-review-modal-backdrop,.organizer-team-modal-backdrop{animation:orgOverlayIn .28s ease}
+@keyframes orgOverlayIn{from{opacity:0}to{opacity:1}}
+.organizer-review-modal,.organizer-team-modal{animation:orgModalIn .42s cubic-bezier(.22,1,.36,1)}
+@keyframes orgModalIn{from{opacity:0;transform:translateY(26px) scale(.97)}to{opacity:1;transform:none}}
+.org-mobile-backdrop{animation:orgOverlayIn .25s ease}
+
+/* 7. Scrollbar / selection / focus */
+.org-sidebar::-webkit-scrollbar,.organizer-content::-webkit-scrollbar,.table-wrap::-webkit-scrollbar{width:9px;height:9px}
+.org-sidebar::-webkit-scrollbar-thumb,.organizer-content::-webkit-scrollbar-thumb,.table-wrap::-webkit-scrollbar-thumb{background:#22282a;border-radius:9px;border:2px solid #0d0f10}
+.org-sidebar::-webkit-scrollbar-thumb:hover,.organizer-content::-webkit-scrollbar-thumb:hover,.table-wrap::-webkit-scrollbar-thumb:hover{background:var(--org-neon)}
+.org-sidebar::-webkit-scrollbar-track,.organizer-content::-webkit-scrollbar-track{background:transparent}
+.organizer-page ::selection{background:var(--org-neon);color:#06130c}
+.organizer-page button:focus-visible,.organizer-page a:focus-visible,.organizer-page input:focus-visible,.organizer-page select:focus-visible,.organizer-page textarea:focus-visible{outline:2px solid var(--org-neon);outline-offset:2px}
+
+/* 8. Reduced motion */
+@media (prefers-reduced-motion:reduce){
+  .org-view,.organizer-review-modal,.organizer-team-modal{animation:none}
+  .hero-create::after,.primary-btn::after,.live-btn::after,.approve-btn::after,.green-btn::after{display:none}
+  .org-shimmer,.org-analyzing-dot,.pulse-dot{animation:none}
+  *{transition-duration:.01ms !important}
+}
