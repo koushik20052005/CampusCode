@@ -52,7 +52,18 @@ const steps = [
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [experienceActive, setExperienceActive] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
+
+  useEffect(() => {
+    if (!videoOpen) return;
+    const onKey = (e) => { if (e.key === "Escape") setVideoOpen(false); };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [videoOpen]);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -299,7 +310,7 @@ export default function LandingPage() {
       {/* EXPERIENCE */}
       <section
         className={`landing-video ${
-          experienceActive ? "experience-active" : ""
+          videoOpen ? "experience-active" : ""
         }`}
       >
         <div className="video-grid" />
@@ -321,31 +332,62 @@ export default function LandingPage() {
 
           <button
             className={`experience-play ${
-              experienceActive ? "active" : ""
+              videoOpen ? "active" : ""
             }`}
-            onClick={() =>
-              setExperienceActive((value) => !value)
-            }
-            aria-label={
-              experienceActive
-                ? "Pause CampusCode experience"
-                : "Play CampusCode experience"
-            }
+            onClick={() => setVideoOpen(true)}
+            aria-label="Play the What is CampusCode film"
           >
-            {experienceActive ? "Ⅱ" : "▶"}
+            ▶
           </button>
         </div>
 
         <div className="video-top">
           <span>02 — EXPERIENCE</span>
-          <span>00:01</span>
+          <span>00:30</span>
         </div>
 
         <div className="video-bottom">
           <span>WATCH THE STORY</span>
-          <span>PLAY FILM ↗</span>
+          <button
+            type="button"
+            className="video-play-film"
+            onClick={() => setVideoOpen(true)}
+          >
+            PLAY FILM ↗
+          </button>
         </div>
       </section>
+
+      {videoOpen && (
+        <div
+          className="video-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="What is CampusCode — film"
+          onClick={() => setVideoOpen(false)}
+        >
+          <div
+            className="video-modal-box"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="video-modal-close"
+              onClick={() => setVideoOpen(false)}
+              aria-label="Close film"
+            >
+              ×
+            </button>
+            <video
+              src="/videos/what-is-campuscode.mp4"
+              controls
+              autoPlay
+              playsInline
+              preload="metadata"
+            />
+          </div>
+        </div>
+      )}
 
       {/* HOW IT WORKS */}
       <section id="how" className="landing-how">
