@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Trophy, Clock3, Users, FolderGit2, Send, Code2,
   Sparkles, Bell, IdCard, UserCircle, Bot, ExternalLink, Link as LinkIcon,
-  LoaderCircle, CheckCircle2, Terminal
+  LoaderCircle, CheckCircle2, Terminal, Layers
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import "./StudentPanel.css";
@@ -2819,6 +2819,47 @@ function HelpSupportPage() {
   return <section><PageHeading eyebrow="HELP / SUPPORT" title="HELP & SUPPORT." text="Start with the guide and FAQs. If you still need help, use the official communication channel or contact your organizer." /><div className="student-support-grid"><div className="student-support-card"><span>01</span><h3>Student Guide</h3><p>Learn how the CampusCode workflow works from joining a hackathon through results.</p><button className="student-outline-btn" onClick={() => window.dispatchEvent(new CustomEvent("campuscode:navigate", { detail: "Student Guide" }))}>OPEN GUIDE →</button></div><div className="student-support-card"><span>02</span><h3>FAQs</h3><p>Find answers about teams, rounds, submissions, AI assistance and communication.</p><button className="student-outline-btn" onClick={() => window.dispatchEvent(new CustomEvent("campuscode:navigate", { detail: "Student Guide" }))}>VIEW FAQ →</button></div><div className="student-support-card"><span>03</span><h3>Official WhatsApp</h3><p>Follow the official CampusCode channel for announcements and important updates.</p><a className="student-outline-btn" href="https://whatsapp.com/channel/0029Vb8gR7TEVccLc1pW4O2d" target="_blank" rel="noreferrer">OPEN CHANNEL →</a></div></div></section>;
 }
 
+function StudentRoundsPage() {
+  const [tab, setTab] = useState(1);
+  const tabs = [
+    { id: 1, label: "ROUND 1", sub: "Problem statement" },
+    { id: 2, label: "ROUND 2", sub: "Project build" },
+    { id: 3, label: "ROUND 3", sub: "Final submission" },
+  ];
+  return (
+    <section>
+      <PageHeading
+        eyebrow="BUILD / ROUNDS"
+        title="ROUNDS."
+        text="All three rounds on one page. Switch tabs to submit, track status, or review AI analysis."
+      />
+      <div className="rounds-tabs" role="tablist" aria-label="Hackathon rounds">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`rounds-tab ${tab === t.id ? "active" : ""}`}
+            onClick={() => setTab(t.id)}
+          >
+            <span className="rounds-tab-num">0{t.id}</span>
+            <span className="rounds-tab-text">
+              <strong>{t.label}</strong>
+              <small>{t.sub}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="rounds-panel" key={tab} role="tabpanel">
+        {tab === 1 && <StudentRoundOnePage />}
+        {tab === 2 && <StudentRoundTwoPage />}
+        {tab === 3 && <StudentRoundThreePage />}
+      </div>
+    </section>
+  );
+}
+
 function StudentPanel() {
   const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState("Overview");
@@ -2842,9 +2883,7 @@ function StudentPanel() {
     ["HackMate AI", <Sparkles size={16} strokeWidth={1.8} />],
     ["IdeaCheck AI", <Sparkles size={16} strokeWidth={1.8} />],
     ["My Team", <Users size={16} strokeWidth={1.8} />],
-    ["Round 1", <Send size={16} strokeWidth={1.8} />],
-    ["Round 2", <Code2 size={16} strokeWidth={1.8} />],
-    ["Round 3", <Terminal size={16} strokeWidth={1.8} />],
+    ["Rounds", <Layers size={16} strokeWidth={1.8} />],
     ["Submissions", <Send size={16} strokeWidth={1.8} />],
     ["Results", <Trophy size={16} strokeWidth={1.8} />],
     ["Leaderboard", <Trophy size={16} strokeWidth={1.8} />],
@@ -2868,9 +2907,7 @@ function StudentPanel() {
   if (activeNav === "HackMate AI") content = <HackMatePage />;
   if (activeNav === "IdeaCheck AI") content = <IdeaCheckAIPage />;
   if (activeNav === "My Team") content = <StudentMyTeamPage />;
-  if (activeNav === "Round 1") content = <StudentRoundOnePage />;
-  if (activeNav === "Round 2") content = <StudentRoundTwoPage />;
-  if (activeNav === "Round 3") content = <StudentRoundThreePage />;
+  if (activeNav === "Rounds") content = <StudentRoundsPage />;
   if (activeNav === "Submissions") content = <StudentSubmissionsPage project={project} />;
   if (activeNav === "Results") content = <StudentResultsPage />;
   if (activeNav === "Leaderboard") content = <StudentLeaderboardPage />;
@@ -2937,7 +2974,7 @@ function StudentPanel() {
             <CampusCodeRefresh onRefresh={refreshStudentPage} />
             <div className="topbar-user"><CCMark small /><span>{displayName}</span></div>
           </div>
-        </header><div className="student-content" key={refreshKey}>{content}</div></main>
+        </header><div className="student-content" key={refreshKey}><div className="student-view" key={activeNav}>{content}</div></div></main>
     </div>
   );
 }

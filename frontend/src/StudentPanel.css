@@ -4812,3 +4812,73 @@ html, body, #root {
 .student-agreement-actions .student-primary-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
 .student-agreement-version{display:block;margin-top:13px;color:#999;font:500 8px 'DM Mono',monospace;letter-spacing:.04em}
 @media(max-width:620px){.student-agreement-backdrop{padding:12px}.student-agreement-modal{width:100%;max-height:calc(100dvh - 24px);padding:24px 18px;border-radius:18px}.student-agreement-points>div{grid-template-columns:34px 1fr}.student-agreement-actions{flex-direction:column}.student-agreement-actions button{width:100%}}
+
+/* ============ ROUNDS TABS (single-page R1/R2/R3) ============ */
+.rounds-tabs{display:flex;gap:8px;margin:26px 0 30px;padding:6px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:#0b0b0b;width:fit-content;max-width:100%;overflow-x:auto}
+.rounds-tab{display:flex;align-items:center;gap:12px;padding:12px 20px;border:0;border-radius:9px;background:transparent;color:#6f6f69;cursor:pointer;position:relative;transition:color .25s,background .25s,transform .25s;font-family:Inter,system-ui,sans-serif;white-space:nowrap}
+.rounds-tab:hover{color:#e8e8e2;background:rgba(255,255,255,.04)}
+.rounds-tab.active{color:#0a0a0a;background:#a7f37a;box-shadow:0 8px 24px rgba(167,243,122,.22)}
+.rounds-tab-num{font:700 10px 'DM Mono',monospace;opacity:.65}
+.rounds-tab-text{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.rounds-tab-text strong{font-size:11px;font-weight:800;letter-spacing:.08em}
+.rounds-tab-text small{font:500 8px 'DM Mono',monospace;opacity:.6;letter-spacing:.04em}
+.rounds-panel{animation:roundsPanelIn .4s cubic-bezier(.22,1,.36,1)}
+.rounds-panel .student-page-heading{display:none}
+@keyframes roundsPanelIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ============ VIEW TRANSITIONS ============ */
+.student-view{animation:studentViewIn .45s cubic-bezier(.22,1,.36,1)}
+@keyframes studentViewIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.student-page-heading h1{animation:headingRise .6s cubic-bezier(.22,1,.36,1) .05s both}
+@keyframes headingRise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+
+/* ============ NAV POLISH ============ */
+.student-nav-item{position:relative;overflow:hidden;transition:color .22s,background .22s,transform .22s}
+.student-nav-item::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:#a7f37a;transform:scaleY(0);transition:transform .25s cubic-bezier(.22,1,.36,1)}
+.student-nav-item.active::before{transform:scaleY(1)}
+.student-nav-item:active{transform:scale(.98)}
+
+/* ============ BUTTON SHINE ============ */
+.student-primary-btn{position:relative;overflow:hidden}
+.student-primary-btn::after{content:"";position:absolute;top:0;left:-80%;width:55%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-20deg);transition:left .55s ease}
+.student-primary-btn:hover::after{left:130%}
+.student-primary-btn:active{transform:translateY(0) scale(.97)}
+.student-primary-btn:disabled::after{display:none}
+
+/* ============ CARD HOVER GLOW ============ */
+.student-panel-card,.student-feature-card,.hackathon-card,.registration-card{transition:transform .28s cubic-bezier(.22,1,.36,1),border-color .28s,box-shadow .28s}
+.student-panel-card:hover,.student-feature-card:hover{border-color:rgba(167,243,122,.28);box-shadow:0 14px 40px rgba(0,0,0,.45),0 0 0 1px rgba(167,243,122,.08);transform:translateY(-3px)}
+.hackathon-card:hover{box-shadow:0 14px 40px rgba(0,0,0,.5),0 0 32px rgba(167,243,122,.07)}
+.round-row{transition:background .22s,padding-left .22s}
+.round-row:hover{background:rgba(167,243,122,.04);padding-left:8px}
+
+/* ============ AI SHIMMER (analyzing states) ============ */
+@keyframes studentShimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+.student-shimmer{background:linear-gradient(110deg,#141414 35%,#1e2a12 50%,#141414 65%);background-size:200% 100%;animation:studentShimmer 1.6s linear infinite}
+.student-analyzing-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#e8b93c;box-shadow:0 0 10px #e8b93c;animation:analyzingPulse 1.2s ease-in-out infinite}
+@keyframes analyzingPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.8)}}
+
+/* ============ STATUS CHIPS ============ */
+.student-status-chip{display:inline-flex;align-items:center;gap:7px;font:700 8px 'DM Mono',monospace;letter-spacing:.1em;padding:7px 12px;border-radius:99px;border:1px solid rgba(255,255,255,.1)}
+.student-status-chip.live{color:#a7f37a;border-color:rgba(167,243,122,.35);background:rgba(167,243,122,.07)}
+.student-status-chip.live i{width:7px;height:7px;border-radius:50%;background:#a7f37a;box-shadow:0 0 10px #a7f37a;animation:analyzingPulse 1.4s ease-in-out infinite}
+
+/* ============ SCROLLBAR / SELECTION / FOCUS ============ */
+.student-sidebar::-webkit-scrollbar,.student-main::-webkit-scrollbar{width:9px}
+.student-sidebar::-webkit-scrollbar-thumb,.student-main::-webkit-scrollbar-thumb{background:#262626;border-radius:9px;border:2px solid #070707}
+.student-sidebar::-webkit-scrollbar-thumb:hover,.student-main::-webkit-scrollbar-thumb:hover{background:#a7f37a}
+.student-panel ::selection{background:#a7f37a;color:#070707}
+.student-panel button:focus-visible,.student-panel a:focus-visible,.student-panel input:focus-visible,.student-panel textarea:focus-visible{outline:2px solid #a7f37a;outline-offset:2px}
+
+/* ============ MILESTONE / OVERLAY POLISH ============ */
+.student-milestone-overlay{animation:overlayIn .3s ease}
+@keyframes overlayIn{from{opacity:0}to{opacity:1}}
+.student-milestone-card{animation:milestonePop .45s cubic-bezier(.34,1.56,.64,1)}
+@keyframes milestonePop{from{opacity:0;transform:scale(.85) translateY(20px)}to{opacity:1;transform:none}}
+
+/* ============ REDUCED MOTION ============ */
+@media (prefers-reduced-motion:reduce){
+  .student-view,.rounds-panel,.student-page-heading h1,.student-milestone-card{animation:none}
+  .student-primary-btn::after{display:none}
+  *{transition-duration:.01ms !important}
+}
