@@ -1,0 +1,1540 @@
+/* ============================================================
+   CAMPUSCODE PUBLIC DIGITAL ID
+   OPTION 2
+   REACT + CSS DYNAMIC ID CARD
+   ============================================================ */
+
+.public-card-page {
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+
+  background:
+    linear-gradient(
+      rgba(32, 35, 42, 0.055) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(32, 35, 42, 0.055) 1px,
+      transparent 1px
+    ),
+    #f7f7f4;
+
+  background-size: 34px 34px;
+
+  color: #101116;
+
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.public-card-page-shell {
+  position: relative;
+
+  width: min(1120px, calc(100% - 36px));
+
+  margin: 0 auto;
+
+  padding: 48px 0 30px;
+}
+
+
+/* ============================================================
+   CAMPUSCODE LOGO
+   ============================================================ */
+
+.public-card-logo {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 10px;
+
+  color: #12131a;
+}
+
+.public-card-logo > div {
+  display: flex;
+  flex-direction: column;
+
+  line-height: 1;
+}
+
+.public-card-logo strong {
+  font-size: 18px;
+  font-weight: 950;
+
+  letter-spacing: 0.075em;
+}
+
+.public-card-logo strong span {
+  color: #7746f4;
+}
+
+.public-card-logo small {
+  margin-top: 5px;
+
+  color: #888b95;
+
+  font-size: 7px;
+  font-weight: 800;
+
+  letter-spacing: 0.2em;
+}
+
+.public-card-brand-mark {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 3px;
+
+  transform: skewX(-14deg);
+}
+
+.public-card-brand-mark i {
+  display: block;
+
+  width: 7px;
+  height: 31px;
+
+  border-radius: 2px;
+}
+
+.public-card-brand-mark i:nth-child(1) {
+  background: #151515;
+}
+
+.public-card-brand-mark i:nth-child(2) {
+  background: #7746f4;
+}
+
+.public-card-brand-mark i:nth-child(3) {
+  background: #9ddd1e;
+}
+
+
+/* ============================================================
+   PAGE HEADING
+   ============================================================ */
+
+.public-card-page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 25px;
+
+  margin-bottom: 18px;
+}
+
+.public-card-heading-copy {
+  margin-left: auto;
+
+  text-align: right;
+}
+
+.public-card-heading-copy > span {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: #7651d9;
+
+  font-size: 9px;
+  font-weight: 900;
+
+  letter-spacing: 0.17em;
+}
+
+.public-card-heading-copy h1 {
+  margin: 0;
+
+  font-size: clamp(28px, 5vw, 48px);
+
+  line-height: 0.95;
+
+  font-weight: 950;
+
+  letter-spacing: -0.055em;
+}
+
+.public-card-heading-copy p {
+  margin: 7px 0 0;
+
+  color: #7d8088;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  letter-spacing: 0.05em;
+
+  text-transform: uppercase;
+}
+
+
+/* ============================================================
+   VERIFIED HEADER
+   ============================================================ */
+
+.public-card-verified-heading {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  margin: 0 0 20px;
+
+  padding: 10px 13px;
+
+  border: 1px solid rgba(126, 211, 23, 0.25);
+
+  border-radius: 10px;
+
+  background: rgba(126, 211, 23, 0.07);
+}
+
+.public-card-verified-dot {
+  width: 8px;
+  height: 8px;
+
+  flex: 0 0 auto;
+
+  border-radius: 50%;
+
+  background: #76c915;
+
+  box-shadow:
+    0 0 0 4px rgba(118, 201, 21, 0.1);
+}
+
+.public-card-verified-heading strong {
+  color: #587b19;
+
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.public-card-verified-heading > span:last-child {
+  color: #7e8189;
+
+  font-size: 10px;
+}
+
+
+/* ============================================================
+   MAIN LAYOUT
+   ============================================================ */
+
+.public-card-layout-one {
+  display: grid;
+
+  grid-template-columns:
+    minmax(380px, 0.95fr)
+    minmax(360px, 0.85fr);
+
+  align-items: center;
+
+  gap: 58px;
+}
+
+
+/* ============================================================
+   ID CARD STAGE
+   ============================================================ */
+
+.public-id-card-stage {
+  position: relative;
+
+  display: flex;
+  justify-content: center;
+
+  padding: 118px 12px 10px;
+}
+
+
+/* ============================================================
+   LANYARD
+   ============================================================ */
+
+.public-id-lanyard {
+  position: absolute;
+
+  z-index: 10;
+
+  top: 0;
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+
+/* ============================================================
+   CAMPUSCODE LANYARD
+   ============================================================ */
+
+.public-id-lanyard-strap {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 88px;
+  height: 72px;
+
+  border-radius: 0 0 12px 12px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #151515 0 32%,
+      #7746f4 32% 67%,
+      #9ddd1e 67%
+    );
+
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.public-id-lanyard-strap::after {
+  content: "";
+
+  position: absolute;
+
+  inset: 0;
+
+  border-radius: 0 0 12px 12px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.18),
+      transparent
+    );
+}
+
+.public-id-lanyard-strap span {
+  position: relative;
+
+  z-index: 1;
+
+  writing-mode: vertical-rl;
+
+  transform: rotate(180deg);
+
+  color: #ffffff;
+
+  font-size: 8px;
+  font-weight: 950;
+
+  letter-spacing: 0.18em;
+}
+
+
+/* ============================================================
+   NAME TAG
+   ============================================================ */
+
+.public-id-name-tag {
+  position: relative;
+
+  z-index: 11;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 150px;
+  max-width: 260px;
+
+  min-height: 42px;
+
+  margin-top: -7px;
+
+  padding: 8px 18px;
+
+  border: 1px solid rgba(119, 70, 244, 0.28);
+
+  border-radius: 9px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #151515,
+      #272332
+    );
+
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.public-id-name-tag::before,
+.public-id-name-tag::after {
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  bottom: 0;
+
+  width: 7px;
+}
+
+.public-id-name-tag::before {
+  left: 0;
+
+  border-radius: 9px 0 0 9px;
+
+  background: #7746f4;
+}
+
+.public-id-name-tag::after {
+  right: 0;
+
+  border-radius: 0 9px 9px 0;
+
+  background: #9ddd1e;
+}
+
+.public-id-name-tag span {
+  max-width: 220px;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+
+  color: #ffffff;
+
+  font-size: 12px;
+  font-weight: 900;
+
+  letter-spacing: 0.08em;
+
+  text-transform: uppercase;
+}
+
+
+/* ============================================================
+   METAL CLIP
+   ============================================================ */
+
+.public-id-lanyard-clip {
+  position: relative;
+
+  width: 31px;
+  height: 31px;
+
+  margin-top: -2px;
+
+  border: 3px solid #c3c5ca;
+
+  border-radius: 8px 8px 11px 11px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #ffffff,
+      #b6b9bf
+    );
+
+  box-shadow:
+    0 4px 9px rgba(0, 0, 0, 0.22);
+}
+
+.public-id-lanyard-clip span {
+  position: absolute;
+
+  left: 7px;
+  right: 7px;
+
+  top: 6px;
+  bottom: 5px;
+
+  border: 2px solid #767981;
+
+  border-radius: 4px;
+}
+
+
+/* ============================================================
+   REAL DIGITAL ID CARD
+   ============================================================ */
+
+.public-id-card-real {
+  position: relative;
+
+  width: min(430px, 100%);
+
+  min-height: 600px;
+
+  overflow: hidden;
+
+  padding: 25px 27px 19px;
+
+  border: 1px solid #dedfd9;
+
+  border-radius: 19px;
+
+  background:
+    radial-gradient(
+      circle at 85% 30%,
+      rgba(157, 221, 30, 0.14),
+      transparent 26%
+    ),
+    radial-gradient(
+      circle at 5% 80%,
+      rgba(119, 70, 244, 0.09),
+      transparent 28%
+    ),
+    #ffffff;
+
+  box-shadow:
+    0 30px 60px rgba(28, 29, 34, 0.14),
+    0 7px 20px rgba(28, 29, 34, 0.06);
+}
+
+
+/* subtle card geometry — NOT a diagonal line */
+
+.public-id-card-real::before {
+  content: "";
+
+  position: absolute;
+
+  right: -70px;
+  bottom: -75px;
+
+  width: 230px;
+  height: 160px;
+
+  border-radius: 55% 0 0 0;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(119, 70, 244, 0.08),
+      rgba(157, 221, 30, 0.2)
+    );
+
+  transform: rotate(-12deg);
+
+  pointer-events: none;
+}
+
+
+/* ============================================================
+   CARD TOP ACCENT
+   ============================================================ */
+
+.public-id-card-top-line {
+  position: absolute;
+
+  top: 0;
+  left: 0;
+  right: 0;
+
+  height: 4px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #151515 0 31%,
+      #7746f4 31% 67%,
+      #9ddd1e 67%
+    );
+}
+
+
+/* ============================================================
+   CARD HEADER
+   ============================================================ */
+
+.public-id-card-header {
+  position: relative;
+
+  z-index: 2;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 15px;
+}
+
+.public-id-card-header .public-card-logo strong {
+  font-size: 16px;
+}
+
+.public-id-card-header .public-card-logo small {
+  font-size: 6px;
+}
+
+.public-id-card-header .public-card-brand-mark i {
+  width: 6px;
+  height: 26px;
+}
+
+.public-id-card-type {
+  color: #6d7078;
+
+  font-size: 8px;
+  font-weight: 900;
+
+  letter-spacing: 0.15em;
+
+  text-align: right;
+}
+
+
+/* ============================================================
+   CARD RULE
+   ============================================================ */
+
+.public-id-card-rule {
+  position: relative;
+
+  z-index: 2;
+
+  height: 1px;
+
+  margin: 21px 0 24px;
+
+  background: #e2e3df;
+}
+
+
+/* ============================================================
+   IDENTITY
+   ============================================================ */
+
+.public-id-card-identity {
+  position: relative;
+
+  z-index: 2;
+
+  display: grid;
+
+  grid-template-columns:
+    86px
+    minmax(0, 1fr)
+    46px;
+
+  align-items: center;
+
+  gap: 17px;
+}
+
+
+/* ============================================================
+   PHOTO
+   ============================================================ */
+
+.public-id-photo {
+  display: grid;
+
+  place-items: center;
+
+  width: 86px;
+  height: 86px;
+
+  overflow: hidden;
+
+  border: 1px solid #dfe1d8;
+
+  border-radius: 50%;
+
+  background: #f0f1e7;
+
+  color: #668d1b;
+
+  font-size: 28px;
+  font-weight: 950;
+}
+
+.public-id-photo img {
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+}
+
+
+/* ============================================================
+   NAME
+   ============================================================ */
+
+.public-id-card-name-block {
+  min-width: 0;
+}
+
+.public-id-card-name-block > span {
+  color: #718f2a;
+
+  font-size: 8px;
+  font-weight: 950;
+
+  letter-spacing: 0.17em;
+}
+
+.public-id-card-name-block h2 {
+  margin: 6px 0 5px;
+
+  color: #101116;
+
+  font-size: clamp(22px, 3vw, 30px);
+
+  line-height: 1;
+
+  font-weight: 950;
+
+  letter-spacing: -0.045em;
+
+  overflow-wrap: anywhere;
+}
+
+.public-id-card-name-block strong {
+  color: #777a82;
+
+  font-size: 10px;
+
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+
+  letter-spacing: 0.05em;
+}
+
+
+/* ============================================================
+   ACTIVE
+   ============================================================ */
+
+.public-id-card-active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  gap: 5px;
+}
+
+.public-id-card-active span {
+  color: #70851f;
+
+  font-size: 6px;
+  font-weight: 950;
+
+  letter-spacing: 0.12em;
+}
+
+.public-id-card-active b {
+  display: grid;
+
+  place-items: center;
+
+  width: 34px;
+  height: 34px;
+
+  border: 1px solid rgba(117, 195, 20, 0.28);
+
+  border-radius: 50%;
+
+  background: rgba(157, 221, 30, 0.08);
+
+  color: #70ad12;
+
+  font-size: 17px;
+}
+
+
+/* ============================================================
+   CARD FIELDS
+   ============================================================ */
+
+.public-id-card-fields {
+  position: relative;
+
+  z-index: 2;
+
+  display: grid;
+
+  margin-top: 28px;
+
+  border-top: 1px solid #e1e2dd;
+}
+
+.public-id-card-fields > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  padding: 13px 0;
+
+  border-bottom: 1px solid #e1e2dd;
+}
+
+.public-id-card-fields span,
+.public-id-card-skills > span {
+  color: #8a8d94;
+
+  font-size: 7px;
+  font-weight: 900;
+
+  letter-spacing: 0.14em;
+}
+
+.public-id-card-fields strong {
+  color: #18191e;
+
+  font-size: 10px;
+  font-weight: 850;
+
+  text-align: right;
+}
+
+
+/* ============================================================
+   SKILLS
+   ============================================================ */
+
+.public-id-card-skills {
+  position: relative;
+
+  z-index: 2;
+
+  margin-top: 19px;
+}
+
+.public-id-card-skills > div {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 6px;
+
+  margin-top: 8px;
+}
+
+.public-id-card-skills b {
+  padding: 6px 8px;
+
+  border: 1px solid #e0e3d6;
+
+  border-radius: 7px;
+
+  background: #f6f7ed;
+
+  color: #5d741e;
+
+  font-size: 8px;
+  font-weight: 850;
+}
+
+
+/* ============================================================
+   CARD CREDENTIAL
+   ============================================================ */
+
+.public-id-card-bottom {
+  position: relative;
+
+  z-index: 2;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  margin-top: 20px;
+}
+
+.public-id-card-bottom > div:first-child {
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+}
+
+.public-id-card-bottom strong {
+  color: #18191e;
+
+  font-size: 9px;
+  font-weight: 950;
+
+  letter-spacing: 0.08em;
+}
+
+.public-id-card-bottom span {
+  color: #858890;
+
+  font-size: 7px;
+  font-weight: 750;
+
+  letter-spacing: 0.08em;
+}
+
+.public-id-card-mini-check {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+}
+
+.public-id-card-mini-check span {
+  display: grid;
+
+  place-items: center;
+
+  width: 25px;
+  height: 25px;
+
+  border-radius: 50%;
+
+  background: #8dcc1e;
+
+  color: white;
+
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.public-id-card-mini-check small {
+  color: #6c821f;
+
+  font-size: 6px;
+  font-weight: 950;
+
+  letter-spacing: 0.12em;
+}
+
+
+/* ============================================================
+   CARD FOOTER
+   ============================================================ */
+
+.public-id-card-footer {
+  position: relative;
+
+  z-index: 2;
+
+  display: flex;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  margin-top: 17px;
+
+  padding-top: 11px;
+
+  border-top: 1px solid rgba(20, 21, 25, 0.1);
+
+  color: #858890;
+
+  font-size: 6px;
+  font-weight: 900;
+
+  letter-spacing: 0.16em;
+}
+
+
+/* ============================================================
+   DETAILS PANEL
+   ============================================================ */
+
+.public-card-details-panel {
+  padding: 8px 0;
+}
+
+.public-card-details-kicker {
+  color: #7746f4;
+
+  font-size: 9px;
+  font-weight: 950;
+
+  letter-spacing: 0.16em;
+}
+
+.public-card-details-panel h2 {
+  margin: 8px 0 10px;
+
+  color: #101116;
+
+  font-size: clamp(30px, 4vw, 44px);
+
+  line-height: 0.98;
+
+  font-weight: 950;
+
+  letter-spacing: -0.05em;
+}
+
+.public-card-details-panel > p {
+  max-width: 500px;
+
+  margin: 0;
+
+  color: #747780;
+
+  font-size: 12px;
+
+  line-height: 1.75;
+}
+
+
+/* ============================================================
+   VERIFICATION BOX
+   ============================================================ */
+
+.public-card-verification-box {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  margin-top: 22px;
+
+  padding: 13px;
+
+  border: 1px solid rgba(126, 211, 23, 0.22);
+
+  border-radius: 11px;
+
+  background: rgba(157, 221, 30, 0.07);
+}
+
+.public-card-verification-check {
+  display: grid;
+
+  place-items: center;
+
+  flex: 0 0 35px;
+
+  width: 35px;
+  height: 35px;
+
+  border-radius: 50%;
+
+  background: #83c91b;
+
+  color: #fff;
+
+  font-size: 17px;
+  font-weight: 950;
+}
+
+.public-card-verification-box div:last-child {
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+.public-card-verification-box strong {
+  color: #4e6c16;
+
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.public-card-verification-box span {
+  color: #777c72;
+
+  font-size: 10px;
+}
+
+
+/* ============================================================
+   DETAIL LIST
+   ============================================================ */
+
+.public-card-detail-list {
+  display: grid;
+
+  margin-top: 21px;
+
+  border-top: 1px solid #dedfdc;
+}
+
+.public-card-detail-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding: 13px 0;
+
+  border-bottom: 1px solid #dedfdc;
+}
+
+.public-card-detail-list span {
+  color: #888b92;
+
+  font-size: 8px;
+  font-weight: 900;
+
+  letter-spacing: 0.13em;
+}
+
+.public-card-detail-list strong {
+  color: #17181d;
+
+  font-size: 11px;
+  font-weight: 850;
+
+  text-align: right;
+
+  overflow-wrap: anywhere;
+}
+
+
+/* ============================================================
+   STATISTICS
+   ============================================================ */
+
+.public-card-stat-grid {
+  display: grid;
+
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 8px;
+
+  margin-top: 18px;
+}
+
+.public-card-stat-grid > div {
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  min-height: 78px;
+
+  border: 1px solid #dedfdc;
+
+  border-radius: 11px;
+
+  background: rgba(255, 255, 255, 0.7);
+
+  text-align: center;
+}
+
+.public-card-stat-grid strong {
+  color: #101116;
+
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.public-card-stat-grid span {
+  margin-top: 4px;
+
+  color: #858890;
+
+  font-size: 8px;
+  font-weight: 800;
+}
+
+
+/* ============================================================
+   SECURITY
+   ============================================================ */
+
+.public-card-security-note {
+  display: flex;
+  align-items: flex-start;
+
+  gap: 8px;
+
+  margin-top: 18px;
+
+  color: #858890;
+}
+
+.public-card-security-note span {
+  font-size: 11px;
+}
+
+.public-card-security-note p {
+  margin: 0;
+
+  font-size: 9px;
+
+  line-height: 1.6;
+}
+
+
+/* ============================================================
+   PAGE FOOTER
+   ============================================================ */
+
+.public-card-page-footer {
+  display: flex;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  margin-top: 34px;
+
+  padding: 0 2px;
+
+  color: #8b8e95;
+
+  font-size: 8px;
+  font-weight: 850;
+
+  letter-spacing: 0.12em;
+}
+
+
+/* ============================================================
+   LOADING / ERROR
+   ============================================================ */
+
+.public-card-state-shell {
+  max-width: 720px;
+}
+
+.public-card-state {
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  min-height: 520px;
+
+  padding: 45px;
+
+  border: 1px solid #dedfdc;
+
+  border-radius: 22px;
+
+  background: rgba(255, 255, 255, 0.86);
+
+  box-shadow:
+    0 25px 70px rgba(26, 27, 31, 0.08);
+
+  text-align: center;
+}
+
+.public-card-state > span {
+  margin-top: 20px;
+
+  color: #7746f4;
+
+  font-size: 9px;
+  font-weight: 950;
+
+  letter-spacing: 0.16em;
+}
+
+.public-card-state h1 {
+  margin: 9px 0 7px;
+
+  color: #101116;
+
+  font-size: 29px;
+  font-weight: 950;
+
+  letter-spacing: -0.04em;
+}
+
+.public-card-state p {
+  max-width: 430px;
+
+  margin: 0;
+
+  color: #777a82;
+
+  font-size: 12px;
+
+  line-height: 1.7;
+}
+
+
+/* ============================================================
+   SPINNER
+   ============================================================ */
+
+.public-card-spinner {
+  width: 42px;
+  height: 42px;
+
+  border: 3px solid #e7e8e4;
+
+  border-top-color: #7746f4;
+  border-right-color: #9ddd1e;
+
+  border-radius: 50%;
+
+  animation:
+    publicCardSpin 0.8s linear infinite;
+}
+
+@keyframes publicCardSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* ============================================================
+   ERROR
+   ============================================================ */
+
+.public-card-error-icon {
+  display: grid;
+
+  place-items: center;
+
+  width: 58px;
+  height: 58px;
+
+  border-radius: 50%;
+
+  background: rgba(210, 64, 64, 0.08);
+
+  border: 1px solid rgba(210, 64, 64, 0.18);
+
+  color: #bd4747;
+
+  font-size: 25px;
+  font-weight: 950;
+}
+
+.public-card-state-error > span {
+  color: #bd4747;
+}
+
+.public-card-requested-id {
+  display: flex;
+  flex-direction: column;
+
+  gap: 6px;
+
+  width: min(420px, 100%);
+
+  margin-top: 23px;
+
+  padding: 13px;
+
+  border: 1px solid #e0e1de;
+
+  border-radius: 9px;
+
+  background: #fafaf8;
+
+  text-align: left;
+}
+
+.public-card-requested-id small {
+  color: #8a8d94;
+
+  font-size: 7px;
+  font-weight: 900;
+
+  letter-spacing: 0.12em;
+}
+
+.public-card-requested-id strong {
+  color: #16171b;
+
+  font-size: 12px;
+
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+
+  overflow-wrap: anywhere;
+}
+
+.public-card-home-button {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  min-height: 42px;
+
+  margin-top: 18px;
+
+  padding: 0 18px;
+
+  border-radius: 9px;
+
+  background: #7746f4;
+
+  color: #fff;
+
+  font-size: 10px;
+  font-weight: 900;
+
+  letter-spacing: 0.08em;
+
+  text-decoration: none;
+}
+
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 900px) {
+  .public-card-layout-one {
+    grid-template-columns: 1fr;
+
+    gap: 30px;
+  }
+
+  .public-id-card-stage {
+    padding-top: 118px;
+  }
+
+  .public-card-details-panel {
+    width: min(620px, 100%);
+
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .public-card-page-shell {
+    width: min(100% - 18px, 1120px);
+
+    padding-top: 25px;
+  }
+
+  .public-card-page-heading {
+    align-items: flex-start;
+
+    flex-direction: column;
+  }
+
+  .public-card-heading-copy {
+    margin-left: 0;
+
+    text-align: left;
+  }
+
+  .public-card-layout-one {
+    gap: 20px;
+  }
+
+  .public-id-card-stage {
+    padding: 105px 0 0;
+  }
+
+  .public-id-card-real {
+    min-height: 0;
+
+    padding: 23px 19px 17px;
+
+    border-radius: 16px;
+  }
+
+  .public-id-card-identity {
+    grid-template-columns:
+      68px
+      minmax(0, 1fr)
+      40px;
+
+    gap: 10px;
+  }
+
+  .public-id-photo {
+    width: 68px;
+    height: 68px;
+
+    font-size: 22px;
+  }
+
+  .public-id-card-name-block h2 {
+    font-size: 22px;
+  }
+
+  .public-id-card-fields > div {
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 4px;
+  }
+
+  .public-id-card-fields strong {
+    text-align: left;
+  }
+
+  .public-id-lanyard-strap {
+    width: 76px;
+    height: 62px;
+  }
+
+  .public-id-name-tag {
+    min-width: 130px;
+
+    min-height: 38px;
+
+    padding: 7px 14px;
+  }
+
+  .public-id-name-tag span {
+    font-size: 10px;
+  }
+
+  .public-card-stat-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .public-card-page-footer {
+    flex-direction: column;
+
+    align-items: center;
+
+    text-align: center;
+  }
+}
+
+@media (max-width: 390px) {
+  .public-id-card-identity {
+    grid-template-columns:
+      58px
+      minmax(0, 1fr);
+  }
+
+  .public-id-card-active {
+    display: none;
+  }
+
+  .public-id-photo {
+    width: 58px;
+    height: 58px;
+  }
+
+  .public-card-stat-grid > div {
+    min-height: 70px;
+  }
+
+  .public-card-stat-grid strong {
+    font-size: 18px;
+  }
+}

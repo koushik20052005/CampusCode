@@ -1,0 +1,139 @@
+.campus-refresh-button {
+  position: relative;
+  height: 38px;
+  min-width: 92px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid #deded8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #555;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(0,0,0,.025);
+  transition:
+    background .2s ease,
+    border-color .2s ease,
+    color .2s ease,
+    box-shadow .2s ease,
+    transform .15s ease;
+}
+
+.campus-refresh-button::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 999px;
+  background: transparent;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform .2s ease, background .2s ease;
+}
+
+.campus-refresh-button:hover:not(:disabled) {
+  border-color: #a7d94b;
+  background: #f8fceF;
+  color: #171717;
+  box-shadow: 0 5px 16px rgba(40,40,20,.07);
+  transform: translateY(-1px);
+}
+
+.campus-refresh-button:hover:not(:disabled)::after {
+  background: #a7d94b;
+  transform: scaleX(1);
+}
+
+.campus-refresh-button:active:not(:disabled) {
+  transform: translateY(0) scale(.98);
+  box-shadow: none;
+}
+
+.campus-refresh-button:focus-visible {
+  outline: 2px solid #a7d94b;
+  outline-offset: 3px;
+}
+
+.campus-refresh-button:disabled {
+  cursor: default;
+  opacity: .78;
+}
+
+.campus-refresh-icon-wrap {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  border-radius: 5px;
+  background: #f3f3ee;
+  transition: background .2s ease, color .2s ease;
+}
+
+.campus-refresh-button:hover:not(:disabled) .campus-refresh-icon-wrap {
+  background: #eaf7c9;
+  color: #58751d;
+}
+
+.campus-refresh-icon {
+  display: block;
+  color: currentColor;
+  transition: transform .2s ease;
+}
+
+.campus-refresh-button.is-refreshing .campus-refresh-icon {
+  animation: campusRefreshSpin .65s cubic-bezier(.4,0,.2,1) infinite;
+}
+
+.campus-refresh-button.is-refreshing .campus-refresh-icon-wrap {
+  background: #eaf7c9;
+  color: #58751d;
+}
+
+@keyframes campusRefreshSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 780px) {
+  .campus-refresh-button {
+    width: 36px;
+    min-width: 36px;
+    height: 34px;
+    padding: 0;
+    gap: 0;
+    border-radius: 7px;
+  }
+
+  .campus-refresh-label {
+    display: none;
+  }
+
+  .campus-refresh-icon-wrap {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .campus-refresh-button,
+  .campus-refresh-button::after,
+  .campus-refresh-icon,
+  .campus-refresh-icon-wrap {
+    transition: none;
+  }
+
+  .campus-refresh-button.is-refreshing .campus-refresh-icon {
+    animation: none;
+  }
+}

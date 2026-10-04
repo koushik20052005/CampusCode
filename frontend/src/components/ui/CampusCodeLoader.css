@@ -1,0 +1,445 @@
+/* =========================================================
+   CAMPUSCODE V2 — ICON MORPH LOADER
+   Clean single-shape morph inspired by modern Dribbble
+   icon loaders. One tile morphs; icons cross-fade inside it.
+========================================================= */
+
+.campus-loader {
+  --cc-loader-bg: transparent;
+  --cc-loader-ink: #111111;
+  --cc-loader-muted: #777777;
+  --cc-loader-accent: #a7d94b;
+  --cc-loader-accent-2: #7566ff;
+
+  width: 100%;
+  min-height: 300px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+}
+
+.campus-loader-inline {
+  background: transparent;
+}
+
+.campus-loader-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  min-height: 100dvh;
+  background: var(--cc-loader-bg);
+}
+
+.cc-loader-core {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  min-width: 190px;
+  color: var(--cc-loader-ink);
+}
+
+.cc-morph-stage {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+}
+
+/* -------------------------
+   OUTER ORBITS
+------------------------- */
+
+.cc-morph-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 112px;
+  height: 112px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(117, 102, 255, 0.14);
+  border-radius: 50%;
+  animation: ccOrbitPulse 2.4s ease-in-out infinite;
+}
+
+.ring-two {
+  width: 84px;
+  height: 84px;
+  border-color: rgba(167, 217, 75, 0.22);
+  animation-delay: -1.2s;
+}
+
+/* -------------------------
+   MAIN MORPHING TILE
+------------------------- */
+
+.cc-morph-tile {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 64px;
+  height: 64px;
+
+  display: grid;
+  place-items: center;
+
+  background: var(--cc-loader-ink);
+  color: #ffffff;
+
+  transform: translate(-50%, -50%);
+  border-radius: 17px;
+
+  /*
+    The important fix:
+    ONE shape only. The previous loader had four
+    independently animated shapes overlapping each other,
+    which made the loader look like a flickering black blob.
+  */
+  animation: ccTileMorph 3.2s cubic-bezier(.65, 0, .35, 1) infinite;
+
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.13),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+
+  overflow: hidden;
+  z-index: 4;
+  will-change: transform, border-radius, clip-path;
+}
+
+.cc-morph-highlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 28% 22%,
+      rgba(255,255,255,.18),
+      transparent 34%
+    );
+  opacity: .7;
+}
+
+/* -------------------------
+   ICON CROSS-FADE
+------------------------- */
+
+.cc-morph-icons {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+}
+
+.cc-morph-icon {
+  position: absolute;
+  width: 29px;
+  height: 29px;
+
+  color: #ffffff;
+
+  opacity: 0;
+  transform: scale(.55) rotate(-12deg);
+
+  animation:
+    ccIconCycle 3.2s cubic-bezier(.65, 0, .35, 1) infinite;
+
+  animation-delay: calc(var(--cc-icon-index) * -0.8s);
+
+  will-change: opacity, transform;
+}
+
+.cc-morph-icon:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.cc-morph-icon:nth-child(2) {
+  animation-delay: -.8s;
+}
+
+.cc-morph-icon:nth-child(3) {
+  animation-delay: -1.6s;
+}
+
+.cc-morph-icon:nth-child(4) {
+  animation-delay: -2.4s;
+}
+
+/* -------------------------
+   SMALL FLOATING DOTS
+------------------------- */
+
+.cc-morph-dot {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  z-index: 2;
+  opacity: .8;
+}
+
+.dot-one {
+  top: 25px;
+  right: 31px;
+  background: var(--cc-loader-accent);
+  animation: ccDotOne 3.2s ease-in-out infinite;
+}
+
+.dot-two {
+  bottom: 27px;
+  left: 29px;
+  background: var(--cc-loader-accent-2);
+  animation: ccDotTwo 3.2s ease-in-out infinite;
+}
+
+.dot-three {
+  top: 41px;
+  left: 23px;
+  width: 3px;
+  height: 3px;
+  background: var(--cc-loader-accent);
+  animation: ccDotThree 3.2s ease-in-out infinite;
+}
+
+/* -------------------------
+   TEXT
+------------------------- */
+
+.cc-loader-text {
+  font: 800 10px/1 Inter, system-ui, sans-serif;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--cc-loader-ink);
+}
+
+.cc-loader-subtext {
+  font: 600 8px/1 "DM Mono", ui-monospace, SFMono-Regular, monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--cc-loader-muted);
+}
+
+/* =========================================================
+   ANIMATION
+========================================================= */
+
+/*
+  The tile changes through:
+  rounded square
+  -> compressed rounded rectangle
+  -> diamond
+  -> circle
+  -> hexagon
+  -> rounded square
+
+  Because this is a single element, there is no visual
+  overlap between multiple black shapes.
+*/
+
+@keyframes ccTileMorph {
+  0%,
+  10% {
+    transform: translate(-50%, -50%) scale(.82) rotate(0deg);
+    border-radius: 18px;
+    clip-path: inset(0 round 18px);
+  }
+
+  20%,
+  31% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    border-radius: 18px;
+    clip-path: inset(0 round 18px);
+  }
+
+  42%,
+  52% {
+    transform: translate(-50%, -50%) scale(.94) rotate(45deg);
+    border-radius: 12px;
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  }
+
+  63%,
+  73% {
+    transform: translate(-50%, -50%) scale(.93) rotate(90deg);
+    border-radius: 50%;
+    clip-path: circle(50% at 50% 50%);
+  }
+
+  82%,
+  91% {
+    transform: translate(-50%, -50%) scale(.98) rotate(135deg);
+    border-radius: 12px;
+    clip-path: polygon(
+      50% 0%,
+      92% 24%,
+      92% 76%,
+      50% 100%,
+      8% 76%,
+      8% 24%
+    );
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(.82) rotate(180deg);
+    border-radius: 18px;
+    clip-path: inset(0 round 18px);
+  }
+}
+
+@keyframes ccIconCycle {
+  0%,
+  7% {
+    opacity: 0;
+    transform: scale(.58) rotate(-18deg);
+  }
+
+  11%,
+  22% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+
+  27%,
+  100% {
+    opacity: 0;
+    transform: scale(.62) rotate(18deg);
+  }
+}
+
+@keyframes ccOrbitPulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(.91);
+    opacity: .38;
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.08);
+    opacity: .9;
+  }
+}
+
+@keyframes ccDotOne {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(.7);
+    opacity: .3;
+  }
+
+  50% {
+    transform: translate(8px, -7px) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ccDotTwo {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(.7);
+    opacity: .3;
+  }
+
+  50% {
+    transform: translate(-7px, 8px) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ccDotThree {
+  0%,
+  100% {
+    transform: translate(0, 0);
+    opacity: .25;
+  }
+
+  50% {
+    transform: translate(-4px, -7px);
+    opacity: 1;
+  }
+}
+
+/* =========================================================
+   STUDENT PANEL
+========================================================= */
+
+.student-loading-shell .campus-loader {
+  --cc-loader-bg: transparent;
+  --cc-loader-ink: #111111;
+  --cc-loader-muted: #777777;
+  --cc-loader-accent: #a7d94b;
+  --cc-loader-accent-2: #7566ff;
+
+  min-height: 460px !important;
+  width: 100% !important;
+  background: transparent !important;
+}
+
+.student-loading-shell {
+  min-height: 460px !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden;
+}
+
+.student-loading-shell .cc-morph-stage {
+  width: 150px !important;
+  height: 150px !important;
+}
+
+.student-loading-shell .cc-morph-tile {
+  width: 70px !important;
+  height: 70px !important;
+}
+
+.student-loading-shell .cc-morph-icon {
+  width: 33px !important;
+  height: 33px !important;
+}
+
+.student-loading-shell .cc-loader-text {
+  font-size: 11px !important;
+}
+
+@media (max-width: 780px) {
+  .student-loading-shell,
+  .student-loading-shell .campus-loader {
+    min-height: 360px !important;
+  }
+
+  .student-loading-shell .cc-morph-stage {
+    width: 124px !important;
+    height: 124px !important;
+  }
+
+  .student-loading-shell .cc-morph-tile {
+    width: 58px !important;
+    height: 58px !important;
+  }
+}
+
+/* =========================================================
+   ACCESSIBILITY
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-morph-tile,
+  .cc-morph-icon,
+  .cc-morph-ring,
+  .cc-morph-dot {
+    animation: none !important;
+  }
+
+  .cc-morph-tile {
+    transform: translate(-50%, -50%);
+    border-radius: 18px;
+    clip-path: inset(0 round 18px);
+  }
+
+  .cc-morph-icon:first-child {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

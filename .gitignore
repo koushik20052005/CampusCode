@@ -1,0 +1,69 @@
+# ==========================================
+# CAMPUSCODE - ROOT GITIGNORE
+# ==========================================
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build
+dist/
+build/
+.vite/
+.cache/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Private keys / certificates
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# Databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Test output
+test-results/
+playwright-report/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Uploads
+uploads/

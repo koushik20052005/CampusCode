@@ -1,0 +1,1384 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800;900&display=swap");
+
+.campus-register {
+  --register-bg: #f7f7f4;
+  --register-white: #ffffff;
+
+  --register-text: #111111;
+  --register-muted: #777772;
+
+  --register-border: #ddddd7;
+
+  --register-purple: #7665ff;
+  --register-lime: #a8e62e;
+
+  position: relative;
+
+  min-height: 100vh;
+
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at 75% 35%,
+      rgba(118, 101, 255, 0.07),
+      transparent 25%
+    ),
+    radial-gradient(
+      circle at 25% 75%,
+      rgba(168, 230, 46, 0.06),
+      transparent 25%
+    ),
+    var(--register-bg);
+
+  color: var(--register-text);
+
+  font-family: "Inter", sans-serif;
+}
+
+/* =====================================================
+   GRID
+===================================================== */
+
+.register-grid {
+  position: absolute;
+
+  inset: 0;
+
+  background-image:
+    linear-gradient(
+      rgba(20, 20, 20, 0.045) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(20, 20, 20, 0.045) 1px,
+      transparent 1px
+    );
+
+  background-size: 65px 65px;
+
+  mask-image:
+    linear-gradient(
+      to bottom,
+      black,
+      rgba(0, 0, 0, 0.45),
+      transparent
+    );
+
+  pointer-events: none;
+}
+
+/* =====================================================
+   GLOWS
+===================================================== */
+
+.register-glow {
+  position: absolute;
+
+  border-radius: 50%;
+
+  filter: blur(90px);
+
+  pointer-events: none;
+}
+
+.register-glow-one {
+  width: 500px;
+  height: 500px;
+
+  right: -180px;
+  top: 80px;
+
+  background:
+    rgba(118, 101, 255, 0.08);
+}
+
+.register-glow-two {
+  width: 350px;
+  height: 350px;
+
+  left: -120px;
+  bottom: -120px;
+
+  background:
+    rgba(168, 230, 46, 0.07);
+}
+
+/* =====================================================
+   NETWORK
+===================================================== */
+
+.register-network {
+  position: absolute;
+
+  inset: 0;
+
+  opacity: 0.35;
+
+  pointer-events: none;
+}
+
+.register-network svg {
+  width: 100%;
+  height: 100%;
+}
+
+.register-network path {
+  fill: none;
+
+  stroke:
+    rgba(118, 101, 255, 0.15);
+
+  stroke-width: 1;
+
+  stroke-dasharray: 7 10;
+
+  animation:
+    registerNetworkMove 16s linear infinite;
+}
+
+.register-network circle {
+  fill: var(--register-purple);
+
+  animation:
+    registerNodePulse 2.5s ease-in-out infinite;
+}
+
+@keyframes registerNetworkMove {
+  to {
+    stroke-dashoffset: -250px;
+  }
+}
+
+@keyframes registerNodePulse {
+  0%,
+  100% {
+    opacity: 0.25;
+
+    transform: scale(0.8);
+  }
+
+  50% {
+    opacity: 1;
+
+    transform: scale(1.2);
+  }
+}
+
+/* =====================================================
+   NAVIGATION
+===================================================== */
+
+.register-nav {
+  position: relative;
+
+  z-index: 20;
+
+  height: 90px;
+
+  padding:
+    0
+    5vw;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+}
+
+.register-brand {
+  display: flex;
+
+  align-items: center;
+
+  gap: 13px;
+
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+
+  color: #111;
+
+  text-align: left;
+}
+
+.register-brand-mark {
+  display: flex;
+
+  gap: 4px;
+
+  transform: skew(-17deg);
+}
+
+.register-brand-mark i {
+  width: 7px;
+  height: 30px;
+
+  display: block;
+
+  background: #111;
+
+  font-style: normal;
+}
+
+.register-brand-mark i:nth-child(2) {
+  background:
+    var(--register-purple);
+}
+
+.register-brand-mark i:nth-child(3) {
+  background: #80b91b;
+}
+
+.register-brand-text strong {
+  display: block;
+
+  font-size: 13px;
+
+  font-weight: 900;
+
+  letter-spacing: 1.5px;
+}
+
+.register-brand-text small {
+  display: block;
+
+  margin-top: 4px;
+
+  color: #999;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 7px;
+
+  letter-spacing: 0.7px;
+}
+
+.register-back {
+  border: 0;
+
+  background: transparent;
+
+  color: #777;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 9px;
+
+  letter-spacing: 1px;
+
+  transition: 0.25s;
+}
+
+.register-back:hover {
+  color: #111;
+
+  transform: translateX(-4px);
+}
+
+/* =====================================================
+   MAIN
+===================================================== */
+
+.register-main {
+  position: relative;
+
+  z-index: 5;
+
+  min-height:
+    calc(100vh - 140px);
+
+  padding:
+    35px
+    8vw
+    110px;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(450px, 1fr)
+    minmax(450px, 530px);
+
+  gap: 9vw;
+
+  align-items: center;
+}
+
+/* =====================================================
+   INTRO
+===================================================== */
+
+.register-intro {
+  position: relative;
+
+  animation:
+    registerIntroIn 0.8s ease both;
+}
+
+@keyframes registerIntroIn {
+  from {
+    opacity: 0;
+
+    transform:
+      translateX(-35px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateX(0);
+  }
+}
+
+.register-status {
+  display: flex;
+
+  align-items: center;
+
+  gap: 9px;
+
+  color: #888;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 9px;
+
+  letter-spacing: 1px;
+}
+
+.register-status > span {
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+
+  background: #7eb91b;
+
+  box-shadow:
+    0 0 10px
+    rgba(126, 185, 27, 0.5);
+}
+
+.register-intro-index {
+  margin-top: 22px;
+
+  max-width: 450px;
+
+  display: flex;
+
+  justify-content: space-between;
+
+  color: #b1b1ab;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 7px;
+
+  letter-spacing: 1px;
+}
+
+.register-intro h1 {
+  margin:
+    38px
+    0
+    28px;
+
+  font-size:
+    clamp(
+      75px,
+      9vw,
+      145px
+    );
+
+  line-height: 0.78;
+
+  letter-spacing: -8px;
+
+  font-weight: 900;
+}
+
+.register-intro h1 span {
+  color: transparent;
+
+  -webkit-text-stroke:
+    1px #777;
+
+  transition:
+    color 0.3s ease,
+    -webkit-text-stroke 0.3s ease;
+}
+
+.register-intro h1 span:hover {
+  color: var(--register-purple);
+
+  -webkit-text-stroke:
+    1px var(--register-purple);
+}
+
+.register-intro-description {
+  max-width: 455px;
+
+  margin: 0;
+
+  color: #666;
+
+  font-size: 14px;
+
+  line-height: 1.8;
+}
+
+/* =====================================================
+   INFORMATION CARDS
+===================================================== */
+
+.register-info-grid {
+  max-width: 520px;
+
+  margin-top: 38px;
+
+  display: grid;
+
+  grid-template-columns:
+    1.2fr
+    1fr
+    1fr;
+
+  gap: 8px;
+}
+
+.register-info-card {
+  position: relative;
+
+  min-height: 145px;
+
+  padding: 17px;
+
+  border:
+    1px solid #ddddd7;
+
+  background:
+    rgba(255, 255, 255, 0.52);
+
+  transition:
+    transform 0.25s ease,
+    border-color 0.25s ease,
+    background 0.25s ease;
+}
+
+.register-info-card:hover {
+  transform:
+    translateY(-4px);
+
+  border-color: #aaa;
+
+  background: #fff;
+}
+
+.register-info-card-main {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(118, 101, 255, 0.07),
+      rgba(255, 255, 255, 0.7)
+    );
+}
+
+.register-info-card-top {
+  display: flex;
+
+  justify-content: space-between;
+
+  color: #aaa;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 7px;
+
+  letter-spacing: 0.8px;
+}
+
+.register-info-card strong {
+  display: block;
+
+  margin-top: 25px;
+
+  font-size: 17px;
+
+  letter-spacing: -0.5px;
+}
+
+.register-info-card p {
+  margin:
+    8px
+    0
+    0;
+
+  color: #858580;
+
+  font-size: 9px;
+
+  line-height: 1.55;
+}
+
+.register-info-line {
+  position: absolute;
+
+  left: 17px;
+  right: 17px;
+  bottom: 14px;
+
+  height: 1px;
+
+  background: #ddd;
+}
+
+.register-info-line i {
+  display: block;
+
+  width: 35%;
+
+  height: 1px;
+
+  background:
+    var(--register-lime);
+}
+
+/* =====================================================
+   SYSTEM INFO
+===================================================== */
+
+.register-system-info {
+  max-width: 520px;
+
+  margin-top: 22px;
+
+  padding-top: 15px;
+
+  border-top:
+    1px solid #deded8;
+
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: 20px;
+
+  color: #aaa;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 7px;
+
+  letter-spacing: 0.6px;
+}
+
+.register-system-info > div:first-child {
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  color: #7b9d38;
+}
+
+.register-system-dot {
+  width: 5px;
+  height: 5px;
+
+  border-radius: 50%;
+
+  background: #7eb91b;
+
+  animation:
+    registerSystemPulse
+    1.8s ease-in-out infinite;
+}
+
+@keyframes registerSystemPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/* =====================================================
+   REGISTER CARD
+===================================================== */
+
+.register-card-wrapper {
+  width: 100%;
+
+  animation:
+    registerCardIn
+    0.8s
+    0.1s
+    ease
+    both;
+}
+
+@keyframes registerCardIn {
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0);
+  }
+}
+
+.register-card {
+  position: relative;
+
+  padding:
+    34px
+    38px;
+
+  background:
+    rgba(255, 255, 255, 0.93);
+
+  border:
+    1px solid #d8d8d2;
+
+  box-shadow:
+    0 30px 80px
+    rgba(0, 0, 0, 0.07);
+
+  backdrop-filter:
+    blur(15px);
+}
+
+.register-card::before {
+  content: "";
+
+  position: absolute;
+
+  top: -1px;
+
+  left: 25px;
+  right: 25px;
+
+  height: 2px;
+
+  background:
+    linear-gradient(
+      90deg,
+      var(--register-purple),
+      var(--register-lime)
+    );
+}
+
+/* =====================================================
+   CARD HEADER
+===================================================== */
+
+.register-card-top {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: flex-start;
+}
+
+.register-card-label {
+  color: #999;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 8px;
+
+  letter-spacing: 1px;
+}
+
+.register-card h2 {
+  margin:
+    10px
+    0
+    0;
+
+  font-size: 39px;
+
+  letter-spacing: -3px;
+}
+
+.register-card-description {
+  margin:
+    7px
+    0
+    0;
+
+  color: #999;
+
+  font-size: 10px;
+}
+
+.register-card-index {
+  color: #bbb;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 9px;
+
+  line-height: 1.6;
+
+  text-align: right;
+}
+
+.register-divider {
+  width: 100%;
+
+  height: 1px;
+
+  margin:
+    25px
+    0;
+
+  background: #e2e2dc;
+}
+
+/* =====================================================
+   FIELDS
+===================================================== */
+
+.register-field {
+  margin-bottom: 17px;
+}
+
+.register-field label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #777;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 8px;
+
+  letter-spacing: 1px;
+}
+
+.register-input-wrap {
+  position: relative;
+
+  display: flex;
+
+  align-items: center;
+
+  height: 50px;
+
+  border:
+    1px solid #d8d8d2;
+
+  background: #fafaf8;
+
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
+}
+
+.register-input-wrap:focus-within {
+  border-color:
+    var(--register-purple);
+
+  background: white;
+
+  box-shadow:
+    0 0 0 3px
+    rgba(118, 101, 255, 0.08);
+}
+
+.register-input-icon {
+  width: 48px;
+
+  flex-shrink: 0;
+
+  display: grid;
+
+  place-items: center;
+
+  color: #aaa;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 12px;
+}
+
+.register-input-wrap input,
+.register-input-wrap select {
+  flex: 1;
+
+  min-width: 0;
+
+  height: 100%;
+
+  padding:
+    0
+    12px
+    0
+    0;
+
+  border: 0;
+
+  outline: 0;
+
+  background: transparent;
+
+  color: #111;
+
+  font-size: 12px;
+}
+
+.register-input-wrap input::placeholder {
+  color: #aaa;
+}
+
+.register-input-wrap input:disabled,
+.register-input-wrap select:disabled {
+  opacity: 0.6;
+
+  cursor: not-allowed;
+}
+
+.register-input-wrap select {
+  cursor: pointer;
+
+  appearance: none;
+
+  padding-right: 40px;
+}
+
+.register-select-arrow {
+  position: absolute;
+
+  right: 15px;
+
+  color: #888;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 10px;
+
+  pointer-events: none;
+}
+
+/* =====================================================
+   PASSWORD TOGGLE
+===================================================== */
+
+.register-password-toggle {
+  height: 32px;
+
+  margin-right: 9px;
+
+  padding:
+    0
+    9px;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 6px;
+
+  flex-shrink: 0;
+
+  border:
+    1px solid #d4d4ce;
+
+  border-radius: 2px;
+
+  background: #f4f4f0;
+
+  color: #777;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 7px;
+
+  font-weight: 500;
+
+  letter-spacing: 0.8px;
+
+  cursor: pointer;
+
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.register-password-toggle:hover {
+  color: #111;
+
+  border-color:
+    var(--register-purple);
+
+  background: #fff;
+
+  transform:
+    translateY(-1px);
+}
+
+.register-password-toggle:active {
+  transform:
+    translateY(0);
+}
+
+.register-password-toggle:disabled {
+  opacity: 0.5;
+
+  cursor: not-allowed;
+}
+
+.password-eye {
+  color:
+    var(--register-purple);
+
+  font-size: 10px;
+
+  line-height: 1;
+}
+
+/* =====================================================
+   MESSAGES
+===================================================== */
+
+.register-message {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 9px;
+
+  margin:
+    5px
+    0
+    16px;
+
+  padding: 10px;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 8px;
+
+  line-height: 1.6;
+}
+
+.register-message p {
+  margin: 0;
+}
+
+.register-message > span {
+  width: 17px;
+  height: 17px;
+
+  flex-shrink: 0;
+
+  display: grid;
+
+  place-items: center;
+
+  border-radius: 50%;
+}
+
+.register-error {
+  border:
+    1px solid
+    rgba(190, 60, 60, 0.25);
+
+  background:
+    rgba(190, 60, 60, 0.04);
+
+  color: #a43d3d;
+}
+
+.register-error > span {
+  border:
+    1px solid #a43d3d;
+}
+
+.register-success {
+  border:
+    1px solid
+    rgba(24, 183, 119, 0.25);
+
+  background:
+    rgba(24, 183, 119, 0.05);
+
+  color: #23805d;
+}
+
+.register-success > span {
+  border:
+    1px solid #23805d;
+}
+
+/* =====================================================
+   SUBMIT
+===================================================== */
+
+.register-submit {
+  width: 100%;
+
+  height: 54px;
+
+  margin-top: 3px;
+
+  padding:
+    0
+    18px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  border: 0;
+
+  background: #111;
+
+  color: white;
+
+  font-size: 10px;
+
+  font-weight: 800;
+
+  letter-spacing: 0.3px;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.register-submit b {
+  color:
+    var(--register-lime);
+
+  font-size: 17px;
+
+  font-weight: 400;
+}
+
+.register-submit:hover:not(:disabled) {
+  transform:
+    translateY(-3px);
+
+  box-shadow:
+    0 15px 35px
+    rgba(0, 0, 0, 0.14);
+}
+
+.register-submit:disabled {
+  opacity: 0.65;
+
+  cursor: wait;
+}
+
+/* =====================================================
+   LOGIN LINK
+===================================================== */
+
+.register-login {
+  margin-top: 20px;
+
+  padding-top: 17px;
+
+  border-top:
+    1px solid #e4e4df;
+
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  gap: 15px;
+}
+
+.register-login span {
+  color: #999;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 7px;
+}
+
+.register-login button {
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+
+  color:
+    var(--register-purple);
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 8px;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+.register-login button:hover {
+  color: #111;
+
+  transform:
+    translateX(3px);
+}
+
+/* =====================================================
+   CARD FOOTER
+===================================================== */
+
+.register-card-footer {
+  margin-top: 14px;
+
+  display: flex;
+
+  justify-content: space-between;
+
+  color: #aaa;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 7px;
+
+  letter-spacing: 0.7px;
+}
+
+.register-card-footer span:last-child {
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+}
+
+.register-card-footer i {
+  width: 6px;
+  height: 6px;
+
+  border-radius: 50%;
+
+  background: #7eb91b;
+}
+
+/* =====================================================
+   BOTTOM
+===================================================== */
+
+.register-bottom {
+  position: absolute;
+
+  z-index: 10;
+
+  left: 5vw;
+  right: 5vw;
+
+  bottom: 18px;
+
+  display: flex;
+
+  justify-content: space-between;
+
+  color: #aaa;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 7px;
+
+  letter-spacing: 0.6px;
+}
+
+.register-bottom span:last-child {
+  color: #7b9d38;
+}
+
+/* =====================================================
+   TABLET
+===================================================== */
+
+@media (max-width: 1000px) {
+  .register-main {
+    grid-template-columns: 1fr;
+
+    gap: 50px;
+
+    padding-top: 40px;
+
+    padding-bottom: 130px;
+  }
+
+  .register-intro {
+    text-align: center;
+  }
+
+  .register-status {
+    justify-content: center;
+  }
+
+  .register-intro-index {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .register-intro-description {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .register-info-grid {
+    margin-left: auto;
+    margin-right: auto;
+
+    text-align: left;
+  }
+
+  .register-system-info {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .register-card-wrapper {
+    max-width: 550px;
+
+    margin: auto;
+  }
+}
+
+/* =====================================================
+   MOBILE
+===================================================== */
+
+@media (max-width: 600px) {
+  .register-nav {
+    height: 75px;
+
+    padding:
+      0
+      22px;
+  }
+
+  .register-brand-text small {
+    display: none;
+  }
+
+  .register-back {
+    font-size: 7px;
+  }
+
+  .register-main {
+    min-height: auto;
+
+    padding:
+      40px
+      22px
+      120px;
+
+    gap: 50px;
+  }
+
+  .register-intro h1 {
+    margin:
+      32px
+      0
+      25px;
+
+    font-size: 65px;
+
+    letter-spacing: -6px;
+  }
+
+  .register-intro-description {
+    font-size: 12px;
+  }
+
+  .register-info-grid {
+    grid-template-columns: 1fr;
+
+    margin-top: 30px;
+  }
+
+  .register-info-card {
+    min-height: 125px;
+  }
+
+  .register-system-info {
+    flex-wrap: wrap;
+
+    justify-content: center;
+
+    gap: 10px 20px;
+  }
+
+  .register-card {
+    padding:
+      28px
+      22px;
+  }
+
+  .register-card h2 {
+    font-size: 36px;
+  }
+
+  .register-card-description {
+    font-size: 9px;
+  }
+
+  .register-password-toggle {
+    padding:
+      0
+      8px;
+
+    margin-right: 7px;
+  }
+
+  .register-login {
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 12px;
+  }
+
+  .register-bottom {
+    left: 22px;
+    right: 22px;
+
+    bottom: 15px;
+
+    flex-direction: column;
+
+    gap: 6px;
+
+    align-items: center;
+
+    text-align: center;
+  }
+}
