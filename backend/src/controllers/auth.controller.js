@@ -24,6 +24,22 @@ const createToken = (user) => {
 
 
 /* =========================================================
+   CAMPUSCODE ID
+   Every user gets a unique public ID (e.g. CC-8K2N4P)
+   used for the Digital ID card QR code.
+========================================================= */
+
+const generateCampusCodeId = () => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let suffix = "";
+  for (let i = 0; i < 6; i++) {
+    suffix += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `CC-${suffix}`;
+};
+
+
+/* =========================================================
    REGISTER
 ========================================================= */
 
@@ -89,13 +105,14 @@ export const register = async (req, res) => {
     const result = await pool.query(
       `
       INSERT INTO users
-      (name, email, password_hash, role)
-      VALUES ($1, $2, $3, $4)
+      (name, email, password_hash, role, campus_code_id)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING
         id,
         name,
         email,
         role,
+        campus_code_id,
         is_active,
         created_at
       `,
@@ -104,6 +121,7 @@ export const register = async (req, res) => {
         normalizedEmail,
         passwordHash,
         role,
+        generateCampusCodeId(),
       ]
     );
 
