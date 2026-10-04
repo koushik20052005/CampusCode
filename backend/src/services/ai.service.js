@@ -2,7 +2,7 @@ const GEMINI_API_BASE =
   "https://generativelanguage.googleapis.com/v1beta";
 
 const DEFAULT_MODEL =
-  process.env.GEMINI_MODEL || "gemini-3.6-flash";
+  process.env.GEMINI_MODEL || "gemini-3.5-flash";
 
 /*
  * If the primary Gemini model is temporarily unavailable (503),
@@ -10,8 +10,8 @@ const DEFAULT_MODEL =
  */
 const GEMINI_MODELS = [
   DEFAULT_MODEL,
-  "gemini-3.5-flash-lite",
-  "gemini-2.5-flash-lite",
+  "gemini-3.6-flash",
+  "gemini-3.7-flash",
 ];
 
 const MAX_RETRIES_PER_MODEL = 2;
