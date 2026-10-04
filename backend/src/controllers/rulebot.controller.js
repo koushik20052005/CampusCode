@@ -1,11 +1,11 @@
 import pool from "../config/db.js";
 
 // ============================================================
-// GEMINI INTERACTIONS API
+// GEMINI generateContent API
 // ============================================================
 
-const GEMINI_INTERACTIONS_URL =
-  "https://generativelanguage.googleapis.com/v1beta/interactions";
+const GEMINI_API_BASE =
+  "https://generativelanguage.googleapis.com/v1beta";
 
 // ============================================================
 // DEFAULT RULES CONFIG
@@ -1371,15 +1371,12 @@ ${rulesText}
 `;
 
     // ========================================================
-    // GEMINI INTERACTIONS REQUEST
-    //
-    // IMPORTANT:
-    // Current API uses step_list.
+    // GEMINI generateContent REQUEST
     // ========================================================
 
     const geminiResponse =
       await fetch(
-        GEMINI_INTERACTIONS_URL,
+        `${GEMINI_API_BASE}/models/${model}:generateContent`,
         {
           method: "POST",
 
@@ -1393,20 +1390,25 @@ ${rulesText}
 
           body:
             JSON.stringify({
-              model,
-
-              input: [
+              contents: [
                 {
-                  type:
-                    "user_input",
-
-                  content:
-                    cleanQuestion,
+                  parts: [
+                    {
+                      text:
+                        cleanQuestion,
+                    },
+                  ],
                 },
               ],
 
-              system_instruction:
-                systemInstruction,
+              systemInstruction: {
+                parts: [
+                  {
+                    text:
+                      systemInstruction,
+                  },
+                ],
+              },
             }),
         }
       );
@@ -1439,42 +1441,30 @@ ${rulesText}
     }
 
     // --------------------------------------------------------
-    // Extract answer from current steps response
+    // Extract answer from generateContent response
     // --------------------------------------------------------
 
     let answer = "";
 
+    const candidateParts =
+      geminiData?.candidates?.[0]?.content
+        ?.parts;
+
     if (
       Array.isArray(
-        geminiData.steps
+        candidateParts
       )
     ) {
       for (
-        const step of
-          geminiData.steps
+        const part of
+          candidateParts
       ) {
         if (
-          step?.type ===
-            "model_output" &&
-          Array.isArray(
-            step.content
-          )
+          typeof part?.text ===
+            "string"
         ) {
-          for (
-            const content of
-              step.content
-          ) {
-            if (
-              content?.type ===
-                "text" &&
-              typeof content.text ===
-                "string"
-            ) {
-              answer +=
-                content.text +
-                "\n";
-            }
-          }
+          answer +=
+            part.text + "\n";
         }
       }
     }
