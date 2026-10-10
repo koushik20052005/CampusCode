@@ -17,7 +17,16 @@ import {
   requireRole,
 } from "../middleware/auth.middleware.js";
 
+import { streamNotifications } from "../controllers/notification.controller.js";
+
 const router = express.Router();
+
+// v6: SSE live stream (registered first — must precede param routes)
+/**
+ * GET /api/notifications/stream?token=JWT
+ * Server-Sent Events stream pushing new notifications in real time.
+ */
+router.get("/stream", streamNotifications);
 
 /*
 |--------------------------------------------------------------------------

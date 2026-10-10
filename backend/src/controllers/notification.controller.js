@@ -1,4 +1,5 @@
 import pool from "../config/db.js";
+import jwt from "jsonwebtoken";
 
 /*
 |--------------------------------------------------------------------------
@@ -1100,4 +1101,80 @@ export async function getHackathonNotificationAudience(
           : undefined,
     });
   }
+}
+
+/*
+|--------------------------------------------------------------------------
+| SSE LIVE STREAM — GET /api/notifications/stream?token=JWT
+| v6: real-time notification push via Server-Sent Events.
+| EventSource cannot send Authorization headers, so the JWT
+| travels as a query param and is verified here.
+|--------------------------------------------------------------------------
+*/
+
+export async function streamNotifications(req, res) {
+  const token = req.query.token;
+  if (!token) {
+    return res.status(401).json({ success: false, message: "Authentication required" });
+  }
+
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    userId = decoded.id;
+  } catch {
+    return res.status(401).json({ success: false, message: "Invalid token" });
+  }
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.write(": connected\n\n");
+  if (res.flushHeaders) res.flushHeaders();
+
+  let closed = false;
+  let lastSeen = new Date(0).toISOString();
+
+  const push = async () => {
+    if (closed) return;
+    try {
+      const fresh = await pool.query(
+        `SELECT id, title, message, type, is_read, created_at
+         FROM notifications
+         WHERE user_id = $1 AND is_read = false AND created_at > $2
+         ORDER BY created_at DESC
+         LIMIT 10`,
+        [userId, lastSeen]
+      );
+      const countRes = await pool.query(
+        `SELECT COUNT(*)::integer AS n FROM notifications
+         WHERE user_id = $1 AND is_read = false`,
+        [userId]
+      );
+      const unread = countRes.rows[0].n;
+      if (fresh.rows.length > 0) {
+        lastSeen = fresh.rows[0].created_at;
+        res.write(`event: notifications\ndata: ${JSON.stringify({ unread_count: unread, items: fresh.rows })}\n\n`);
+      } else {
+        res.write(`event: ping\ndata: ${JSON.stringify({ unread_count: unread })}\n\n`);
+      }
+    } catch {
+      /* keep the stream alive on transient DB errors */
+    }
+  };
+
+  await push();
+  const timer = setInterval(push, 20000);
+  const heartbeat = setInterval(() => {
+    if (!closed) res.write(": hb\n\n");
+  }, 15000);
+
+  req.on("close", () => {
+    closed = true;
+    clearInterval(timer);
+    clearInterval(heartbeat);
+  });
 }

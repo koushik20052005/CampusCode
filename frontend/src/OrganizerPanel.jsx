@@ -28,6 +28,7 @@ import {
   Zap,
 } from "lucide-react";
 import "./OrganizerPanel.css";
+import { useLiveNotifications, NotificationToasts } from "./notifications";
 import CampusCodeLoader from "./components/ui/CampusCodeLoader";
 
 const API_BASE_URL =
@@ -157,6 +158,7 @@ function OrganizerPanel({
   const [message, setMessage] = useState("");
   const [workspaceId, setWorkspaceId] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const { unread, toasts, clearBadge, dismissToast } = useLiveNotifications();
 
   const go = (next) => {
     setMessage("");
@@ -249,10 +251,12 @@ function OrganizerPanel({
           user={user}
           onMenu={() => setSidebarOpen?.(true)}
           onLogout={onLogout}
-          onNotifications={() => go("notifications")}
+          unread={unread}
+          onNotifications={() => { clearBadge(); go("notifications"); }}
           onRefresh={refreshOrganizer}
           refreshing={refreshing}
         />
+        <NotificationToasts toasts={toasts} onDismiss={dismissToast} />
 
         <main className="organizer-content">
           <OrganizerHero
@@ -454,7 +458,7 @@ function OrganizerSidebar({ section, navigate, open, user, onLogout }) {
   );
 }
 
-function OrganizerTopbar({ user, onMenu, onLogout, onNotifications, onRefresh, refreshing }) {
+function OrganizerTopbar({ user, onMenu, onLogout, onNotifications, onRefresh, refreshing, unread }) {
   const initials = (user?.name || "User")
     .split(" ")
     .map((x) => x[0])
@@ -478,8 +482,9 @@ function OrganizerTopbar({ user, onMenu, onLogout, onNotifications, onRefresh, r
           <Search size={14} />
           <span>Search workspace...</span>
         </div>
-        <button className="org-top-icon" onClick={onNotifications} title="Notifications" aria-label="Notifications">
+        <button className="org-top-icon" onClick={onNotifications} title="Notifications" aria-label="Notifications" style={{ position: "relative" }}>
           <Bell size={17} />
+          {unread > 0 && <b className="notif-badge">{unread > 9 ? "9+" : unread}</b>}
         </button>
         <button
           className={`org-refresh-button ${refreshing ? "refreshing" : ""}`}

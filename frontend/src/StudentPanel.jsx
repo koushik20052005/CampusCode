@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Trophy, Clock3, Users, FolderGit2, Send, Code2,
   Sparkles, Bell, IdCard, UserCircle, Bot, ExternalLink, Link as LinkIcon,
-  LoaderCircle, CheckCircle2, Terminal, Layers
+  LoaderCircle, CheckCircle2, Terminal, Layers, Award, Zap
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import "./StudentPanel.css";
 import CampusCodeLoader from "./components/ui/CampusCodeLoader";
 import CampusCodeRefresh from "./components/ui/CampusCodeRefresh";
+import { useLiveNotifications, NotificationToasts } from "./notifications";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -243,6 +244,8 @@ function OverviewPage({ navigate, studentName }) {
 
       <DashboardDiscover navigate={navigate} />
 
+      <StudentEnrich stats={stats} navigate={navigate} />
+
       <div className="student-two-col">
         <div className="student-panel-card">
           <div className="student-panel-title"><span>01 / CURRENT ACTIVITY</span><button onClick={() => navigate("Hackathons")}>VIEW HACKATHONS ↗</button></div>
@@ -275,6 +278,83 @@ function OverviewPage({ navigate, studentName }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/* =========================================================
+   v6 — dashboard enrichment: deadlines, AI spotlight, journey
+========================================================= */
+function StudentEnrich({ stats, navigate }) {
+  const [deadlines, setDeadlines] = useState([]);
+  const [dlLoading, setDlLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch("/student/hackathons/my-hackathons")
+      .then((r) => {
+        const list = unwrapList(r, ["hackathons", "registrations", "items", "data"]);
+        const upcoming = list
+          .map((h) => ({
+            title: value(h.title, h.name, h.hackathon_name, h.hackathon?.title, "Hackathon"),
+            date: h.start_date || h.startDate || h.registration_deadline || h.deadline,
+          }))
+          .filter((x) => x.date)
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
+          .slice(0, 3);
+        setDeadlines(upcoming);
+      })
+      .catch(() => {})
+      .finally(() => setDlLoading(false));
+  }, []);
+
+  const journey = [
+    { label: "HACKATHONS", n: Number(stats.registered ?? stats.registered_count ?? 0), icon: <Trophy size={16} strokeWidth={1.8} /> },
+    { label: "ONGOING", n: Number(stats.ongoing ?? stats.ongoing_count ?? 0), icon: <Zap size={16} strokeWidth={1.8} /> },
+    { label: "COMPLETED", n: Number(stats.completed ?? stats.completed_count ?? 0), icon: <CheckCircle2 size={16} strokeWidth={1.8} /> },
+    { label: "CERTIFICATES", n: Number(stats.certificates ?? stats.certificate_count ?? 0), icon: <Award size={16} strokeWidth={1.8} /> },
+  ];
+  const maxJourney = Math.max(1, ...journey.map((j) => j.n));
+
+  return (
+    <div className="student-enrich">
+      <div className="student-panel-card enrich-card">
+        <div className="student-panel-title"><span>UPCOMING DEADLINES</span><button onClick={() => navigate("My Registrations")}>VIEW ALL ↗</button></div>
+        {dlLoading ? <div className="enrich-loading"><span /></div> : deadlines.length ? (
+          <div className="enrich-deadlines">
+            {deadlines.map((d, i) => (
+              <div className="enrich-deadline" key={i}>
+                <div className="enrich-date"><strong>{formatDate(d.date).split(" ").slice(0, 2).join(" ")}</strong><small>{formatDate(d.date)}</small></div>
+                <div className="enrich-deadline-info"><strong>{d.title}</strong><span>STARTS SOON</span></div>
+              </div>
+            ))}
+          </div>
+        ) : <div className="enrich-empty"><strong>No deadlines yet.</strong><p>Join a hackathon and your upcoming dates will appear here.</p><button onClick={() => navigate("Hackathons")}>BROWSE HACKATHONS ↗</button></div>}
+      </div>
+
+      <div className="student-panel-card enrich-card enrich-ai">
+        <div className="student-panel-title"><span>AI SPOTLIGHT</span></div>
+        <h3>Your AI teammates are ready.</h3>
+        <p>Check your idea, find teammates, or ask the rules — right from here.</p>
+        <div className="enrich-ai-actions">
+          <button onClick={() => navigate("IdeaCheck AI")}><Sparkles size={14} /> IDEACHECK</button>
+          <button onClick={() => navigate("HackMate AI")}><Users size={14} /> HACKMATE</button>
+          <button onClick={() => navigate("RuleBot AI")}><Bot size={14} /> RULEBOT</button>
+        </div>
+      </div>
+
+      <div className="student-panel-card enrich-card">
+        <div className="student-panel-title"><span>YOUR JOURNEY</span><button onClick={() => navigate("Certificates")}>CERTIFICATES ↗</button></div>
+        <div className="enrich-journey">
+          {journey.map((j) => (
+            <div className="enrich-journey-row" key={j.label}>
+              <span className="enrich-journey-icon">{j.icon}</span>
+              <div className="enrich-journey-bar"><i style={{ width: `${Math.round((j.n / maxJourney) * 100)}%` }} /></div>
+              <strong>{j.n}</strong>
+              <small>{j.label}</small>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -548,6 +628,41 @@ function DigitalCard() {
             <button onClick={() => window.print()}>PRINT / SAVE</button>
             {publicUrl && <button onClick={() => navigator.clipboard?.writeText(publicUrl)}>COPY PROFILE LINK</button>}
           </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* =========================================================
+   v6 — CERTIFICATES (launching soon placeholder)
+========================================================= */
+function CertificatesPage() {
+  return (
+    <section>
+      <PageHeading eyebrow="REWARDS / CERTIFICATES" title="CERTIFICATES." text="Your achievements, certified. The CampusCode certificate engine is on its way." />
+      <div className="cert-soon">
+        <div className="cert-mock">
+          <div className="cert-mock-inner">
+            <span className="cert-mock-brand">CAMPUSCODE</span>
+            <strong>Certificate of Achievement</strong>
+            <p>This is a preview of how your certificate will look.</p>
+            <div className="cert-mock-seal"><Award size={30} /></div>
+            <span className="cert-mock-id">CC-CERT-000000</span>
+          </div>
+          <div className="cert-soon-ribbon">LAUNCHING SOON</div>
+        </div>
+        <div className="cert-soon-info">
+          <span>COMING SOON / 01</span>
+          <h2>PROOF OF<br />YOUR WORK.</h2>
+          <p>Certificates are almost here. Every participation and win will generate a verifiable PDF certificate with a unique code anyone can check.</p>
+          <div className="cert-soon-list">
+            <div><CheckCircle2 size={15} /><span>Participation certificates for every hackathon</span></div>
+            <div><CheckCircle2 size={15} /><span>Winner certificates for Round 3 selections</span></div>
+            <div><CheckCircle2 size={15} /><span>Unique verification code on every certificate</span></div>
+            <div><CheckCircle2 size={15} /><span>Public verification page — shareable with recruiters</span></div>
+          </div>
+          <div className="cert-soon-note"><i /> You will be notified the moment certificates launch.</div>
         </div>
       </div>
     </section>
@@ -2918,6 +3033,7 @@ function StudentPanel() {
   const [milestone, setMilestone] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const showMilestone = (type, payload = {}) => { setMilestone({ type, ...payload }); window.clearTimeout(window.__campusCodeMilestoneTimer); window.__campusCodeMilestoneTimer = window.setTimeout(() => setMilestone(null), 4800); };
+  const { unread, toasts, clearBadge, dismissToast } = useLiveNotifications();
 
   const storedUser = useMemo(() => {
     try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
@@ -2942,6 +3058,7 @@ function StudentPanel() {
     ["Notifications", <Bell size={16} strokeWidth={1.8} />],
     ["Help & Support", <Bot size={16} strokeWidth={1.8} />],
     ["Digital Card", <IdCard size={16} strokeWidth={1.8} />],
+    ["Certificates", <Award size={16} strokeWidth={1.8} />],
     ["Profile", <UserCircle size={16} strokeWidth={1.8} />],
   ];
   const handleNav = (label) => { setActiveNav(label); setSelectedHackathon(null); setSidebarOpen(false); requestAnimationFrame(() => { const main = document.querySelector(".student-main"); if (main) main.scrollTo({ top: 0, behavior: "smooth" }); }); };
@@ -2966,11 +3083,13 @@ function StudentPanel() {
   if (activeNav === "Notifications") content = <NotificationsPage />;
   if (activeNav === "Help & Support") content = <HelpSupportPage />;
   if (activeNav === "Digital Card") content = <DigitalCard />;
+  if (activeNav === "Certificates") content = <CertificatesPage />;
   if (activeNav === "Profile") content = <ProfilePage />;
 
   return (
     <div className="student-panel">
       <StudentMilestoneOverlay milestone={milestone} onClose={() => { window.clearTimeout(window.__campusCodeMilestoneTimer); setMilestone(null); }} />
+      <NotificationToasts toasts={toasts} onDismiss={dismissToast} />
       <div className="student-bg-grid" />
       <div className="student-bg-orb one" /><div className="student-bg-orb two" />
       <div className="student-mobile-topbar"><button onClick={() => setSidebarOpen((x) => !x)} className="student-menu-button">☰</button><Brand mobile /><div className="student-mobile-avatar">{initials || "S"}</div></div>
@@ -3016,9 +3135,9 @@ function StudentPanel() {
       <main className="student-main"><header className="student-topbar">
           <div><span>CAMPUSCODE / STUDENT</span><strong>{activeNav.toUpperCase()}</strong></div>
           <div className="student-top-actions">
-            <button type="button" className="student-top-notification" onClick={() => handleNav("Notifications")} aria-label="Open notifications">
+            <button type="button" className="student-top-notification" onClick={() => { clearBadge(); handleNav("Notifications"); }} aria-label="Open notifications">
               <Bell size={16} strokeWidth={1.8} />
-              <i />
+              {unread > 0 ? <b className="notif-badge">{unread > 9 ? "9+" : unread}</b> : <i />}
             </button>
             <CampusCodeRefresh onRefresh={refreshStudentPage} />
             <div className="topbar-user"><CCMark small /><span>{displayName}</span></div>

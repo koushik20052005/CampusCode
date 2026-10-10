@@ -2639,7 +2639,11 @@ body,
    when scrolled into view. Tap toggles play/pause + sound.
 ========================================================= */
 .experience-inline .video-rings{display:none}
-.experience-film{position:relative;z-index:2;width:min(880px,92%);margin:26px auto 0;border-radius:20px;overflow:hidden;cursor:pointer;border:1px solid rgba(20,20,20,.1);box-shadow:0 30px 80px rgba(118,101,255,.18);background:#0b0b0b;transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s}
+/* v6: heading flows ABOVE the film — no more overlap */
+.experience-inline .video-center{position:relative;z-index:2;top:auto;left:auto;transform:none;text-align:center;max-width:980px;margin:104px auto 0;padding:0 6vw}
+.experience-inline{padding-bottom:110px}
+.experience-inline .video-center strong{font-size:clamp(44px,7vw,96px);letter-spacing:-.045em}
+.experience-film{position:relative;z-index:2;width:min(1120px,94%);margin:38px auto 0;border-radius:20px;overflow:hidden;cursor:pointer;border:1px solid rgba(20,20,20,.1);box-shadow:0 30px 80px rgba(118,101,255,.18);background:#0b0b0b;transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s}
 .experience-film:hover{transform:translateY(-4px) scale(1.01);box-shadow:0 40px 100px rgba(118,101,255,.28)}
 .experience-film video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
 .experience-play-badge{position:absolute;inset:0;margin:auto;width:84px;height:84px;border-radius:50%;background:rgba(10,10,10,.72);backdrop-filter:blur(6px);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;pointer-events:none;animation:filmPulse 2s ease-in-out infinite;border:1px solid rgba(255,255,255,.25)}

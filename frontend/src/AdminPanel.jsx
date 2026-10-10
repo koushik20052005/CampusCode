@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./AdminPanel.css";
 
 import {
@@ -528,7 +528,7 @@ function Dashboard({ onNavigate }) {
               label="Pending approvals"
               number={pendingCount}
               detail="Requires admin review"
-              tone="amber"
+              tone="green"
             />
 
             <StatCard
@@ -2529,39 +2529,104 @@ function ResultsPage() {
 
 function ActivityPage() {
   const [items, setItems] = useState([]);
+  const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const load = async () => {
-    setLoading(true); setError("");
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const load = async (silent) => {
+    if (!silent) setLoading(true);
+    setError("");
     try {
-      const result = await apiFetch("/monitoring/requests?limit=50");
-      setItems(unwrap(result, ["requests", "activity", "activities", "events", "logs", "data", "items"]));
+      const [reqResult, healthResult] = await Promise.all([
+        apiFetch("/monitoring/requests?limit=50"),
+        apiFetch("/monitoring/health").catch(() => null),
+      ]);
+      setItems(unwrap(reqResult, ["requests", "activity", "activities", "events", "logs", "data", "items"]));
+      if (healthResult) setHealth(healthResult);
     } catch (e) {
-      setError(e.message || "Unable to load system activity.");
+      if (!silent) setError(e.message || "Unable to load system activity.");
     } finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, []);
-  return <section>
-    <PageTitle eyebrow="SYSTEM / ACTIVITY" title={<>System <span>activity.</span></>} description="Operational events and platform activity from the existing administration API." />
-    <div className="admin-panel-card admin-activity-shell">
-      <div className="admin-card-head"><div><span className="admin-kicker">LIVE ACTIVITY</span><h3>Platform event stream</h3></div><button className="event-action neutral" onClick={load}><RefreshCw size={14}/> Refresh</button></div>
-      {loading ? <div className="admin-loading"><LoaderCircle className="spin" size={20}/> Loading activity...</div> : error ? <ErrorBox message={error}/> : items.length ? <div className="admin-activity-list">{items.map((item, i) => {
-        const timestamp = item.request_id ? item.created_at : (item.created_at || item.createdAt || item.timestamp);
-        const status = Number(item.status_code ?? item.status ?? 0);
-        const statusLabel = status >= 500 ? "SERVER ERROR" : status >= 400 ? "CLIENT ERROR" : status >= 200 ? "SUCCESS" : "REQUEST";
-        const requestLabel = item.endpoint
-          ? `${String(item.method || "REQUEST").toUpperCase()} ${item.endpoint}`
-          : value(item.title || item.action || item.event || item.type, "SYSTEM EVENT");
-        const description = item.endpoint
-          ? `${statusLabel} • ${item.response_time_ms != null ? `${item.response_time_ms} ms` : "response time unavailable"}${item.user_role ? ` • ${item.user_role}` : ""}`
-          : value(item.description || item.message || item.details, "Activity recorded by CampusCode.");
-        return <div className="admin-activity-row" key={item.request_id || item.id || i}>
-          <span className="admin-activity-icon"><Activity size={15}/></span>
-          <div><strong>{requestLabel}</strong><p>{description}</p></div>
-          <time>{formatDate(timestamp)} {formatTime(timestamp)}</time>
-        </div>;
-      })}</div> : <Empty title="NO SYSTEM ACTIVITY" text="The backend returned no request activity records." />}
+
+  useEffect(() => { load(false); }, []);
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const t = setInterval(() => load(true), 30000);
+    return () => clearInterval(t);
+  }, [autoRefresh]);
+
+  const total = items.length;
+  const errCount = items.filter((i) => Number(i.status_code ?? i.status ?? 0) >= 400).length;
+  const times = items.map((i) => Number(i.response_time_ms)).filter((n) => Number.isFinite(n));
+  const avgMs = times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : null;
+  const errRate = total ? ((errCount / total) * 100).toFixed(1) : "0.0";
+  const maxMs = Math.max(1, ...times);
+  const bars = items.slice(0, 36).reverse();
+  const dbOk = String(health?.database || "").toLowerCase() === "connected";
+  const healthy = !errCount || Number(errRate) < 5;
+
+  return <section className="mon-page">
+    <PageTitle eyebrow="SYSTEM / MONITORING" title={<>Mission <span>control.</span></>} description="Real-time observability for CampusCode — live request stream, latency and platform health." />
+
+    <div className="mon-banner">
+      <span className="mon-live"><i />LIVE</span>
+      <div className="mon-health">
+        <span><b>API</b> {health ? "ONLINE" : "—"}</span>
+        <span><b>DATABASE</b> {health ? (dbOk ? "CONNECTED" : String(health.database || "UNKNOWN").toUpperCase()) : "—"}</span>
+        <span><b>ERRORS</b> {healthy ? "NONE CRITICAL" : errCount + " FLAGGED"}</span>
+      </div>
+      <div className="mon-actions">
+        <button type="button" className={`mon-toggle ${autoRefresh ? "on" : ""}`} onClick={() => setAutoRefresh((v) => !v)} title="Auto-refresh every 30 seconds">
+          <i /> AUTO
+        </button>
+        <button type="button" className="event-action neutral" onClick={() => load(false)}><RefreshCw size={14} /> Refresh</button>
+      </div>
     </div>
+
+    {loading ? <div className="admin-loading"><LoaderCircle className="spin" size={20} /> Connecting to live telemetry...</div>
+    : error ? <ErrorBox message={error} />
+    : <>
+      <div className="mon-stats">
+        <div className="mon-stat"><span>REQUESTS TRACKED</span><strong>{total}</strong><em>last 50 events</em></div>
+        <div className="mon-stat"><span>AVG RESPONSE</span><strong>{avgMs != null ? `${avgMs}ms` : "—"}</strong><em>across tracked requests</em></div>
+        <div className="mon-stat"><span>ERROR RATE</span><strong className={healthy ? "" : "bad"}>{errRate}%</strong><em>{errCount} flagged</em></div>
+        <div className="mon-stat"><span>PLATFORM</span><strong className="ok">HEALTHY</strong><em>{dbOk ? "database connected" : "telemetry live"}</em></div>
+      </div>
+
+      <div className="admin-panel-card mon-chart-card">
+        <div className="admin-card-head"><div><span className="admin-kicker">LATENCY / LIVE</span><h3>Response time stream</h3></div><Activity size={18} /></div>
+        {bars.length ? <div className="mon-bars">
+          {bars.map((item, i) => {
+            const ms = Number(item.response_time_ms);
+            const bad = Number(item.status_code ?? item.status ?? 0) >= 400;
+            const h = Number.isFinite(ms) ? Math.max(6, Math.round((ms / maxMs) * 100)) : 6;
+            return <i key={item.request_id || item.id || i} style={{ height: `${h}%` }} className={bad ? "bad" : ""} title={Number.isFinite(ms) ? `${ms} ms` : "n/a"} />;
+          })}
+        </div> : <Empty title="NO TELEMETRY" text="No request records to chart yet." />}
+      </div>
+
+      <div className="admin-panel-card">
+        <div className="admin-card-head"><div><span className="admin-kicker">EVENT STREAM</span><h3>Live API requests</h3></div><span className="mon-count">{total} EVENTS</span></div>
+        {items.length ? <div className="admin-activity-list">{items.map((item, i) => {
+          const timestamp = item.request_id ? item.created_at : (item.created_at || item.createdAt || item.timestamp);
+          const status = Number(item.status_code ?? item.status ?? 0);
+          const bad = status >= 400;
+          const statusLabel = status >= 500 ? "SERVER ERROR" : status >= 400 ? "CLIENT ERROR" : status >= 200 ? "SUCCESS" : "REQUEST";
+          const requestLabel = item.endpoint
+            ? `${String(item.method || "REQUEST").toUpperCase()} ${item.endpoint}`
+            : value(item.title || item.action || item.event || item.type, "SYSTEM EVENT");
+          const description = item.endpoint
+            ? `${statusLabel} • ${item.response_time_ms != null ? `${item.response_time_ms} ms` : "response time unavailable"}${item.user_role ? ` • ${item.user_role}` : ""}`
+            : value(item.description || item.message || item.details, "Activity recorded by CampusCode.");
+          return <div className={`admin-activity-row ${bad ? "is-bad" : ""}`} key={item.request_id || item.id || i}>
+            <span className="admin-activity-icon"><Activity size={15} /></span>
+            <div><strong>{requestLabel}</strong><p>{description}</p></div>
+            <time>{formatDate(timestamp)} {formatTime(timestamp)}</time>
+          </div>;
+        })}</div> : <Empty title="NO SYSTEM ACTIVITY" text="The backend returned no request activity records." />}
+      </div>
+    </>}
   </section>;
 }
 
@@ -2851,6 +2916,7 @@ function SystemBlueprintPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const fsWrapRef = useRef(null);
 
   const load = async () => {
     setLoading(true);
@@ -2893,6 +2959,14 @@ function SystemBlueprintPage() {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
+    // v6: true browser fullscreen so the blueprint covers the whole screen
+    const el = fsWrapRef.current;
+    if (el && el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {});
+    } else if (el && el.webkitRequestFullscreen) {
+      el.webkitRequestFullscreen();
+    }
+
     const handleEscape = (event) => {
       if (event.key === "Escape") {
         setSelectedNode(null);
@@ -2901,11 +2975,25 @@ function SystemBlueprintPage() {
       }
     };
 
+    const handleFsChange = () => {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        setSelectedNode(null);
+        setNodeDetails(null);
+        setFocusMode(false);
+      }
+    };
+
     window.addEventListener("keydown", handleEscape);
+    document.addEventListener("fullscreenchange", handleFsChange);
+    document.addEventListener("webkitfullscreenchange", handleFsChange);
 
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("fullscreenchange", handleFsChange);
+      document.removeEventListener("webkitfullscreenchange", handleFsChange);
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      if (document.webkitFullscreenElement) document.webkitExitFullscreen();
     };
   }, [focusMode]);
 
@@ -2988,7 +3076,7 @@ function SystemBlueprintPage() {
 
   if (focusMode) {
     return (
-      <div className="admin-blueprint-fullscreen" role="dialog" aria-modal="true" aria-label="CampusCode full screen system blueprint">
+      <div ref={fsWrapRef} className="admin-blueprint-fullscreen" role="dialog" aria-modal="true" aria-label="CampusCode full screen system blueprint">
         <button
           type="button"
           className="admin-blueprint-fullscreen-back"
@@ -3035,7 +3123,7 @@ function SystemBlueprintPage() {
         <StatCard icon={Users} label="Users" number={statsObject?.total_users ?? statsObject?.users ?? "—"} detail="Platform users" />
         <StatCard icon={Trophy} label="Hackathons" number={statsObject?.total_hackathons ?? statsObject?.hackathons ?? "—"} detail="Registered events" tone="purple" />
         <StatCard icon={FileCheck2} label="Submissions" number={statsObject?.total_submissions ?? statsObject?.submissions ?? "—"} detail="Recorded submissions" tone="cyan" />
-        <StatCard icon={Server} label="System" number={healthStatus} detail={value(health?.database, "Database unknown")} tone="amber" />
+        <StatCard icon={Server} label="System" number={healthStatus} detail={value(health?.database, "Database unknown")} tone="green" />
       </div>
 
       <section className="admin-blueprint-card">
@@ -3187,7 +3275,7 @@ function VersionControlPage() {
     { id: "v3", title: "v3", label: "COMPETITION FLOW", status: "RELEASED", features: ["Round 1 problem statement workflow", "Round 2 project submission", "Round 3 final submission", "Round access and locking", "Organizer decisions and feedback", "Results publication", "Leaderboard", "Submission tracking"] },
     { id: "v4", title: "v4", label: "AI INTEGRATION", status: "RELEASED", features: ["IdeaCheck AI", "RuleBot AI", "HackMate AI", "AI-assisted Round 1 analysis", "AI-assisted Round 2 analysis", "Gemini integration", "AI feedback and recommendations", "Student intelligence workflows"] },
     { id: "v5", title: "v5", label: "PLATFORM HARDENING", status: "RELEASED", features: ["Admin management improvements", "Approvals and evaluations", "Result approval workflow", "Notification improvements", "Hackathon completion history", "Completed stamps and round states", "UI and responsive refinements", "Deployment and workflow hardening"] },
-    { id: "v6", title: "v6", label: "CURRENT PLATFORM", status: "CURRENT", features: ["Integrated CampusCode platform", "System Activity", "Interactive System Blueprint", "Version Control", "Advanced Admin controls", "Student Guide and FAQ", "Official communication surface", "Round 1 participant agreement popup", "Hackathon-scoped My Team selector", "HackMate teammate intelligence", "Readable Student and Admin UI", "Current production experience"] },
+    { id: "v6", title: "v6", label: "CURRENT PLATFORM", status: "CURRENT", features: ["Black + emerald green admin theme", "Charge Up logo loading animation", "Monitoring command center with live telemetry", "True-fullscreen interactive System Blueprint", "Rebuilt Experience film section", "Larger readable text across all panels", "Certificates — launching soon", "Real-time notifications with live bell", "Result approval workflow", "Production hardening and polish"] },
     { id: "v7", title: "v7", label: "UPCOMING", status: "UPCOMING", features: ["Advanced analytics", "Expanded platform intelligence", "Additional AI assistance", "System observability improvements", "Further UX refinement"] },
     { id: "v8", title: "v8", label: "FINAL RELEASE", status: "FINAL", features: ["Final product polish", "Production readiness", "Complete CampusCode ecosystem", "Long-term stability and maintainability"] },
   ];

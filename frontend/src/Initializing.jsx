@@ -65,128 +65,69 @@ function Initializing() {
   }, [navigate, role]);
 
   return (
-    <div className="initializing-screen">
+    <div className="init-screen">
+      <div className="init-grid" />
 
-      {/* BACKGROUND */}
-      <div className="initializing-grid" />
-
-      <div className="initializing-noise" />
-
-      {/* TOP BRAND */}
-      <header className="initializing-header">
-
-        <div className="initializing-brand">
-
-          <span className="initializing-logo" aria-label="CampusCode logo">
-            <i className="initializing-logo-bar initializing-logo-black" />
-            <i className="initializing-logo-bar initializing-logo-purple" />
-            <i className="initializing-logo-bar initializing-logo-lime" />
+      <header className="init-header">
+        <div className="init-brand">
+          <span className="init-logo" aria-label="CampusCode logo">
+            <i className="init-bar init-bar-white" />
+            <i className="init-bar init-bar-purple" />
+            <i className="init-bar init-bar-lime" />
           </span>
-
           <div>
             <strong>CAMPUSCODE</strong>
             <small>HACKATHON ARENA</small>
           </div>
-
         </div>
-
-        <div className="initializing-header-status">
-          <span />
+        <div className="init-secure">
+          <span className="init-secure-dot" />
           SECURE CONNECTION
         </div>
-
       </header>
 
-      {/* CENTER */}
-      <main className="initializing-main">
-
-        <div className="initializing-orbit">
-
-          <div className="orbit orbit-one" />
-          <div className="orbit orbit-two" />
-          <div className="orbit orbit-three" />
-
-          <div className="orbit-core">
-
-            <span className="core-line" />
-
-            <div className="core-logo">
-              CC
-            </div>
-
-            <span className="core-line" />
-
-          </div>
-
+      <main className="init-main">
+        {/* Charge Up logo loader */}
+        <div className="init-charge" aria-hidden="true">
+          <i className="init-charge-bar init-charge-white" />
+          <i className="init-charge-bar init-charge-purple" />
+          <i className="init-charge-bar init-charge-lime" />
         </div>
 
-        <div className="initializing-label">
-          CAMPUSCODE / SYSTEM BOOT
-        </div>
+        <div className="init-word">CAMPUSCODE</div>
 
-        <h1>
-          INITIALIZING
-          <span>WORKSPACE.</span>
-        </h1>
-
-        <p className="initializing-phase">
+        <p className="init-phase">
           {phase}
-          <span className="phase-dots">...</span>
+          <span className="init-dots" />
         </p>
 
-        {/* PROGRESS */}
-        <div className="initializing-progress">
-
-          <div className="progress-top">
+        <div className="init-progress">
+          <div className="init-progress-top">
             <span>SYSTEM INITIALIZATION</span>
-
-            <strong>
-              {String(progress).padStart(3, "0")}%
-            </strong>
+            <strong>{String(progress).padStart(3, "0")}%</strong>
           </div>
-
-          <div className="progress-track">
+          <div className="init-track">
             <div
-              className="progress-fill"
-              style={{
-                width: `${progress}%`,
-              }}
+              className="init-fill"
+              style={{ width: `${progress}%` }}
             />
           </div>
-
         </div>
 
-        {/* ROLE */}
-        <div className="initializing-role">
-
+        <div className="init-role">
           <span>ACCESS LEVEL</span>
-
-          <strong>
-            {role}
-          </strong>
-
+          <strong>{role}</strong>
         </div>
-
       </main>
 
-      {/* BOTTOM */}
-      <footer className="initializing-footer">
-
-        <span>
-          CAMPUSCODE © 2026
-        </span>
-
-        <span>
-          AUTH / INITIALIZATION
-        </span>
-
-        <span>
+      <footer className="init-footer">
+        <span>CAMPUSCODE © 2026</span>
+        <span>AUTH / INITIALIZATION</span>
+        <span className="init-ok">
           <i />
           ALL SYSTEMS OPERATIONAL
         </span>
-
       </footer>
-
     </div>
   );
 }
