@@ -264,9 +264,7 @@ const extractPdfText = async (
     const result =
       await parser.getText();
 
-    const text = normalizeText(
-      result?.text || ""
-    );
+    const text = (result?.text || "").replace(/\s+/g, " ").trim();
 
     if (!text) {
       throw new Error(
