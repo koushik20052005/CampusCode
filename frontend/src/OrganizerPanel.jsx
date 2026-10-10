@@ -333,6 +333,7 @@ function OrganizerPanel({
                   selectedId={selectedId}
                   setSelectedId={setSelectedId}
                   onRefresh={load}
+                  onGoLive={() => status(selected?.id, "LIVE")}
                 />
               )}
 
@@ -974,7 +975,7 @@ function Field({ label, required, full, children }) {
   );
 }
 
-function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh }) {
+function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, onGoLive }) {
   const [rounds, setRounds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState("");
@@ -1076,6 +1077,27 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh })
           </div>
 
           <div className="round-grid">
+            {hackathon && String(hackathon.status).toUpperCase() !== "LIVE" && (
+              <div className="round-blocker">
+                <span className="round-blocker-icon"><Zap size={16} /></span>
+                <div className="round-blocker-copy">
+                  <strong>Rounds are locked.</strong>
+                  <p>
+                    This hackathon is currently <b>{String(hackathon.status || "DRAFT").toUpperCase()}</b>.
+                    It must be <b>LIVE</b> before Round 1 can be activated
+                    {String(hackathon.publication_status || "").toUpperCase() !== "PUBLISHED" ? " (publish it first, then go live)" : ""}.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="live-btn"
+                  disabled={!!busy || !onGoLive}
+                  onClick={() => onGoLive && onGoLive()}
+                >
+                  <Zap size={14} /> GO LIVE NOW
+                </button>
+              </div>
+            )}
             {rounds.map((r) => {
               const n = Number(r.round_number);
               const st = String(r.status || "SCHEDULED").toUpperCase();
