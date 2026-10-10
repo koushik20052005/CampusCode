@@ -360,38 +360,31 @@ export async function analyzeHackathonRound1(
     const submissionsResult =
       await pool.query(
         `SELECT
-           s.id AS submission_id,
-           s.status AS submission_status,
+           r1.id AS submission_id,
+           r1.status AS submission_status,
 
-           p.id AS project_id,
-           p.title,
-           p.track,
-           p.problem_statement,
-           p.solution,
-           p.technologies,
-           p.github_url,
-           p.live_demo_url,
+           r1.id AS project_id,
+           t.name AS title,
+           'ROUND_1' AS track,
+           r1.problem_statement,
+           r1.problem_statement AS solution,
+           'Not specified in Round 1' AS technologies,
+           NULL AS github_url,
+           NULL AS live_demo_url,
 
            t.id AS team_id,
            t.name AS team_name,
-           t.hackathon_id
+           r1.hackathon_id
 
-         FROM submissions s
-
-         JOIN projects p
-           ON p.id = s.project_id
+         FROM round1_submissions r1
 
          JOIN teams t
-           ON t.id = p.team_id
+           ON t.id = r1.team_id
 
-         WHERE t.hackathon_id = $1
-           AND s.status IN (
-             'SUBMITTED',
-             'UNDER_REVIEW',
-             'REVIEWED'
-           )
+         WHERE r1.hackathon_id = $1
+           AND r1.status <> 'DRAFT'
 
-         ORDER BY s.created_at ASC`,
+         ORDER BY r1.created_at ASC`,
         [hackathonId]
       );
 
@@ -417,11 +410,49 @@ export async function analyzeHackathonRound1(
             submission
           );
 
-        const savedAnalysis =
-          await saveAIAnalysis(
-            submission.submission_id,
-            analysis
+        // v6.1: persist Round 1 AI results on round1_submissions itself
+        // (ai_analysis.submission_id is FK'd to submissions, not round1).
+        // Requires migration 006 columns: ai_feedback, ai_recommendation,
+        // ai_analyzed_at.
+        const overallScore =
+          analysis.overall_score ??
+          Math.round(
+            (
+              Number(analysis.novelty_score || 0) +
+              Number(analysis.relevance_score || 0) +
+              Number(analysis.innovation_score || 0) +
+              Number(analysis.technical_score || 0) +
+              Number(analysis.impact_score || 0)
+            ) / 5
           );
+
+        await pool.query(
+          `UPDATE round1_submissions
+           SET ai_score = $1,
+               ai_feedback = $2,
+               ai_recommendation = $3,
+               ai_analyzed_at = NOW(),
+               updated_at = NOW()
+           WHERE id = $4`,
+          [
+            overallScore,
+            analysis.feedback || null,
+            analysis.recommendation || "REVIEW",
+            submission.submission_id,
+          ]
+        );
+
+        const savedAnalysis = {
+          id: submission.submission_id,
+          novelty_score: analysis.novelty_score,
+          relevance_score: analysis.relevance_score,
+          innovation_score: analysis.innovation_score,
+          technical_score: analysis.technical_score,
+          impact_score: analysis.impact_score,
+          feedback: analysis.feedback,
+          model_name: analysis.model_name || "Gemini",
+          created_at: new Date().toISOString(),
+        };
 
         results.push({
           rank: 0,

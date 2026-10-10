@@ -124,6 +124,64 @@ function CCMark({ small = false }) {
   );
 }
 
+/* v6.1 — deterministic brand mark for hackathons: gradient tile
+   with initials, derived from the title so every hackathon gets
+   its own stable "logo". */
+const MARK_GRADIENTS = [
+  ["#a7f37a", "#4c7a12"],
+  ["#7c5cff", "#2e1a8f"],
+  ["#141414", "#4a4a4a"],
+  ["#9ed41f", "#1d6f5f"],
+  ["#b8e62e", "#7c5cff"],
+  ["#ffcf5c", "#e07b39"],
+];
+function initialsOf(text) {
+  const words = String(text || "?").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+function gradientFor(text) {
+  let h = 0;
+  for (const ch of String(text || "?")) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return MARK_GRADIENTS[h % MARK_GRADIENTS.length];
+}
+function HackathonMark({ title, size = 54 }) {
+  const [from, to] = gradientFor(title);
+  return (
+    <span
+      className="hack-mark"
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.max(13, Math.round(size * 0.34)),
+        background: `linear-gradient(135deg, ${from}, ${to})`,
+      }}
+    >
+      {initialsOf(title)}
+    </span>
+  );
+}
+/* v6.1 — member avatar: initials circle with stable gradient */
+function MemberAvatar({ name, size = 34 }) {
+  const [from, to] = gradientFor(name);
+  return (
+    <span
+      className="member-avatar"
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.max(10, Math.round(size * 0.32)),
+        background: `linear-gradient(135deg, ${from}, ${to})`,
+      }}
+    >
+      {initialsOf(name)}
+    </span>
+  );
+}
+
 function Brand({ mobile = false }) {
   return (
     <div className={mobile ? "student-mobile-brand" : "student-brand"}>
@@ -232,7 +290,7 @@ function OverviewPage({ navigate, studentName }) {
             <button onClick={() => navigate("Hackathons")} className="student-primary-btn">OPEN HACKATHON <b>↗</b></button>
           )}
         </div>
-        <div className="student-hero-mark"><CCMark /></div>
+        <div className="student-hero-mark">{current ? <HackathonMark title={value(current.title, current.name, current.hackathon_name)} size={92} /> : <CCMark />}</div>
       </div>
 
       <div className="student-stats-grid">
@@ -378,7 +436,7 @@ function DashboardDiscover({ navigate }) {
   };
   return <div className="student-dashboard-discover">
     <div className="student-panel-title"><span>03 / DISCOVER HACKATHONS</span><button onClick={() => navigate("Hackathons")}>VIEW ALL ↗</button></div>
-    {loading ? <div className="student-discover-loading">Loading available hackathons...</div> : items.length ? <div className="student-discover-grid">{items.map((item) => { const id=String(item.id||""); const isJoined=joined.has(id); return <div className="student-discover-card" key={id}><div><span>{value(item.track, item.category, "HACKATHON")}</span><strong>{value(item.title, item.name, item.hackathon_name)}</strong><small>{formatDate(item.start_date || item.startDate)}</small></div><button disabled={isJoined || joining===id} onClick={() => join(item)}>{isJoined ? "JOINED" : joining===id ? "JOINING" : "JOIN NOW ↗"}</button></div>; })}</div> : <EmptyState title="NO OPEN HACKATHONS" text="Explore the Hackathons section when organizers publish new events." />}
+    {loading ? <div className="student-discover-loading">Loading available hackathons...</div> : items.length ? <div className="student-discover-grid">{items.map((item) => { const id=String(item.id||""); const isJoined=joined.has(id); return <div className="student-discover-card" key={id}><div className="student-discover-head"><HackathonMark title={value(item.title, item.name, item.hackathon_name)} size={40} /><div><span>{value(item.track, item.category, "HACKATHON")}</span><strong>{value(item.title, item.name, item.hackathon_name)}</strong><small>{formatDate(item.start_date || item.startDate)}</small></div></div><button disabled={isJoined || joining===id} onClick={() => join(item)}>{isJoined ? "JOINED" : joining===id ? "JOINING" : "JOIN NOW ↗"}</button></div>; })}</div> : <EmptyState title="NO OPEN HACKATHONS" text="Explore the Hackathons section when organizers publish new events." />}
   </div>;
 }
 
@@ -440,7 +498,10 @@ function HackathonsPage({ onOpen, onJoined }) {
             return (
               <article className="hackathon-card" key={item.id}>
                 <div className="hackathon-card-top"><span>{value(item.code, item.slug, item.id)}</span><b>{value(item.status)}</b></div>
-                <h2>{value(item.title, item.name, item.hackathon_name)}</h2>
+                <div className="hackathon-card-brand">
+                  <HackathonMark title={value(item.title, item.name, item.hackathon_name)} />
+                  <h2>{value(item.title, item.name, item.hackathon_name)}</h2>
+                </div>
                 <p>{value(item.description, item.short_description)}</p>
                 <div className="hackathon-data">
                   <span><small>MODE</small>{value(item.mode, item.event_mode)}</span>
@@ -499,7 +560,10 @@ function RegistrationsPage({ onOpen }) {
           {items.map((item, index) => (
             <article className="registration-card" key={item.participant_id || item.registration_id || item.hackathon_id || index}>
               <div><span>REGISTRATION</span><b>{value(item.participant_id, item.registration_id, "CONFIRMED")}</b></div>
-              <h2>{value(item.hackathon?.title, item.title, item.name, item.hackathon_name)}</h2>
+              <div className="hackathon-card-brand">
+                <HackathonMark title={value(item.hackathon?.title, item.title, item.name, item.hackathon_name)} />
+                <h2>{value(item.hackathon?.title, item.title, item.name, item.hackathon_name)}</h2>
+              </div>
               <p>STATUS: <strong>{value(item.registration_status, item.status, "REGISTERED")}</strong></p>
               <p>TEAM: <strong>{value(item.team?.name, item.team_name, "NOT ASSIGNED")}</strong></p>
               <button onClick={() => onOpen(item)} className="student-primary-btn">OPEN JOURNEY ↗</button>
@@ -1816,7 +1880,7 @@ function StudentMyTeamPage() {
                 const memberIsLeader = memberId === leaderId || String(member.role || "").toUpperCase() === "LEADER";
                 return (
                   <div className="student-member-row" key={member.id || member.user_id || member.name || index}>
-                    <div className="student-member-avatar">{String(member.name || "U").charAt(0).toUpperCase()}</div>
+                    <MemberAvatar name={value(member.name, "User")} size={38} />
                     <div>
                       <strong>{value(member.name, "User")}</strong>
                       <span>{memberIsLeader ? "LEADER" : "MEMBER"}</span>

@@ -61,6 +61,9 @@ import organizerRound2Routes from "./routes/organizerRound2.routes.js";
 import organizerRound3Routes from "./routes/organizerRound3.routes.js";
 import finalRoutes from "./routes/final.routes.js";
 
+/* v6.1 — automatic DB migrations on boot */
+import { runMigrations } from "./config/migrate.js";
+
 /* =========================================================
    STUDENT ROUTES
 ========================================================= */
@@ -685,6 +688,16 @@ app.listen(
   () => {
     console.log(
       `CampusCode API running on port ${PORT}`
+    );
+
+    // v6.1 — apply pending DB migrations automatically.
+    // Non-blocking: boot continues even if this fails;
+    // check Render logs for [migrate] lines.
+    runMigrations().catch((err) =>
+      console.error(
+        "[migrate] FAILED:",
+        err.message
+      )
     );
 
     console.log(
