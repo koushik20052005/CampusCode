@@ -182,6 +182,69 @@ function MemberAvatar({ name, size = 34 }) {
   );
 }
 
+/* v6.3 — Snapchat-style character avatar (Style A).
+   Deterministic from the name: skin, hair, background are stable
+   per student, no uploads needed. */
+const AVATAR_SKINS = ["#ffd9b3", "#f1c27d", "#e0ac69", "#c68642", "#8d5524"];
+const AVATAR_HAIRS = ["#1c1c1c", "#4a3221", "#8a5a2b", "#d9a441", "#9a9a9a", "#7c5cff"];
+const AVATAR_BGS = ["#e8f5d6", "#e3e0ff", "#ffe8d6", "#d6f0ff", "#f3e8ff", "#dff5e1"];
+function avatarHash(str) {
+  let h = 0;
+  for (const ch of String(str || "?")) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h;
+}
+function StudentAvatar({ name, size = 40 }) {
+  const h = avatarHash(name);
+  const skin = AVATAR_SKINS[h % AVATAR_SKINS.length];
+  const hair = AVATAR_HAIRS[(h >> 3) % AVATAR_HAIRS.length];
+  const bg = AVATAR_BGS[(h >> 6) % AVATAR_BGS.length];
+  const hairStyle = h % 3;
+  const smile = h % 2 === 0;
+  const gid = `av${h % 9973}`;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      className="student-avatar"
+      aria-hidden="true"
+    >
+      <circle cx="50" cy="50" r="50" fill={bg} />
+      <circle cx="50" cy="46" r="26" fill={skin} />
+      {hairStyle === 0 && (
+        <path d="M20 38 Q20 14 50 14 Q80 14 80 38 Q72 26 60 28 Q52 18 40 26 Q28 24 20 38Z" fill={hair} />
+      )}
+      {hairStyle === 1 && (
+        <g fill={hair}>
+          <path d="M20 40 Q18 12 50 12 Q82 12 80 40 L74 34 Q70 22 50 22 Q30 22 26 34Z" />
+          <rect x="20" y="30" width="8" height="18" rx="4" />
+          <rect x="72" y="30" width="8" height="18" rx="4" />
+        </g>
+      )}
+      {hairStyle === 2 && (
+        <g fill={hair}>
+          <path d="M22 36 Q24 10 50 10 Q76 10 78 36 Q60 24 50 30 Q40 24 22 36Z" />
+          <circle cx="50" cy="12" r="7" />
+        </g>
+      )}
+      <circle cx="41" cy="46" r="3.4" fill="#1c1c1c" />
+      <circle cx="59" cy="46" r="3.4" fill="#1c1c1c" />
+      <circle cx="42" cy="45" r="1.1" fill="#fff" />
+      <circle cx="60" cy="45" r="1.1" fill="#fff" />
+      <path
+        d={smile ? "M44 56 Q50 61 56 56" : "M44 56 Q50 58 56 56"}
+        stroke="#1c1c1c"
+        strokeWidth="2.4"
+        fill="none"
+        strokeLinecap="round"
+      />
+      <ellipse cx="35" cy="53" rx="4" ry="2.6" fill="#ff9d9d" opacity=".55" />
+      <ellipse cx="65" cy="53" rx="4" ry="2.6" fill="#ff9d9d" opacity=".55" />
+      <path d="M34 78 Q50 70 66 78 L64 100 L36 100Z" fill="#7c5cff" />
+    </svg>
+  );
+}
+
 function Brand({ mobile = false }) {
   return (
     <div className={mobile ? "student-mobile-brand" : "student-brand"}>
@@ -290,7 +353,10 @@ function OverviewPage({ navigate, studentName }) {
             <button onClick={() => navigate("Hackathons")} className="student-primary-btn">OPEN HACKATHON <b>↗</b></button>
           )}
         </div>
-        <div className="student-hero-mark">{current ? <HackathonMark title={value(current.title, current.name, current.hackathon_name)} size={92} /> : <CCMark />}</div>
+        <div className="student-hero-avatars">
+          <StudentAvatar name={String(dashboardUser?.name || studentName || "STUDENT")} size={88} />
+          {current && <HackathonMark title={value(current.title, current.name, current.hackathon_name)} size={64} />}
+        </div>
       </div>
 
       <div className="student-stats-grid">
@@ -669,7 +735,7 @@ function DigitalCard() {
         <div className="digital-id-card">
           <div className="digital-id-top"><Brand /><span>VERIFIED</span></div>
           <div className="digital-id-main">
-            <div className="digital-avatar">{String(value(profile.name, "S")).charAt(0).toUpperCase()}</div>
+            <StudentAvatar name={value(profile.name, "Student")} size={76} />
             <div><span>STUDENT</span><h2>{value(profile.name)}</h2><p>{value(profile.email)}</p></div>
           </div>
           <div className="digital-id-data">
@@ -1880,7 +1946,7 @@ function StudentMyTeamPage() {
                 const memberIsLeader = memberId === leaderId || String(member.role || "").toUpperCase() === "LEADER";
                 return (
                   <div className="student-member-row" key={member.id || member.user_id || member.name || index}>
-                    <MemberAvatar name={value(member.name, "User")} size={38} />
+                    <StudentAvatar name={value(member.name, "User")} size={40} />
                     <div>
                       <strong>{value(member.name, "User")}</strong>
                       <span>{memberIsLeader ? "LEADER" : "MEMBER"}</span>
@@ -3204,7 +3270,7 @@ function StudentPanel() {
               {unread > 0 ? <b className="notif-badge">{unread > 9 ? "9+" : unread}</b> : <i />}
             </button>
             <CampusCodeRefresh onRefresh={refreshStudentPage} />
-            <div className="topbar-user"><CCMark small /><span>{displayName}</span></div>
+            <div className="topbar-user"><StudentAvatar name={displayName} size={34} /><span>{displayName}</span></div>
           </div>
         </header><div className="student-content" key={refreshKey}><div className="student-view" key={activeNav}>{content}</div></div></main>
     </div>

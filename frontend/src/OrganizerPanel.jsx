@@ -1463,13 +1463,21 @@ function OrganizerSubmissions({
 
   const openSubmission = (submission) => {
     setError("");
+    setReviewBusy("");
     setSelectedSubmission(submission);
     setReviewScore(
       submission?.score !== null && submission?.score !== undefined
         ? String(submission.score)
         : ""
     );
-    setReviewFeedback(submission?.organizer_feedback || "");
+    // v6.3: feedback lives at different paths per round —
+    // R1: decision.feedback | R2: organizer_decision.feedback | R3: organizer_feedback
+    setReviewFeedback(
+      submission?.organizer_feedback ||
+        submission?.decision?.feedback ||
+        submission?.organizer_decision?.feedback ||
+        ""
+    );
   };
 
   const closeSubmission = () => {
@@ -1642,6 +1650,21 @@ function OrganizerSubmissions({
             <span>AI: <b>{s.ai_analyzed_at ? "Analyzed" : "Pending"}</b></span>
             <span>Submitted: {dateText(s.submitted_at || s.created_at)}</span>
           </div>
+          {(s.ai?.novelty_score != null || s.ai?.impact_score != null) && (
+            <div className="organizer-ai-metrics organizer-ai-metrics-compact">
+              <div><b>{s.ai?.novelty_score ?? "—"}</b><span>Novelty</span></div>
+              <div><b>{s.ai?.relevance_score ?? "—"}</b><span>Relevance</span></div>
+              <div><b>{s.ai?.innovation_score ?? "—"}</b><span>Innovation</span></div>
+              <div><b>{s.ai?.technical_score ?? "—"}</b><span>Technical</span></div>
+              <div><b>{s.ai?.impact_score ?? "—"}</b><span>Impact</span></div>
+            </div>
+          )}
+          {(s.decision?.feedback || s.organizer_feedback) && (
+            <div className="organizer-card-feedback">
+              <span>ORGANIZER FEEDBACK</span>
+              <p>{s.decision?.feedback || s.organizer_feedback}</p>
+            </div>
+          )}
           <div className="submission-actions organizer-submission-actions">
             <span className="submission-open-hint">Open submission ↗</span>
             <button
@@ -1697,11 +1720,19 @@ function OrganizerSubmissions({
             <span>Submitted: {dateText(s.submitted_at || s.created_at)}</span>
           </div>
           {s.ai_analysis && (
-            <div className="organizer-ai-metrics">
+            <div className="organizer-ai-metrics organizer-ai-metrics-compact">
               <div><b>{s.ai_analysis.overall_score ?? "—"}</b><span>Overall</span></div>
               <div><b>{s.ai_analysis.novelty_score ?? "—"}</b><span>Novelty</span></div>
+              <div><b>{s.ai_analysis.relevance_score ?? "—"}</b><span>Relevance</span></div>
+              <div><b>{s.ai_analysis.innovation_score ?? "—"}</b><span>Innovation</span></div>
               <div><b>{s.ai_analysis.technical_score ?? "—"}</b><span>Technical</span></div>
               <div><b>{s.ai_analysis.impact_score ?? "—"}</b><span>Impact</span></div>
+            </div>
+          )}
+          {(s.organizer_decision?.feedback || s.organizer_feedback) && (
+            <div className="organizer-card-feedback">
+              <span>ORGANIZER FEEDBACK</span>
+              <p>{s.organizer_decision?.feedback || s.organizer_feedback}</p>
             </div>
           )}
           <div className="submission-actions organizer-submission-actions">
@@ -1756,8 +1787,15 @@ function OrganizerSubmissions({
             <span>GitHub: <b>{s.github_url ? "Provided" : "Missing"}</b></span>
             <span>Demo: <b>{s.demo_url ? "Provided" : "Not provided"}</b></span>
             <span>Score: <b>{s.score ?? "Not scored"}</b></span>
+            <span>Decision: <b>{s.decision || "Pending"}</b></span>
             <span>Submitted: {dateText(s.submitted_at || s.created_at)}</span>
           </div>
+          {s.organizer_feedback && (
+            <div className="organizer-card-feedback">
+              <span>ORGANIZER FEEDBACK</span>
+              <p>{s.organizer_feedback}</p>
+            </div>
+          )}
           <div className="submission-actions organizer-submission-actions">
             <span className="submission-open-hint">Manual review ↗</span>
           </div>
@@ -1836,6 +1874,48 @@ function OrganizerSubmissions({
   );
 }
 
+/* v6.4 — never let one bad submission black-screen the organizer panel */
+const safeText = (v, fallback = "—") =>
+  typeof v === "string" ? v : v === null || v === undefined ? fallback : String(v);
+
+class OrganizerModalErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { crashed: false };
+  }
+  static getDerivedStateFromError() {
+    return { crashed: true };
+  }
+  render() {
+    if (this.state.crashed) {
+      return (
+        <div
+          className="organizer-review-modal-backdrop"
+          onMouseDown={this.props.onClose}
+        >
+          <div
+            className="organizer-review-modal organizer-submission-modal"
+            onMouseDown={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            style={{ padding: 32 }}
+          >
+            <h2 style={{ margin: "0 0 12px" }}>Couldn't open this submission</h2>
+            <p style={{ opacity: 0.7, margin: "0 0 20px" }}>
+              The submission data couldn't be displayed. The rest of the panel
+              is unaffected — you can close this and continue.
+            </p>
+            <button className="outline-btn" onClick={this.props.onClose}>
+              Close
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function OrganizerSubmissionModal({
   round,
   submission,
@@ -1861,18 +1941,20 @@ function OrganizerSubmissionModal({
   const aiBusy =
     busy === `ai-${round}-${id}`;
 
-  const decision =
+  const decision = safeText(
     submission?.decision?.decision ||
-    submission?.decision ||
-    submission?.status ||
-    "PENDING";
+      submission?.decision ||
+      submission?.status ||
+      "PENDING",
+    "PENDING"
+  );
 
   const ai =
     submission?.ai_analysis ||
     submission?.ai ||
     {};
 
-  const title =
+  const title = safeText(
     round === 1
       ? submission?.team_name ||
         submission?.team?.name ||
@@ -1883,7 +1965,9 @@ function OrganizerSubmissionModal({
           submission?.team_name ||
           "Project submission"
         : submission?.team_name ||
-          `Team ${submission?.team_id || "—"}`;
+          `Team ${submission?.team_id || "—"}`,
+    "Submission"
+  );
 
   const aiScore =
     round === 1
@@ -2095,8 +2179,8 @@ function OrganizerSubmissionModal({
               </div>
             </div>
 
-            {/* R2 METRICS */}
-            {round === 2 && (
+            {/* R1 + R2 METRICS */}
+            {(round === 1 || round === 2) && (
               <div className="organizer-ai-metrics">
                 <div>
                   <span>Novelty</span>
@@ -2349,14 +2433,23 @@ function OrganizerSubmissionModal({
         </div>
 
         {/* EXISTING ORGANIZER FEEDBACK */}
-        {submission?.organizer_feedback && (
+        {(submission?.organizer_feedback ||
+          submission?.decision?.feedback ||
+          submission?.organizer_decision?.feedback) && (
           <div className="organizer-existing-feedback">
             <span>
               EXISTING ORGANIZER FEEDBACK
             </span>
 
             <p>
-              {submission.organizer_feedback}
+              {safeText(
+                submission.organizer_feedback ||
+                  (typeof submission.decision === "object"
+                    ? submission.decision?.feedback
+                    : null) ||
+                  submission.organizer_decision?.feedback,
+                ""
+              )}
             </p>
           </div>
         )}
@@ -2501,7 +2594,12 @@ function OrganizerSubmissionModal({
     </div>
   );
 
-  return createPortal(modal, document.body);
+  return createPortal(
+    <OrganizerModalErrorBoundary onClose={onClose}>
+      {modal}
+    </OrganizerModalErrorBoundary>,
+    document.body
+  );
 }
 function RoundTwo({ title, description, hackathon, hackathons, selectedId, setSelectedId, reviewMode }) {
   const [items, setItems] = useState([]);

@@ -4814,10 +4814,11 @@ html, body, #root {
 @media(max-width:620px){.student-agreement-backdrop{padding:12px}.student-agreement-modal{width:100%;max-height:calc(100dvh - 24px);padding:24px 18px;border-radius:18px}.student-agreement-points>div{grid-template-columns:34px 1fr}.student-agreement-actions{flex-direction:column}.student-agreement-actions button{width:100%}}
 
 /* ============ ROUNDS TABS (single-page R1/R2/R3) ============ */
-.rounds-tabs{display:flex;gap:8px;margin:26px 0 30px;padding:6px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:#0b0b0b;width:fit-content;max-width:100%;overflow-x:auto}
-.rounds-tab{display:flex;align-items:center;gap:12px;padding:12px 20px;border:0;border-radius:9px;background:transparent;color:#6f6f69;cursor:pointer;position:relative;transition:color .25s,background .25s,transform .25s;font-family:Inter,system-ui,sans-serif;white-space:nowrap}
-.rounds-tab:hover{color:#e8e8e2;background:rgba(255,255,255,.04)}
-.rounds-tab.active{color:#0a0a0a;background:#a7f37a;box-shadow:0 8px 24px rgba(167,243,122,.22)}
+/* v6.4 — rounds tabs restyled for the light student theme (was dark) */
+.rounds-tabs{display:flex;gap:8px;margin:26px 0 30px;padding:6px;border:1px solid #e3e3da;border-radius:16px;background:#ffffff;box-shadow:0 10px 30px rgba(20,20,15,.06);width:fit-content;max-width:100%;overflow-x:auto}
+.rounds-tab{display:flex;align-items:center;gap:12px;padding:12px 22px;border:1px solid transparent;border-radius:11px;background:transparent;color:#8a8a80;cursor:pointer;position:relative;transition:color .25s,background .25s,border-color .25s,transform .25s,box-shadow .25s;font-family:Inter,system-ui,sans-serif;white-space:nowrap}
+.rounds-tab:hover{color:#3a3a33;background:#f6f6f1;border-color:#e7e7de}
+.rounds-tab.active{color:#101010;background:linear-gradient(135deg,#c9f79b,#a7f37a);border-color:#a7f37a;box-shadow:0 10px 26px rgba(167,243,122,.35)}
 .rounds-tab-num{font:700 12px 'DM Mono',monospace;opacity:.65}
 .rounds-tab-text{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 .rounds-tab-text strong{font-size:13px;font-weight:800;letter-spacing:.08em}
@@ -5054,4 +5055,37 @@ html, body, #root {
 }
 @media (prefers-reduced-motion: reduce) {
   .student-hero-mark .hack-mark { animation: none; }
+}
+
+/* =========================================================
+   v6.3 — Snapchat-style student avatars
+========================================================= */
+.student-avatar {
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 8px 22px rgba(0,0,0,.14), 0 0 0 3px #fff, 0 0 0 4px #dfe5cd;
+}
+.topbar-user .student-avatar {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px #dfe5cd;
+}
+.student-hero-avatars {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.student-hero-avatars .student-avatar {
+  animation: heroAvatarFloat 5s ease-in-out infinite;
+}
+@keyframes heroAvatarFloat {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-8px) rotate(2deg); }
+}
+.student-member-row .student-avatar {
+  box-shadow: 0 4px 12px rgba(0,0,0,.12), 0 0 0 2px #fff;
+}
+.digital-id-main .student-avatar {
+  box-shadow: 0 10px 26px rgba(0,0,0,.18), 0 0 0 3px #fff, 0 0 0 4px #a7f37a;
+}
+@media (prefers-reduced-motion: reduce) {
+  .student-hero-avatars .student-avatar { animation: none; }
 }

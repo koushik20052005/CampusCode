@@ -432,6 +432,11 @@ export async function analyzeHackathonRound1(
                ai_feedback = $2,
                ai_recommendation = $3,
                ai_analyzed_at = NOW(),
+               novelty_score = $5,
+               relevance_score = $6,
+               innovation_score = $7,
+               technical_score = $8,
+               impact_score = $9,
                updated_at = NOW()
            WHERE id = $4`,
           [
@@ -439,6 +444,11 @@ export async function analyzeHackathonRound1(
             analysis.feedback || null,
             analysis.recommendation || "REVIEW",
             submission.submission_id,
+            analysis.novelty_score ?? null,
+            analysis.relevance_score ?? null,
+            analysis.innovation_score ?? null,
+            analysis.technical_score ?? null,
+            analysis.impact_score ?? null,
           ]
         );
 

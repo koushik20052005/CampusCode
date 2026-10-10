@@ -3105,3 +3105,74 @@ body,
 .organizer-page .round-blocker-copy strong { color: #141414; }
 .organizer-page .round-blocker-copy p { color: #70706a; }
 .organizer-page .round-blocker-copy p b { color: #5e731d; }
+
+/* =========================================================
+   v6.3 — compact AI metrics strip + organizer feedback in cards
+========================================================= */
+.organizer-ai-metrics-compact {
+  grid-template-columns: repeat(6, minmax(0,1fr)) !important;
+  gap: 6px !important;
+  margin-top: 10px !important;
+}
+.organizer-ai-metrics-compact > div {
+  padding: 8px 6px !important;
+  text-align: center !important;
+}
+.organizer-ai-metrics-compact b {
+  font-size: 14px !important;
+}
+.organizer-ai-metrics-compact span {
+  font-size: 8.5px !important;
+}
+.organizer-card-feedback {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--org-neon, #a7f37a);
+  background: rgba(167,243,122,.05);
+  border-radius: 0 8px 8px 0;
+}
+.organizer-card-feedback span {
+  display: block;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  color: var(--org-neon, #a7f37a);
+  margin-bottom: 4px;
+}
+.organizer-card-feedback p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(255,255,255,.75);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+@media (max-width: 640px) {
+  .organizer-ai-metrics-compact {
+    grid-template-columns: repeat(3, minmax(0,1fr)) !important;
+  }
+}
+
+/* light theme overrides */
+.organizer-page .organizer-ai-metrics-compact > div {
+  background: #f4f6ec !important;
+  border-color: #dfe5cd !important;
+}
+.organizer-page .organizer-ai-metrics-compact b {
+  color: #4c6b0e !important;
+}
+.organizer-page .organizer-ai-metrics-compact span {
+  color: #8a8a82 !important;
+}
+.organizer-page .organizer-card-feedback {
+  background: #f4f6ec;
+  border-left-color: #7a9a1f;
+}
+.organizer-page .organizer-card-feedback span {
+  color: #5e731d;
+}
+.organizer-page .organizer-card-feedback p {
+  color: #444;
+}

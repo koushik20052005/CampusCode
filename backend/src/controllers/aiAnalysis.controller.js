@@ -9,7 +9,10 @@
 ========================================================= */
 
 import pool from "../config/db.js";
-import { getTeamJobStatus } from "../services/aiAnalysis.worker.js";
+import {
+  getTeamJobStatus,
+  getWorkerHealth,
+} from "../services/aiAnalysis.worker.js";
 
 export async function getAnalysisStatus(req, res) {
   try {
@@ -38,7 +41,11 @@ export async function getAnalysisStatus(req, res) {
         `,
         [hackathonId]
       );
-      return res.json({ success: true, jobs: result.rows });
+      return res.json({
+        success: true,
+        jobs: result.rows,
+        worker: getWorkerHealth(),
+      });
     }
 
     // Students see only their own team's jobs

@@ -68,6 +68,11 @@ export async function enqueueAnalysisJob({
     [hackathonId, teamId, round, submissionId]
   );
 
+  console.log(
+    `🤖 AI worker: enqueued R${round} job ${result.rows[0]?.id} (team ${teamId})`
+  );
+  return result.rows[0];
+
   return result.rows[0];
 }
 
@@ -247,6 +252,11 @@ async function analyzeRound1(client, job) {
         ai_feedback = $2,
         ai_recommendation = $3,
         ai_analyzed_at = NOW(),
+        novelty_score = $5,
+        relevance_score = $6,
+        innovation_score = $7,
+        technical_score = $8,
+        impact_score = $9,
         updated_at = NOW()
     WHERE id = $4
     `,
@@ -255,6 +265,11 @@ async function analyzeRound1(client, job) {
       analysis.feedback || null,
       analysis.recommendation || "REVIEW",
       s.id,
+      analysis.novelty_score ?? null,
+      analysis.relevance_score ?? null,
+      analysis.innovation_score ?? null,
+      analysis.technical_score ?? null,
+      analysis.impact_score ?? null,
     ]
   );
 
@@ -418,17 +433,51 @@ async function processJob(job) {
 let workerTimer = null;
 let workerRunning = false;
 
+/* v6.4 — worker health for diagnostics */
+const workerHealth = {
+  started: false,
+  startedAt: null,
+  lastTickAt: null,
+  lastTickOk: null,
+  lastJobAt: null,
+  lastError: null,
+  processedCount: 0,
+};
+
+export function getWorkerHealth() {
+  return { ...workerHealth, pollIntervalMs: POLL_INTERVAL_MS };
+}
+
 export function startAiAnalysisWorker() {
   if (workerTimer) return; // already running
+
+  // v6.4 — loud boot check: the queue table must exist
+  pool
+    .query("SELECT 1 FROM ai_analysis_jobs LIMIT 1")
+    .then(() => console.log("🤖 AI worker: ai_analysis_jobs table OK"))
+    .catch((e) =>
+      console.error(
+        "🤖 AI worker: ai_analysis_jobs table MISSING — auto-analysis will fail silently! Run migrations. Error:",
+        e.message
+      )
+    );
 
   recoverStaleJobs();
 
   const tick = async () => {
     if (workerRunning) return; // one job at a time
     workerRunning = true;
+    workerHealth.lastTickAt = new Date().toISOString();
     try {
-      await processJob();
+      const didWork = await processJob();
+      workerHealth.lastTickOk = true;
+      if (didWork) {
+        workerHealth.lastJobAt = new Date().toISOString();
+        workerHealth.processedCount += 1;
+      }
     } catch (error) {
+      workerHealth.lastTickOk = false;
+      workerHealth.lastError = error?.message || String(error);
       console.error("🤖 AI worker tick failed:", error?.message || error);
     } finally {
       workerRunning = false;
@@ -437,6 +486,8 @@ export function startAiAnalysisWorker() {
 
   workerTimer = setInterval(tick, POLL_INTERVAL_MS);
   if (typeof workerTimer.unref === "function") workerTimer.unref();
+  workerHealth.started = true;
+  workerHealth.startedAt = new Date().toISOString();
   console.log(
     `🤖 AI analysis worker started (poll every ${POLL_INTERVAL_MS}ms)`
   );

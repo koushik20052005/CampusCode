@@ -186,6 +186,11 @@ export async function getRound1Submissions(req, res) {
         r1.ai_feedback,
         r1.ai_recommendation,
         r1.ai_analyzed_at,
+        r1.novelty_score,
+        r1.relevance_score,
+        r1.innovation_score,
+        r1.technical_score,
+        r1.impact_score,
 
         r1.submitted_at,
         r1.created_at,
@@ -298,6 +303,12 @@ export async function getRound1Submissions(req, res) {
           recommendation: submission.ai_recommendation,
 
           analyzed_at: submission.ai_analyzed_at,
+
+          novelty_score: submission.novelty_score !== null ? Number(submission.novelty_score) : null,
+          relevance_score: submission.relevance_score !== null ? Number(submission.relevance_score) : null,
+          innovation_score: submission.innovation_score !== null ? Number(submission.innovation_score) : null,
+          technical_score: submission.technical_score !== null ? Number(submission.technical_score) : null,
+          impact_score: submission.impact_score !== null ? Number(submission.impact_score) : null,
         },
 
         submission: {
@@ -413,6 +424,11 @@ export async function getRound1Submission(req, res) {
         r1.ai_feedback,
         r1.ai_recommendation,
         r1.ai_analyzed_at,
+        r1.novelty_score,
+        r1.relevance_score,
+        r1.innovation_score,
+        r1.technical_score,
+        r1.impact_score,
 
         r1.submitted_at,
 
@@ -559,6 +575,12 @@ export async function getRound1Submission(req, res) {
           recommendation: submission.ai_recommendation,
 
           analyzed_at: submission.ai_analyzed_at,
+
+          novelty_score: submission.novelty_score !== null ? Number(submission.novelty_score) : null,
+          relevance_score: submission.relevance_score !== null ? Number(submission.relevance_score) : null,
+          innovation_score: submission.innovation_score !== null ? Number(submission.innovation_score) : null,
+          technical_score: submission.technical_score !== null ? Number(submission.technical_score) : null,
+          impact_score: submission.impact_score !== null ? Number(submission.impact_score) : null,
         },
 
         submitted_at: submission.submitted_at,
