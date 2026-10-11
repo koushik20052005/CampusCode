@@ -3757,3 +3757,43 @@ button.primary:hover, .event-action.primary:hover { box-shadow: 0 10px 30px rgba
   letter-spacing: 0;
   font-weight: 400;
 }
+
+/* v6.14 — fullscreen blueprint control bar */
+.admin-blueprint-fs-controls {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid rgba(16,185,129,.25);
+  border-radius: 14px;
+  background: rgba(5,12,20,.82);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.45);
+}
+.admin-blueprint-fs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border: 1px solid rgba(16,185,129,.3);
+  border-radius: 9px;
+  background: rgba(16,185,129,.08);
+  color: #a7f3d0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s, transform .15s;
+}
+.admin-blueprint-fs-btn:hover { background: rgba(16,185,129,.18); transform: translateY(-1px); }
+.admin-blueprint-fs-btn.danger {
+  border-color: rgba(248,113,113,.4);
+  background: rgba(248,113,113,.08);
+  color: #fca5a5;
+}
+.admin-blueprint-fs-btn.danger:hover { background: rgba(248,113,113,.18); }

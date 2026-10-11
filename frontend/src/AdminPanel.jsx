@@ -2829,13 +2829,19 @@ const ADMIN_BLUEPRINT = {
     id: "campuscode", name: "CAMPUSCODE", type: "PLATFORM", status: "ONLINE",
     description: "CampusCode production platform and service topology.",
     details: "The complete CampusCode platform connecting portals, backend services, PostgreSQL data, AI services and observability.",
-    children: ["frontend", "backend", "database", "ai", "monitoring"],
+    children: ["frontend", "campusshield", "backend", "database", "ai", "monitoring"],
   },
   frontend: {
     id: "frontend", name: "FRONTEND", type: "APPLICATION", status: "ONLINE",
     description: "React application layer serving all CampusCode portals.",
     details: "Client-side application containing the Student, Organizer and Admin experiences and their supporting pages.",
     children: ["student", "organizer", "admin"],
+  },
+  campusshield: {
+    id: "campusshield", name: "CAMPUSSHIELD", type: "SECURITY", status: "ONLINE",
+    description: "CampusCode security layer — authentication, verification and attack protection.",
+    details: "Multi-layered security: email OTP for students, 8-digit 2FA keys for staff, captcha, password strength rules, brute-force lockout and rate limiting.",
+    children: ["shield-otp", "shield-2fa", "shield-captcha", "shield-lockout", "shield-password", "shield-ratelimit"],
   },
   student: {
     id: "student", name: "STUDENT PAGE", type: "PORTAL", status: "ONLINE",
@@ -2882,6 +2888,12 @@ const ADMIN_BLUEPRINT = {
 };
 
 const ADMIN_BLUEPRINT_EXTRA = {
+  "shield-otp": ["EMAIL OTP", "SECURITY", "6-digit email codes for students — hashed, 5-min expiry, 5 attempts.", "Student verification flow."],
+  "shield-2fa": ["STAFF 2FA", "SECURITY", "8-digit keys set by admin for organizers and staff — hashed, permanent.", "Staff two-factor authentication."],
+  "shield-captcha": ["CAPTCHA", "SECURITY", "Numbers-only image captcha — server-side, single-use, 5-min expiry.", "Bot protection on login and registration."],
+  "shield-lockout": ["BRUTE-FORCE LOCKOUT", "SECURITY", "5 wrong attempts locks the account for 15 minutes.", "Attack mitigation."],
+  "shield-password": ["PASSWORD RULES", "SECURITY", "Min 8 chars with uppercase, lowercase and number — backend enforced.", "Credential strength policy."],
+  "shield-ratelimit": ["RATE LIMITING", "SECURITY", "OTP and login attempts throttled per IP and account.", "Abuse prevention."],
   "student-overview": ["OVERVIEW", "PAGE", "Student dashboard and current competition state.", "Student landing and summary surface."],
   "student-hackathons": ["HACKATHONS", "MODULE", "Discover, view and join available hackathons.", "Hackathon discovery and registration flow."],
   "student-team": ["MY TEAM", "MODULE", "Team creation, membership and team workspace.", "Student team management workflow."],
@@ -2942,6 +2954,7 @@ function adminBlueprintNode(id) {
 
 function adminBlueprintIcon(type) {
   const t = String(type || "").toLowerCase();
+  if (t.includes("secur")) return ShieldCheck;
   if (t.includes("database") || t.includes("table")) return Database;
   if (t.includes("ai")) return BrainCircuit;
   if (t.includes("backend") || t.includes("api")) return Server;
@@ -3051,7 +3064,7 @@ function AdminBlueprintScene({ rootId, selectedNode, onNodeClick, query = "", la
 
       <div className="admin-blueprint-legend"><span><i className="live" /> LIVE</span><span><i className="flow" /> SYSTEM FLOW</span><span><i className="node" /> CLICK MODULE</span></div>
       <div className="admin-blueprint-mini-map"><span>MAP</span><div className="mini-map-core" />{visible.slice(0, 6).map((node, index) => <i key={node.id} style={{ left: `${20 + (index % 3) * 28}%`, top: `${25 + Math.floor(index / 3) * 42}%` }} />)}</div>
-      <div className="admin-blueprint-help">Hover a module to inspect it · click to open architecture</div>
+      <div className="admin-blueprint-help">Click a module to inspect it · triple-click to open its architecture</div>
     </div>
   );
 }
@@ -3191,6 +3204,24 @@ function SystemBlueprintPage() {
     };
   }, [focusMode]);
 
+  // v6.14 — triple-click a module to auto-open its inside architecture
+  const clickTrack = useRef({});
+  const handleNodeClick = async (node, enter = false) => {
+    if (!node) { openNode(null); return; }
+    if (enter) { enterBlueprint(node); return; }
+    const now = Date.now();
+    const t = clickTrack.current[node.id] || { count: 0, last: 0 };
+    t.count = now - t.last < 800 ? t.count + 1 : 1;
+    t.last = now;
+    clickTrack.current[node.id] = t;
+    if (t.count >= 3 && node.children?.length) {
+      clickTrack.current[node.id] = { count: 0, last: 0 };
+      enterBlueprint(node);
+      return;
+    }
+    openNode(node);
+  };
+
   const openNode = async (node, enter = false) => {
     if (!node) { setSelectedNode(null); setNodeDetails(null); return; }
     if (enter && node.children?.length) { enterBlueprint(node); return; }
@@ -3269,33 +3300,46 @@ function SystemBlueprintPage() {
   if (loading) return <Loading />;
 
   if (focusMode) {
+    const exitFullscreen = () => {
+      setSelectedNode(null);
+      setNodeDetails(null);
+      setFocusMode(false);
+    };
     return (
       <div ref={fsWrapRef} className="admin-blueprint-fullscreen" role="dialog" aria-modal="true" aria-label="CampusCode full screen system blueprint">
-        <button
-          type="button"
-          className="admin-blueprint-fullscreen-back"
-          onClick={() => {
-            setSelectedNode(null);
-            setNodeDetails(null);
-            setFocusMode(false);
-          }}
-        >
-          <ArrowLeft size={16} />
-          BACK
-        </button>
+        {/* v6.14 — fullscreen control bar: back, drill-up, zoom, exit */}
+        <div className="admin-blueprint-fs-controls">
+          {rootId !== "campuscode" && (
+            <button type="button" className="admin-blueprint-fs-btn" onClick={goBack} title="Back to parent level">
+              <ArrowLeft size={16} /> LEVEL UP
+            </button>
+          )}
+          <button type="button" className="admin-blueprint-fs-btn" onClick={() => setZoom((z) => Math.min(1.6, Number((z + .1).toFixed(2))))} title="Zoom in">
+            <ZoomIn size={16} /> ZOOM IN
+          </button>
+          <button type="button" className="admin-blueprint-fs-btn" onClick={() => setZoom((z) => Math.max(.6, Number((z - .1).toFixed(2))))} title="Zoom out">
+            <ZoomOut size={16} /> ZOOM OUT
+          </button>
+          <button type="button" className="admin-blueprint-fs-btn" onClick={() => setZoom(1)} title="Reset zoom">
+            <RefreshCw size={15} /> RESET
+          </button>
+          <button type="button" className="admin-blueprint-fs-btn danger" onClick={exitFullscreen} title="Exit fullscreen">
+            <X size={16} /> EXIT
+          </button>
+        </div>
 
         <AdminBlueprintScene
           rootId={rootId}
-          selectedNode={null}
-          onNodeClick={() => {}}
+          selectedNode={selectedNode}
+          onNodeClick={handleNodeClick}
           query={query}
           layer={layer}
           focusMode
           zoom={zoom}
-          onZoomIn={() => setZoom((z) => Math.min(1.25, Number((z + .1).toFixed(2))))}
-          onZoomOut={() => setZoom((z) => Math.max(.8, Number((z - .1).toFixed(2))))}
+          onZoomIn={() => setZoom((z) => Math.min(1.6, Number((z + .1).toFixed(2))))}
+          onZoomOut={() => setZoom((z) => Math.max(.6, Number((z - .1).toFixed(2))))}
           onReset={() => setZoom(1)}
-          onToggleFocus={() => setFocusMode(false)}
+          onToggleFocus={exitFullscreen}
         />
       </div>
     );
@@ -3337,7 +3381,7 @@ function SystemBlueprintPage() {
         <AdminBlueprintScene
           rootId={rootId}
           selectedNode={selectedNode}
-          onNodeClick={openNode}
+          onNodeClick={handleNodeClick}
           query={query}
           layer={layer}
           focusMode={focusMode}
