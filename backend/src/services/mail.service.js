@@ -1,53 +1,60 @@
 /* =========================================================
-   mail.service.js — free email sending via Resend
+   mail.service.js — free email sending via Brevo SMTP (nodemailer)
    + HTML templates for OTP and hackathon notifications.
 
-   Required env var (Render dashboard → Environment):
-     RESEND_API_KEY   API key from resend.com (free: 100/day)
+   Required env vars (Render dashboard → Environment):
+     MAIL_HOST   e.g. smtp-relay.brevo.com
+     MAIL_PORT   e.g. 587
+     MAIL_USER   Brevo login email
+     MAIL_PASS   Brevo SMTP key
+     MAIL_FROM   e.g. "CampusCode <you@gmail.com>" (verified sender)
 
-   Optional:
-     MAIL_FROM        Verified sender, e.g. "CampusCode <x@yourdomain>"
-                      Defaults to Resend's test sender until a domain
-                      is verified in the Resend dashboard.
-
-   If RESEND_API_KEY is missing, sendMail() logs instead of
-   sending so local dev never crashes.
+   Free tier: 300 emails/day, no custom domain needed.
+   If vars are missing, sendMail() logs instead of sending
+   so local dev never crashes.
    ========================================================= */
 
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
-const MAIL_FROM = process.env.MAIL_FROM || "CampusCode <onboarding@resend.dev>";
+const MAIL_HOST = process.env.MAIL_HOST || "";
+const MAIL_PORT = Number(process.env.MAIL_PORT || 587);
+const MAIL_USER = process.env.MAIL_USER || "";
+const MAIL_PASS = process.env.MAIL_PASS || "";
+const MAIL_FROM = process.env.MAIL_FROM || "";
 
-let resend = null;
+let transporter = null;
 
-function getClient() {
-  if (resend) return resend;
-  if (!RESEND_API_KEY) return null;
-  resend = new Resend(RESEND_API_KEY);
-  return resend;
+function getTransporter() {
+  if (transporter) return transporter;
+  if (!MAIL_HOST || !MAIL_USER || !MAIL_PASS || !MAIL_FROM) return null;
+  transporter = nodemailer.createTransport({
+    host: MAIL_HOST,
+    port: MAIL_PORT,
+    secure: MAIL_PORT === 465,
+    auth: { user: MAIL_USER, pass: MAIL_PASS },
+  });
+  return transporter;
 }
 
 export function isMailConfigured() {
-  return Boolean(RESEND_API_KEY);
+  return Boolean(MAIL_HOST && MAIL_USER && MAIL_PASS && MAIL_FROM);
 }
 
 /* Generic sender — used by OTP, hackathon alerts, login alerts. */
 export async function sendMail({ to, subject, html, text }) {
-  const client = getClient();
-  if (!client) {
+  const tx = getTransporter();
+  if (!tx) {
     console.log(`[mail] (not configured) to=${to} subject=${subject}`);
     return { sent: false, reason: "mail_not_configured" };
   }
   try {
-    const { error } = await client.emails.send({
+    await tx.sendMail({
       from: MAIL_FROM,
       to,
       subject,
       html,
       text: text || undefined,
     });
-    if (error) throw new Error(error.message);
     return { sent: true };
   } catch (err) {
     console.error("[mail] send failed:", err.message);
