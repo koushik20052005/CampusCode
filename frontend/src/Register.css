@@ -1482,3 +1482,24 @@
   line-height: 1.6;
   color: #4a4a42;
 }
+
+/* v6.11 — captcha */
+.register-captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.register-captcha-img {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #e5e0d5;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f4f4f0;
+  min-width: 150px;
+  min-height: 50px;
+  justify-content: center;
+}
+.register-captcha-img svg {
+  display: block;
+}

@@ -17,12 +17,32 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   // v6.10 — login OTP step (free via Resend)
-  const [step, setStep] = useState("credentials"); // "credentials" | "otp"
+  const [step, setStep] = useState("credentials"); // "credentials" | "otp" | "forgot" | "reset"
   const [otp, setOtp] = useState("");
   const [otpBusy, setOtpBusy] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [devOtp, setDevOtp] = useState(null);
+  // v6.11 — captcha (free, server-side)
+  const [captchaId, setCaptchaId] = useState("");
+  const [captchaSvg, setCaptchaSvg] = useState("");
+  const [captchaText, setCaptchaText] = useState("");
+  // v6.11 — forgot password
+  const [resetOtp, setResetOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const busy = loading || otpBusy;
+
+  const loadCaptcha = async () => {
+    try {
+      const r = await fetch(`${API_URL}/auth/captcha`);
+      const d = await r.json().catch(() => ({}));
+      if (d.success) {
+        setCaptchaId(d.captchaId);
+        setCaptchaSvg(d.svg);
+        setCaptchaText("");
+      }
+    } catch { /* captcha will retry on submit */ }
+  };
+  React.useEffect(() => { loadCaptcha(); }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -53,10 +73,13 @@ function Login() {
       const pre = await fetch(`${API_URL}/auth/pre-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: form.password }),
+        body: JSON.stringify({ email, password: form.password, captchaId, captchaText }),
       });
       const preData = await pre.json().catch(() => ({}));
-      if (!pre.ok) throw new Error(preData.message || "Invalid email or password.");
+      if (!pre.ok) {
+        if (preData.captchaFailed) loadCaptcha();
+        throw new Error(preData.message || "Invalid email or password.");
+      }
 
       // credentials OK — send OTP
       const res = await fetch(`${API_URL}/auth/send-otp`, {
@@ -143,6 +166,57 @@ function Login() {
     } finally {
       setOtpBusy(false);
     }
+  };
+
+  // v6.11 — forgot password: step 1 sends reset OTP
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    const email = form.email.trim().toLowerCase();
+    if (!email) { setError("Enter your email address first."); return; }
+    try {
+      setLoading(true);
+      const r = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, captchaId, captchaText }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (d.captchaFailed) loadCaptcha();
+        throw new Error(d.message || "Could not send reset code.");
+      }
+      if (!d.delivered && !d.dev_otp) throw new Error(d.message || "Could not send reset code.");
+      setDevOtp(d.dev_otp || null);
+      setStep("reset");
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  };
+
+  // v6.11 — forgot password: step 2 verifies OTP + sets new password
+  const handleResetSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      setOtpBusy(true);
+      const r = await fetch(`${API_URL}/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email.trim().toLowerCase(),
+          otp: resetOtp.replace(/\D/g, ""),
+          newPassword,
+        }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.message || "Reset failed.");
+      setStep("credentials");
+      setResetOtp(""); setNewPassword(""); setDevOtp(null);
+      loadCaptcha();
+      setError("");
+      alert("Password reset. Log in with your new password.");
+    } catch (err) { setError(err.message); }
+    finally { setOtpBusy(false); }
   };
 
   // resend countdown
@@ -345,6 +419,42 @@ function Login() {
                 </div>
               </div>
 
+              {/* v6.11 — captcha */}
+              <div className="login-field">
+                <label htmlFor="login-captcha">CAPTCHA</label>
+                <div className="login-captcha-row">
+                  {captchaSvg ? (
+                    <span
+                      className="login-captcha-img"
+                      dangerouslySetInnerHTML={{ __html: captchaSvg }}
+                    />
+                  ) : (
+                    <span className="login-captcha-img">...</span>
+                  )}
+                  <button
+                    type="button"
+                    className="login-password-toggle"
+                    onClick={loadCaptcha}
+                    disabled={busy}
+                    aria-label="New captcha"
+                  >
+                    ↻ NEW
+                  </button>
+                </div>
+                <div className="login-input-wrap" style={{ marginTop: 8 }}>
+                  <input
+                    id="login-captcha"
+                    type="text"
+                    value={captchaText}
+                    onChange={(e) => { setCaptchaText(e.target.value); setError(""); }}
+                    placeholder="Enter the code above"
+                    autoComplete="off"
+                    disabled={busy}
+                    maxLength={5}
+                  />
+                </div>
+              </div>
+
               {error && (
                 <div
                   className="login-message login-error"
@@ -370,6 +480,94 @@ function Login() {
                   {loading ? "↻" : "↗"}
                 </b>
               </button>
+
+              <div className="login-otp-row">
+                <button
+                  type="button"
+                  className="login-password-toggle"
+                  onClick={() => { setStep("forgot"); setError(""); setDevOtp(null); loadCaptcha(); }}
+                  disabled={busy}
+                >
+                  FORGOT PASSWORD?
+                </button>
+              </div>
+            </form>
+            ) : step === "forgot" ? (
+            <form onSubmit={handleForgotSubmit}>
+              <p className="login-otp-sent">RESET YOUR <strong>PASSWORD</strong></p>
+              <div className="login-field">
+                <label htmlFor="login-email">EMAIL ADDRESS</label>
+                <div className="login-input-wrap">
+                  <span className="login-input-icon">@</span>
+                  <input
+                    id="login-email"
+                    type="email"
+                    name="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    disabled={busy}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="login-field">
+                <label htmlFor="login-captcha2">CAPTCHA</label>
+                <div className="login-captcha-row">
+                  {captchaSvg ? (
+                    <span className="login-captcha-img" dangerouslySetInnerHTML={{ __html: captchaSvg }} />
+                  ) : (<span className="login-captcha-img">...</span>)}
+                  <button type="button" className="login-password-toggle" onClick={loadCaptcha} disabled={busy}>↻ NEW</button>
+                </div>
+                <div className="login-input-wrap" style={{ marginTop: 8 }}>
+                  <input id="login-captcha2" type="text" value={captchaText}
+                    onChange={(e) => { setCaptchaText(e.target.value); setError(""); }}
+                    placeholder="Enter the code above" autoComplete="off" disabled={busy} maxLength={5} />
+                </div>
+              </div>
+              {error && (<div className="login-message login-error" role="alert"><span>!</span><p>{error}</p></div>)}
+              <button type="submit" className="login-submit" disabled={busy}>
+                <span>{loading ? "SENDING..." : "SEND RESET CODE"}</span>
+                <b className={loading ? "is-loading" : ""}>{loading ? "↻" : "↗"}</b>
+              </button>
+              <div className="login-otp-row">
+                <button type="button" className="login-password-toggle"
+                  onClick={() => { setStep("credentials"); setError(""); }} disabled={busy}>← BACK TO LOGIN</button>
+              </div>
+            </form>
+            ) : step === "reset" ? (
+            <form onSubmit={handleResetSubmit}>
+              <p className="login-otp-sent">CODE SENT TO <strong>{form.email.trim().toLowerCase()}</strong></p>
+              <div className="login-field">
+                <label htmlFor="login-reset-otp">6-DIGIT CODE</label>
+                <div className="login-input-wrap">
+                  <span className="login-input-icon">#</span>
+                  <input id="login-reset-otp" type="text" inputMode="numeric" autoComplete="one-time-code"
+                    value={resetOtp} onChange={(e) => { setResetOtp(e.target.value.replace(/\D/g, "").slice(0, 8)); setError(""); }}
+                    placeholder="••••••" maxLength={8} disabled={busy} autoFocus />
+                </div>
+              </div>
+              <div className="login-field">
+                <label htmlFor="login-new-password">NEW PASSWORD</label>
+                <div className="login-input-wrap">
+                  <span className="login-input-icon">•</span>
+                  <input id="login-new-password" type={showPassword ? "text" : "password"}
+                    value={newPassword} onChange={(e) => { setNewPassword(e.target.value); setError(""); }}
+                    placeholder="Min 8 chars, upper + lower + number" autoComplete="new-password" disabled={busy} />
+                </div>
+                <p className="login-otp-hint">Min 8 characters with an uppercase letter, a lowercase letter, and a number.</p>
+              </div>
+              {devOtp && (<div className="login-message" role="status"><span>i</span><p>TEST MODE — your code is <strong>{devOtp}</strong></p></div>)}
+              {error && (<div className="login-message login-error" role="alert"><span>!</span><p>{error}</p></div>)}
+              <button type="submit" className="login-submit" disabled={busy}>
+                <span>{otpBusy ? "RESETTING..." : "RESET PASSWORD"}</span>
+                <b className={otpBusy ? "is-loading" : ""}>{otpBusy ? "↻" : "✓"}</b>
+              </button>
+              <div className="login-otp-row">
+                <button type="button" className="login-password-toggle"
+                  onClick={() => { setStep("credentials"); setError(""); setDevOtp(null); }} disabled={busy}>← BACK TO LOGIN</button>
+              </div>
             </form>
             ) : (
             <form onSubmit={handleOtp}>

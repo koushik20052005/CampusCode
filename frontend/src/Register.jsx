@@ -29,6 +29,32 @@ function Register() {
   const [otpBusy, setOtpBusy] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [devOtp, setDevOtp] = useState(null);
+  // v6.11 — captcha (free, server-side) + password strength
+  const [captchaId, setCaptchaId] = useState("");
+  const [captchaSvg, setCaptchaSvg] = useState("");
+  const [captchaText, setCaptchaText] = useState("");
+
+  const loadCaptcha = async () => {
+    try {
+      const r = await fetch(`${API_URL}/auth/captcha`);
+      const d = await r.json().catch(() => ({}));
+      if (d.success) {
+        setCaptchaId(d.captchaId);
+        setCaptchaSvg(d.svg);
+        setCaptchaText("");
+      }
+    } catch { /* retry on submit */ }
+  };
+  React.useEffect(() => { loadCaptcha(); }, []);
+
+  const pwScore = (pw) => {
+    let s = 0;
+    if (pw.length >= 8) s++;
+    if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) s++;
+    if (/[0-9]/.test(pw)) s++;
+    if (/[^A-Za-z0-9]/.test(pw)) s++;
+    return s;
+  };
   const busy = loading || otpBusy;
 
   const handleChange = (e) => {
@@ -60,9 +86,15 @@ function Register() {
       return;
     }
 
-    if (form.password.length < 6) {
+    const pw = form.password;
+    if (
+      pw.length < 8 ||
+      !/[A-Z]/.test(pw) ||
+      !/[a-z]/.test(pw) ||
+      !/[0-9]/.test(pw)
+    ) {
       setError(
-        "Password must be at least 6 characters."
+        "Password needs min 8 characters with an uppercase letter, a lowercase letter, and a number."
       );
       return;
     }
@@ -96,6 +128,8 @@ function Register() {
           body: JSON.stringify({
             email,
             purpose: "register",
+            captchaId,
+            captchaText,
           }),
         }
       );
@@ -103,6 +137,7 @@ function Register() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
+        if (data.captchaFailed) loadCaptcha();
         throw new Error(
           data.message ||
             "Could not send the code."
@@ -662,6 +697,51 @@ function Register() {
 
                   </button>
 
+                </div>
+
+                {form.password && (
+                  <p className="register-otp-hint">
+                    Strength: {["Weak", "Fair", "Good", "Strong"][Math.min(pwScore(form.password), 3)]}
+                    {" — "}needs 8+ chars, upper + lower + number.
+                  </p>
+                )}
+
+              </div>
+
+              {/* v6.11 — captcha */}
+              <div className="register-field">
+
+                <label>CAPTCHA</label>
+
+                <div className="register-captcha-row">
+                  {captchaSvg ? (
+                    <span
+                      className="register-captcha-img"
+                      dangerouslySetInnerHTML={{ __html: captchaSvg }}
+                    />
+                  ) : (
+                    <span className="register-captcha-img">...</span>
+                  )}
+                  <button
+                    type="button"
+                    className="register-otp-link"
+                    onClick={loadCaptcha}
+                    disabled={busy}
+                  >
+                    ↻ NEW
+                  </button>
+                </div>
+
+                <div className="register-input-wrap" style={{ marginTop: 8 }}>
+                  <input
+                    type="text"
+                    value={captchaText}
+                    onChange={(e) => { setCaptchaText(e.target.value); setError(""); }}
+                    placeholder="Enter the code above"
+                    autoComplete="off"
+                    disabled={busy}
+                    maxLength={5}
+                  />
                 </div>
 
               </div>

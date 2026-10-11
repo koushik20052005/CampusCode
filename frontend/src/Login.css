@@ -924,3 +924,24 @@
 #login-otp::placeholder {
   letter-spacing: 12px;
 }
+
+/* v6.11 — captcha */
+.login-captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.login-captcha-img {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #2a2f45;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f4f4f0;
+  min-width: 150px;
+  min-height: 50px;
+  justify-content: center;
+}
+.login-captcha-img svg {
+  display: block;
+}

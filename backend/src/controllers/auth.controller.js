@@ -2,6 +2,10 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pool from "../config/db.js";
 import { hasVerified } from "../services/otp.service.js";
+import { createCaptcha, verifyCaptcha } from "../services/captcha.service.js";
+import { checkPasswordStrength } from "../utils/password.util.js";
+import { createOtp } from "../services/otp.service.js";
+import { sendMail, otpEmailTemplate, isMailConfigured } from "../services/mail.service.js";
 
 /* =========================================================
    CREATE JWT
@@ -60,10 +64,11 @@ export const register = async (req, res) => {
       });
     }
 
-    if (password.length < 6) {
+    const pwCheck = checkPasswordStrength(password);
+    if (!pwCheck.ok) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters",
+        message: pwCheck.message,
       });
     }
 
@@ -347,11 +352,20 @@ export const login = async (req, res) => {
    ========================================================= */
 export const preLogin = async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    const { email, password, captchaId, captchaText } = req.body || {};
     if (!email || !password) {
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
+      });
+    }
+    // v6.11 — captcha blocks bots from triggering OTP emails
+    const captchaOk = await verifyCaptcha(captchaId, captchaText);
+    if (!captchaOk) {
+      return res.status(400).json({
+        success: false,
+        message: "Captcha did not match. Try again.",
+        captchaFailed: true,
       });
     }
     const normalizedEmail = String(email).trim().toLowerCase();
@@ -374,5 +388,98 @@ export const preLogin = async (req, res) => {
   } catch (err) {
     console.error("[auth] pre-login error:", err.message);
     return res.status(500).json({ success: false, message: "Unable to verify credentials." });
+  }
+};
+/* =========================================================
+   v6.11 — CAPTCHA + forgot/reset password (all free).
+   ========================================================= */
+
+/* GET /api/auth/captcha → { captchaId, svg } */
+export const getCaptcha = async (req, res) => {
+  try {
+    const c = await createCaptcha();
+    return res.status(200).json({ success: true, ...c });
+  } catch (err) {
+    console.error("[auth] captcha error:", err.message);
+    return res.status(500).json({ success: false, message: "Could not load captcha." });
+  }
+};
+
+/* POST /api/auth/forgot-password { email } → sends reset OTP */
+export const forgotPassword = async (req, res) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: "Enter a valid email address." });
+    }
+    // v6.11 — captcha blocks bots from spamming reset emails
+    const captchaOk = await verifyCaptcha(req.body?.captchaId, req.body?.captchaText);
+    if (!captchaOk) {
+      return res.status(400).json({
+        success: false,
+        message: "Captcha did not match. Try again.",
+        captchaFailed: true,
+      });
+    }
+    // Don't reveal whether the email exists
+    const { rows } = await pool.query(`SELECT id FROM users WHERE email = $1`, [email]);
+    if (rows.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "If this email is registered, a reset code was sent.",
+        delivered: false,
+      });
+    }
+    const { otp } = await createOtp(email, "reset");
+    const result = await sendMail({
+      to: email,
+      subject: `Your CampusCode password reset code is ${otp}`,
+      html: otpEmailTemplate(otp, "reset"),
+    });
+    const devMode = !isMailConfigured() && process.env.NODE_ENV !== "production";
+    return res.status(200).json({
+      success: true,
+      message: result.sent
+        ? "Reset code sent to your email. It expires in 5 minutes."
+        : "Could not send email right now. Try again later.",
+      delivered: result.sent,
+      ...(devMode ? { dev_otp: otp } : {}),
+    });
+  } catch (err) {
+    console.error("[auth] forgot-password error:", err.message);
+    return res.status(500).json({ success: false, message: "Try again later." });
+  }
+};
+
+/* POST /api/auth/reset-password { email, otp, newPassword } */
+export const resetPassword = async (req, res) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const otp = String(req.body?.otp || "").trim();
+    const newPassword = String(req.body?.newPassword || "");
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ success: false, message: "Email, code and new password are required." });
+    }
+    const pwCheck = checkPasswordStrength(newPassword);
+    if (!pwCheck.ok) {
+      return res.status(400).json({ success: false, message: pwCheck.message });
+    }
+    const { verifyOtp } = await import("../services/otp.service.js");
+    const v = await verifyOtp(email, otp, "reset");
+    if (!v.ok) {
+      return res.status(400).json({ success: false, message: v.reason });
+    }
+    const hash = await bcrypt.hash(newPassword, 12);
+    const { rowCount } = await pool.query(
+      `UPDATE users SET password_hash = $1 WHERE email = $2`,
+      [hash, email]
+    );
+    if (!rowCount) {
+      return res.status(404).json({ success: false, message: "Account not found." });
+    }
+    return res.status(200).json({ success: true, message: "Password reset. You can log in now." });
+  } catch (err) {
+    console.error("[auth] reset-password error:", err.message);
+    return res.status(500).json({ success: false, message: "Try again later." });
   }
 };

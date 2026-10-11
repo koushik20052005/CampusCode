@@ -7,6 +7,9 @@ import {
   login,
   getMe,
   preLogin,
+  getCaptcha,
+  forgotPassword,
+  resetPassword,
 } from "../controllers/auth.controller.js";
 import {
   sendOtp,
@@ -43,6 +46,9 @@ router.post(
 );
 
 router.post("/pre-login", otpVerifyLimiter, preLogin);
+router.get("/captcha", getCaptcha);
+router.post("/forgot-password", otpSendLimiter, forgotPassword);
+router.post("/reset-password", otpVerifyLimiter, resetPassword);
 router.post("/send-otp", otpSendLimiter, sendOtp);
 router.post("/verify-otp", otpVerifyLimiter, verifyOtpHandler);
 

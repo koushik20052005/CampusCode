@@ -9,6 +9,7 @@
    ========================================================= */
 
 import { createOtp, verifyOtp } from "../services/otp.service.js";
+import { verifyCaptcha } from "../services/captcha.service.js";
 import {
   sendMail,
   otpEmailTemplate,
@@ -20,11 +21,20 @@ const PURPOSES = new Set(["register", "login", "reset"]);
 
 export async function sendOtp(req, res) {
   try {
-    const { email, purpose = "register" } = req.body || {};
+    const { email, purpose = "register", captchaId, captchaText } = req.body || {};
     const clean = String(email || "").trim().toLowerCase();
 
     if (!EMAIL_RE.test(clean)) {
       return res.status(400).json({ success: false, message: "Enter a valid email address." });
+    }
+    // v6.11 — captcha blocks bots from burning OTP quota
+    const captchaOk = await verifyCaptcha(captchaId, captchaText);
+    if (!captchaOk) {
+      return res.status(400).json({
+        success: false,
+        message: "Captcha did not match. Try again.",
+        captchaFailed: true,
+      });
     }
     const use = PURPOSES.has(purpose) ? purpose : "register";
 
