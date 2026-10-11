@@ -55,6 +55,22 @@ function Login() {
     setError("");
   };
 
+  // v6.11.3 — shared login completion (direct admin/organizer login + post-OTP student login)
+  const completeLogin = async (email) => {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: form.password }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || "Invalid email or password.");
+    if (!data.token || !data.user) throw new Error("Invalid login response from server.");
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("role", data.user.role);
+    navigate("/initializing", { replace: true, state: { role: data.user.role } });
+  };
+
   // STEP 1 — check credentials, then send OTP
   const handleCredentials = async (e) => {
     e.preventDefault();
@@ -77,6 +93,13 @@ function Login() {
       });
       const preData = await pre.json().catch(() => ({}));
       if (!pre.ok) throw new Error(preData.message || "Invalid email or password.");
+
+      // v6.11.3 — admin/organizer log in directly (their emails aren't real inboxes);
+      // students go through the OTP step
+      if (!preData.requiresOtp) {
+        await completeLogin(email);
+        return;
+      }
 
       // credentials OK — send OTP (v6.11.1: captcha goes here, single-use)
       const res = await fetch(`${API_URL}/auth/send-otp`, {
@@ -124,19 +147,7 @@ function Login() {
       if (!vres.ok) throw new Error(vdata.message || "Incorrect code.");
 
       // OTP verified — now log in
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: form.password }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.message || "Invalid email or password.");
-      if (!data.token || !data.user) throw new Error("Invalid login response from server.");
-
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      localStorage.setItem("role", data.user.role);
-      navigate("/initializing", { replace: true, state: { role: data.user.role } });
+      await completeLogin(email);
     } catch (err) {
       setError(err.message || "Unable to login. Please try again.");
     } finally {

@@ -303,6 +303,22 @@ export const login = async (req, res) => {
       });
     }
 
+    /*
+      v6.11.3 — students must complete OTP verification before login.
+      Admin/organizer accounts use internal emails (no real inbox),
+      so they log in with password + captcha only. This backend guard
+      stops anyone bypassing the frontend OTP step via direct API call.
+    */
+    if (user.role === "STUDENT") {
+      const otpOk = await hasVerified(normalizedEmail, "login", 30);
+      if (!otpOk) {
+        return res.status(403).json({
+          success: false,
+          message: "Please verify the login code sent to your email.",
+        });
+      }
+    }
+
     const token =
       createToken(user);
 
@@ -377,7 +393,9 @@ export const preLogin = async (req, res) => {
     if (!ok) {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
-    return res.status(200).json({ success: true, message: "Credentials valid." });
+    // v6.11.3 — OTP only for students (admin/organizer emails aren't real inboxes)
+    const requiresOtp = user.role === "STUDENT";
+    return res.status(200).json({ success: true, message: "Credentials valid.", requiresOtp, role: user.role });
   } catch (err) {
     console.error("[auth] pre-login error:", err.message);
     return res.status(500).json({ success: false, message: "Unable to verify credentials." });
