@@ -143,11 +143,12 @@ const formatTime = (v) => {
 function Logo() {
   return (
     <div className="admin-brand">
-      <div className="admin-logo-mark" aria-label="CampusCode">
-        <span className="admin-logo-bar admin-logo-black" />
-        <span className="admin-logo-bar admin-logo-purple" />
-        <span className="admin-logo-bar admin-logo-lime" />
-      </div>
+      <img
+        src="/logos/logo-dark.png"
+        alt="CampusCode"
+        className="admin-logo-img"
+        aria-label="CampusCode"
+      />
       <div>
         <div className="admin-brand-name">CAMPUSCODE</div>
         <div className="admin-brand-sub">HACKATHON ARENA</div>
@@ -1820,7 +1821,7 @@ function UsersPage() {
           />
           <input
             type="password"
-            placeholder="Password (min 6 characters)"
+            placeholder="Password (8+ chars, upper + lower + number)"
             value={orgPassword}
             onChange={(e) => setOrgPassword(e.target.value)}
             disabled={creating}

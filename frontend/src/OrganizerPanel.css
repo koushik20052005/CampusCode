@@ -3475,3 +3475,11 @@ body,
 @media (prefers-reduced-motion: reduce) {
   .organizer-page * { animation: none !important; transition: none !important; }
 }
+
+/* v6.12 — real logo image (replaces CSS-drawn mark) */
+.org-logo-img {
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}

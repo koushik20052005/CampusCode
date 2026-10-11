@@ -418,11 +418,11 @@ function OrganizerSidebar({ section, navigate, open, user, onLogout }) {
     <aside className={`org-sidebar ${open ? "is-open" : ""}`}>
       <div className="org-brand-row">
         <button className="org-brand" onClick={() => navigate("dashboard")}>
-          <span className="org-logo">
-            <i />
-            <i />
-            <i />
-          </span>
+          <img
+            src="/logos/logo-light.png"
+            alt="CampusCode"
+            className="org-logo-img"
+          />
           <span>
             <strong>
               Campus<span>Code</span>
