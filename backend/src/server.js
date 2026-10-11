@@ -15,6 +15,7 @@ import {
   startMonitoringRetention,
 } from "./middleware/monitoring.middleware.js";
 import { startAiAnalysisWorker } from "./services/aiAnalysis.worker.js";
+import { startAlertMonitor } from "./services/alert.service.js";
 
 /* =========================================================
    GENERAL ROUTES
@@ -716,5 +717,9 @@ app.listen(
     if (process.env.AI_WORKER_ENABLED !== "false") {
       startAiAnalysisWorker();
     }
+
+    // v6.15 — self-monitoring: email alerts on DB outage / error spikes
+    // Set ALERT_EMAIL on Render to enable (your real email address)
+    startAlertMonitor();
   }
 );

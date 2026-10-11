@@ -6,6 +6,7 @@ import {
   getRecentRequests,
   getMonitoringErrors,
   getResponseTimeHistory,
+  getEmailQuotaStatus,
 } from "../controllers/monitoring.controller.js";
 
 import {
@@ -86,6 +87,16 @@ router.get(
   requireAuth,
   requireRole("ADMIN"),
   getResponseTimeHistory
+);
+
+/*
+GET EMAIL QUOTA — /api/monitoring/email-quota (v6.15)
+*/
+router.get(
+  "/email-quota",
+  requireAuth,
+  requireRole("ADMIN"),
+  getEmailQuotaStatus
 );
 
 export default router;

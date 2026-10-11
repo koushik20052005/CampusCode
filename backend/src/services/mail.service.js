@@ -15,6 +15,8 @@
    so local dev never crashes.
    ========================================================= */
 
+import pool from "../config/db.js";
+
 const BREVO_API_KEY = process.env.BREVO_API_KEY || "";
 const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || "CampusCode";
 const MAIL_FROM_EMAIL = process.env.MAIL_FROM_EMAIL || "";
@@ -50,6 +52,11 @@ export async function sendMail({ to, subject, html, text }) {
     if (!res.ok) {
       throw new Error(data.message || `Brevo API error ${res.status}`);
     }
+    // v6.15 — track daily quota (Brevo free tier: 300/day)
+    pool.query(
+      `INSERT INTO email_quota (day, sent_count) VALUES (CURRENT_DATE, 1)
+       ON CONFLICT (day) DO UPDATE SET sent_count = email_quota.sent_count + 1, updated_at = NOW()`
+    ).catch(() => {});
     return { sent: true, id: data.messageId };
   } catch (err) {
     console.error("[mail] send failed:", err.message);
@@ -106,4 +113,18 @@ export function loginAlertTemplate({ email, ip, userAgent, time }) {
      </ul>
      <p style="color:#6b7280;font-size:13px">If this wasn't you, change your password immediately.</p>`
   );
+}
+
+/* v6.15 — daily email usage for the admin dashboard */
+export async function getEmailQuota() {
+  try {
+    const { rows } = await pool.query(
+      `SELECT sent_count FROM email_quota WHERE day = CURRENT_DATE`
+    );
+    const used = rows[0]?.sent_count || 0;
+    const limit = 300; // Brevo free tier
+    return { used, limit, remaining: Math.max(0, limit - used) };
+  } catch {
+    return { used: 0, limit: 300, remaining: 300 };
+  }
 }

@@ -2727,17 +2727,21 @@ function ActivityPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(true);
+  // v6.15 — email quota (Brevo free tier)
+  const [quota, setQuota] = useState(null);
 
   const load = async (silent) => {
     if (!silent) setLoading(true);
     setError("");
     try {
-      const [reqResult, healthResult] = await Promise.all([
+      const [reqResult, healthResult, quotaResult] = await Promise.all([
         apiFetch("/monitoring/requests?limit=50"),
         apiFetch("/monitoring/health").catch(() => null),
+        apiFetch("/monitoring/email-quota").catch(() => null),
       ]);
       setItems(unwrap(reqResult, ["requests", "activity", "activities", "events", "logs", "data", "items"]));
       if (healthResult) setHealth(healthResult);
+      if (quotaResult?.quota) setQuota(quotaResult.quota);
     } catch (e) {
       if (!silent) setError(e.message || "Unable to load system activity.");
     } finally { setLoading(false); }
@@ -2786,6 +2790,9 @@ function ActivityPage() {
         <div className="mon-stat"><span>AVG RESPONSE</span><strong>{avgMs != null ? `${avgMs}ms` : "—"}</strong><em>across tracked requests</em></div>
         <div className="mon-stat"><span>ERROR RATE</span><strong className={healthy ? "" : "bad"}>{errRate}%</strong><em>{errCount} flagged</em></div>
         <div className="mon-stat"><span>PLATFORM</span><strong className="ok">HEALTHY</strong><em>{dbOk ? "database connected" : "telemetry live"}</em></div>
+        {quota && (
+          <div className="mon-stat"><span>EMAIL QUOTA</span><strong className={quota.remaining < 50 ? "bad" : ""}>{quota.used}/{quota.limit}</strong><em>{quota.remaining} left today</em></div>
+        )}
       </div>
 
       <div className="admin-panel-card mon-chart-card">

@@ -462,3 +462,16 @@ export async function getResponseTimeHistory(req, res) {
     });
   }
 }
+/* =========================================================
+   v6.15 — EMAIL QUOTA (for admin dashboard)
+   ========================================================= */
+import { getEmailQuota } from "../services/mail.service.js";
+
+export async function getEmailQuotaStatus(req, res) {
+  try {
+    const quota = await getEmailQuota();
+    res.json({ success: true, quota });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Unable to load quota." });
+  }
+}

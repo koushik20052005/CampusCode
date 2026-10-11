@@ -3797,3 +3797,25 @@ button.primary:hover, .event-action.primary:hover { box-shadow: 0 10px 30px rgba
   color: #fca5a5;
 }
 .admin-blueprint-fs-btn.danger:hover { background: rgba(248,113,113,.18); }
+
+/* v6.15 — mobile polish: fullscreen controls + 2FA editor */
+@media (max-width: 700px) {
+  .admin-blueprint-fs-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 94vw;
+    top: 10px;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .admin-blueprint-fs-btn {
+    padding: 7px 10px;
+    font-size: 10px;
+  }
+  .tfa-inline-edit {
+    flex-wrap: wrap;
+  }
+  .tfa-inline-edit input {
+    width: 100px;
+  }
+}
