@@ -153,7 +153,19 @@ function OrganizerPanel({
 }) {
   const [dashboard, setDashboard] = useState(null);
   const [hackathons, setHackathons] = useState([]);
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(() => {
+    try {
+      return localStorage.getItem("campuscode_org_hackathon") || "";
+    } catch {
+      return "";
+    }
+  });
+  // v6.9.5: persist organizer hackathon selection across reloads
+  useEffect(() => {
+    try {
+      if (selectedId) localStorage.setItem("campuscode_org_hackathon", selectedId);
+    } catch {}
+  }, [selectedId]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -1009,6 +1021,14 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
 
   useEffect(() => { load(); }, [hackathon?.id]);
 
+  // v6.9.5: derive from freshly-loaded rounds so the header never goes stale
+  const liveRound = rounds.find(
+    (r) => String(r.status || "").toUpperCase() === "LIVE"
+  );
+  const displayCurrentRound = liveRound
+    ? liveRound.round_number
+    : (hackathon?.current_round ?? 1);
+
   const save = async () => {
     if (!hackathon) return;
     setBusy("save");
@@ -1072,7 +1092,7 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
             <div>
               <span>MANUAL LIFECYCLE</span>
               <h3>{hackathon.title}</h3>
-              <p>Status: {hackathon.status || "—"} · Current round: {hackathon.current_round ?? 1}</p>
+              <p>Status: {hackathon.status || "—"} · Current round: {displayCurrentRound}</p>
             </div>
             <span className={`status-pill ${statusClass(hackathon.status)}`}>{hackathon.status || "DRAFT"}</span>
           </div>

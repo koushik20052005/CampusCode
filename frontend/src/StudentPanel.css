@@ -5118,3 +5118,57 @@ html, body, #root {
   .notif-mark-one, .notif-read-tick { grid-column: 2; justify-self: start; margin-top: 6px; }
   .notif-toolbar { flex-direction: column; align-items: stretch; }
 }
+
+/* v6.9.5: Forged Steel round lock */
+.student-round-lock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 20px;
+  text-align: center;
+}
+.student-lock-svg {
+  width: min(260px, 72%);
+  height: auto;
+}
+.rlock-sway {
+  transform-origin: 200px 8px;
+  animation: rlock-sway 6s ease-in-out infinite;
+}
+@keyframes rlock-sway {
+  0%, 100% { transform: rotate(-1.8deg); }
+  50% { transform: rotate(1.8deg); }
+}
+.rlock-floaty {
+  animation: rlock-floaty 6s ease-in-out infinite;
+}
+@keyframes rlock-floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.rlock-sheen {
+  animation: rlock-sheen 4s ease-in-out infinite;
+}
+@keyframes rlock-sheen {
+  0%, 100% { transform: translateX(-14px); opacity: .25; }
+  50% { transform: translateX(14px); opacity: .7; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rlock-sway, .rlock-floaty, .rlock-sheen { animation: none; }
+}
+.student-round-lock-text {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.student-round-lock-text strong {
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: #0f172a;
+}
+.student-round-lock-text span {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 420px;
+}

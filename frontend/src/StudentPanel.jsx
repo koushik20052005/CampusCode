@@ -1673,6 +1673,91 @@ function StudentHackathonSelector({ value: selectedValue, onChange, items }) {
   );
 }
 
+// v6.9.5: shared hackathon selection — all tabs/pages stay in sync
+// so switching tabs never resets the selector back to the first hackathon.
+const SYNCED_HACKATHON_KEY = "campuscode_selected_hackathon";
+const SYNCED_HACKATHON_EVENT = "campuscode:hackathon-change";
+function useSyncedHackathon() {
+  const [selected, setSelected] = useState(() => {
+    try {
+      return localStorage.getItem(SYNCED_HACKATHON_KEY) || "";
+    } catch {
+      return "";
+    }
+  });
+  useEffect(() => {
+    const onSync = (e) => setSelected(e.detail || "");
+    window.addEventListener(SYNCED_HACKATHON_EVENT, onSync);
+    return () => window.removeEventListener(SYNCED_HACKATHON_EVENT, onSync);
+  }, []);
+  const setSynced = (id) => {
+    const next = id || "";
+    setSelected(next);
+    try {
+      if (next) localStorage.setItem(SYNCED_HACKATHON_KEY, next);
+      else localStorage.removeItem(SYNCED_HACKATHON_KEY);
+    } catch {}
+    window.dispatchEvent(new CustomEvent(SYNCED_HACKATHON_EVENT, { detail: next }));
+  };
+  return [selected, setSynced];
+}
+
+// v6.9.5: Forged Steel round lock — heavy chain + gunmetal padlock,
+// sway/float/sheen animations, reduced-motion aware.
+function RoundLock({ round = 2, reason }) {
+  return (
+    <div className="student-round-lock" role="img" aria-label={`Round ${round} is locked`}>
+      <svg viewBox="0 0 400 380" className="student-lock-svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="rLockSteel" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#2e3138" /><stop offset=".28" stopColor="#7d838c" />
+            <stop offset=".5" stopColor="#dfe3e8" /><stop offset=".72" stopColor="#7d838c" />
+            <stop offset="1" stopColor="#2e3138" />
+          </linearGradient>
+          <linearGradient id="rLockGun" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#565b64" /><stop offset=".12" stopColor="#33373e" />
+            <stop offset=".55" stopColor="#1d2025" /><stop offset="1" stopColor="#101216" />
+          </linearGradient>
+          <linearGradient id="rLockChrome" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#5c6169" /><stop offset=".4" stopColor="#e9edf2" />
+            <stop offset=".6" stopColor="#aeb4bd" /><stop offset="1" stopColor="#5c6169" />
+          </linearGradient>
+          <filter id="rLockDs" x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="14" stdDeviation="14" floodColor="#000" floodOpacity=".35" />
+          </filter>
+        </defs>
+        <ellipse cx="200" cy="352" rx="110" ry="14" fill="#0f172a" opacity=".12" />
+        <g className="rlock-sway">
+          <g stroke="url(#rLockSteel)" strokeWidth="13" fill="none">
+            <line x1="200" y1="0" x2="200" y2="26" />
+            <ellipse cx="200" cy="46" rx="17" ry="24" />
+            <ellipse cx="200" cy="92" rx="24" ry="17" />
+            <ellipse cx="200" cy="136" rx="17" ry="24" />
+          </g>
+          <g className="rlock-floaty">
+            <g filter="url(#rLockDs)">
+              <path d="M168 210 L168 172 Q168 138 200 138 Q232 138 232 172 L232 210"
+                stroke="url(#rLockChrome)" strokeWidth="24" fill="none" strokeLinecap="round" />
+              <rect className="rlock-sheen" x="176" y="146" width="9" height="52" rx="4.5" fill="#fff" />
+              <rect x="148" y="200" width="104" height="96" rx="20" fill="url(#rLockGun)" stroke="#0a0b0d" strokeWidth="2" />
+              <rect x="158" y="210" width="84" height="10" rx="5" fill="#fff" opacity=".08" />
+              <circle cx="200" cy="240" r="12" fill="#0b0c0e" stroke="#3c4048" strokeWidth="3" />
+              <rect x="194" y="246" width="12" height="24" rx="6" fill="#0b0c0e" stroke="#3c4048" strokeWidth="3" />
+              <circle cx="164" cy="216" r="4" fill="#8a8f98" /><circle cx="236" cy="216" r="4" fill="#8a8f98" />
+              <circle cx="164" cy="280" r="4" fill="#8a8f98" /><circle cx="236" cy="280" r="4" fill="#8a8f98" />
+            </g>
+          </g>
+        </g>
+        <text x="200" y="348" textAnchor="middle" fill="#64748b" fontSize="11" letterSpacing="3" fontFamily="ui-monospace, monospace">ROUND {round} · LOCKED</text>
+      </svg>
+      <div className="student-round-lock-text">
+        <strong>ROUND {round} IS LOCKED</strong>
+        <span>{reason}</span>
+      </div>
+    </div>
+  );
+}
+
 function StudentMyTeamPage() {
   const storedUser = useMemo(() => {
     try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
@@ -2287,7 +2372,7 @@ function StudentProjectPage({ setProject }) {
 
 function StudentRoundOnePage() {
   const [items, setItems] = useState([]);
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useSyncedHackathon();
   const [data, setData] = useState(null);
   const [statement, setStatement] = useState("");
   const [loading, setLoading] = useState(true);
@@ -2363,7 +2448,7 @@ function StudentRoundOnePage() {
         </div>
         <div className="student-feature-card student-round-form-card">
           <div className="student-feature-card-head"><div><span className="student-feature-label">ROUND 1 SUBMISSION</span><h2>What are you solving?</h2><p>Explain the problem, who experiences it, and what your team plans to solve.</p></div><div className="student-feature-icon"><Send size={18} /></div></div>
-          {!team ? <div className="student-round-notice warning"><strong>TEAM REQUIRED</strong><span>Create or join a team before submitting Round 1.</span></div> : submitted ? <div className="student-round-submitted"><CheckCircle2 size={18} /><div><strong>SUBMITTED SUCCESSFULLY</strong><span>{submission.status || "SUBMITTED"}</span></div></div> : roundCompleted || hackathonCompleted ? <div className="student-round-notice student-round-completed-notice"><strong>{hackathonCompleted ? "HACKATHON COMPLETED" : "ROUND 1 COMPLETED"}</strong><span>{hackathonCompleted ? "This hackathon has finished. Round 1 is now read-only." : "Round 1 has been completed. New submissions are closed."}</span></div> : !accessible ? <div className="student-round-notice"><strong>ROUND 1 IS LOCKED</strong><span>{round.reason === "ROUND_COMPLETED" ? "Round 1 has been completed." : "The organizer has not opened Round 1 yet."}</span></div> : (
+          {!team ? <div className="student-round-notice warning"><strong>TEAM REQUIRED</strong><span>Create or join a team before submitting Round 1.</span></div> : submitted ? <div className="student-round-submitted"><CheckCircle2 size={18} /><div><strong>SUBMITTED SUCCESSFULLY</strong><span>{submission.status || "SUBMITTED"}</span></div></div> : roundCompleted || hackathonCompleted ? <div className="student-round-notice student-round-completed-notice"><strong>{hackathonCompleted ? "HACKATHON COMPLETED" : "ROUND 1 COMPLETED"}</strong><span>{hackathonCompleted ? "This hackathon has finished. Round 1 is now read-only." : "Round 1 has been completed. New submissions are closed."}</span></div> : !accessible ? <RoundLock round={1} reason={round.reason === "ROUND_COMPLETED" ? "Round 1 has been completed." : "The organizer has not opened Round 1 yet."} /> : (
             <div className="student-round-form"><div className="student-form-label-row"><label>PROBLEM STATEMENT *</label><span>{statement.length} / 5000</span></div><textarea value={statement} onChange={(e) => setStatement(e.target.value.slice(0, 5000))} rows={10} maxLength={5000} disabled={!canSubmit} placeholder="Example: Students struggle to discover relevant hackathons and form teams with complementary skills..." /><div className="student-form-actions"><span>Minimum 20 characters. Once submitted, your team cannot submit Round 1 again.</span><button className="student-primary-btn" disabled={!canSubmit || statement.trim().length < 20} onClick={() => setShowAgreement(true)}>{saving ? "SUBMITTING..." : "SUBMIT ROUND 1 ↗"}</button></div></div>
           )}
         </div>
@@ -2375,7 +2460,7 @@ function StudentRoundOnePage() {
 
 function StudentRoundTwoPage() {
   const [items, setItems] = useState([]);
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useSyncedHackathon();
   const [data, setData] = useState(null);
   const [github, setGithub] = useState("");
   const [pdf, setPdf] = useState("");
@@ -2716,17 +2801,7 @@ function StudentRoundTwoPage() {
               </span>
             </div>
           ) : !accessible ? (
-            <div className="student-round-notice">
-              <strong>
-                ROUND 2 IS LOCKED
-              </strong>
-
-              <span>
-                Your Round 1 team decision
-                must be selected and Round 2
-                must be active.
-              </span>
-            </div>
+            <RoundLock round={2} reason="Your Round 1 team decision must be selected and Round 2 must be active." />
           ) : (
             <div className="student-round-form">
 
@@ -2793,7 +2868,7 @@ function StudentRoundTwoPage() {
 }
 
 function StudentRoundThreePage() {
-  const [items, setItems] = useState([]); const [selected, setSelected] = useState(""); const [data, setData] = useState(null); const [github, setGithub] = useState(""); const [demo, setDemo] = useState(""); const [description, setDescription] = useState(""); const [loading, setLoading] = useState(true); const [loadingStatus, setLoadingStatus] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState(""); const [message, setMessage] = useState("");
+  const [items, setItems] = useState([]); const [selected, setSelected] = useSyncedHackathon(); const [data, setData] = useState(null); const [github, setGithub] = useState(""); const [demo, setDemo] = useState(""); const [description, setDescription] = useState(""); const [loading, setLoading] = useState(true); const [loadingStatus, setLoadingStatus] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState(""); const [message, setMessage] = useState("");
   const loadStatus = async (id) => { if (!id) return; setLoadingStatus(true); setError(""); try { const result = await apiFetch(`/student/round3/hackathons/${id}`); const payload = result?.round3 || result?.data || result; setData({ ...payload, round2: result?.round2 || payload?.round2 }); setGithub(payload?.submission?.github_url || ""); setDemo(payload?.submission?.demo_url || ""); setDescription(payload?.submission?.project_description || ""); } catch (err) { setData(null); setError(err.message || "Failed to fetch Round 3 status"); } finally { setLoadingStatus(false); } };
   useEffect(() => { apiFetch("/student/hackathons/my-hackathons").then((result) => { const list = dedupeHackathons(unwrapList(result, ["hackathons", "data"])); setItems(list); if (list[0]) setSelected(String(list[0].hackathon_id || list[0].id)); }).catch((err) => setError(err.message)).finally(() => setLoading(false)); }, []);
   useEffect(() => { setMessage(""); loadStatus(selected); }, [selected]);
@@ -2806,7 +2881,7 @@ function StudentRoundThreePage() {
   const submitted = Boolean(submission);
   const submit = async () => { if (!selected) return setError("Select a hackathon first."); if (!github.trim()) return setError("GitHub repository URL is required."); setSaving(true); setError(""); setMessage(""); try { const result = await apiFetch(`/student/round3/hackathons/${selected}/submit`, { method: "POST", body: JSON.stringify({ github_url: github.trim(), demo_url: demo.trim() || null, project_description: description.trim() || null }) }); if (result?.submission) setData((current) => ({ ...(current || {}), submission: result.submission })); setMessage("Round 3 final submission sent successfully."); await loadStatus(selected); } catch (err) { setError(err.message || "Failed to submit Round 3"); } finally { setSaving(false); } };
   if (loading) return <LoadingState label="Loading Round 3..." />;
-  return <section><PageHeading eyebrow="BUILD / ROUND 03" title="FINAL SUBMISSION." text="Submit the final GitHub repository and optional demo/details when Round 3 is live." />{error && <div className="student-inline-error">{error}</div>}{message && <div className="student-inline-success">{message}</div>}<div className={`student-feature-grid student-round-workspace ${roundCompleted || hackathonCompleted ? "student-round-completed-workspace" : ""}`}><div className="student-feature-card student-round-status-card">{(roundCompleted || hackathonCompleted) && <CompletionStamp round={hackathonCompleted ? null : 3} />}<span className="student-feature-label">FINAL ROUND STATUS</span><StudentHackathonSelector value={selected} onChange={setSelected} items={items}/>{loadingStatus ? <LoadingState label="Loading round status..." /> : <div className="student-info-list"><div><span>ROUND 3 ACCESS</span><strong>{roundCompleted ? "COMPLETED" : accessible ? "OPEN" : value(data?.message, "LOCKED")}</strong></div><div><span>SUBMISSION</span><strong>{value(submission?.status, "Not submitted")}</strong></div><div><span>SCORE</span><strong>{value(submission?.score, data?.score, "Not scored")}</strong></div><div><span>DECISION</span><strong>{value(submission?.decision, data?.decision?.decision, "Pending")}</strong></div><div className="student-feedback-row"><span>ORGANIZER FEEDBACK</span><strong>{value(submission?.organizer_feedback, data?.organizer_feedback, data?.decision?.organizer_feedback, "No feedback yet")}</strong></div></div>}</div><div className="student-feature-card student-round-form-card"><div className="student-feature-card-head"><div><span className="student-feature-label">FINAL BUILD</span><h2>Ship the final project</h2><p>GitHub is required. Demo URL and project description are optional.</p></div><div className="student-feature-icon"><Terminal size={18}/></div></div>{submitted ? <div className="student-round-submitted"><CheckCircle2 size={18}/><div><strong>FINAL SUBMISSION RECEIVED</strong><span>{submission.status || "SUBMITTED"}</span></div></div> : roundCompleted || hackathonCompleted ? <div className="student-round-notice student-round-completed-notice"><strong>HACKATHON COMPLETED</strong><span>All three rounds are finished. This hackathon is now read-only.</span></div> : !accessible ? <div className="student-round-notice"><strong>ROUND 3 IS LOCKED</strong><span>{value(data?.message, "Your team must be selected from Round 2 and Round 3 must be opened by the organizer.")}</span></div> : <div className="student-round-form"><label>GITHUB REPOSITORY URL *</label><div className="student-input-icon"><LinkIcon size={15}/><input value={github} onChange={(e)=>setGithub(e.target.value)} placeholder="https://github.com/username/project"/></div><label>LIVE DEMO URL <span>(OPTIONAL)</span></label><div className="student-input-icon"><ExternalLink size={15}/><input value={demo} onChange={(e)=>setDemo(e.target.value)} placeholder="https://your-project.vercel.app"/></div><label>PROJECT DESCRIPTION <span>(OPTIONAL)</span></label><textarea rows={6} maxLength={5000} value={description} onChange={(e)=>setDescription(e.target.value.slice(0,5000))} placeholder="Briefly explain the final solution, key features and how it works..."/><div className="student-form-counter">{description.length} / 5000</div><button className="student-primary-btn" disabled={saving || !github.trim()} onClick={submit}>{saving ? "SUBMITTING..." : "SUBMIT FINAL PROJECT ↗"}</button></div>}</div></div></section>;
+  return <section><PageHeading eyebrow="BUILD / ROUND 03" title="FINAL SUBMISSION." text="Submit the final GitHub repository and optional demo/details when Round 3 is live." />{error && <div className="student-inline-error">{error}</div>}{message && <div className="student-inline-success">{message}</div>}<div className={`student-feature-grid student-round-workspace ${roundCompleted || hackathonCompleted ? "student-round-completed-workspace" : ""}`}><div className="student-feature-card student-round-status-card">{(roundCompleted || hackathonCompleted) && <CompletionStamp round={hackathonCompleted ? null : 3} />}<span className="student-feature-label">FINAL ROUND STATUS</span><StudentHackathonSelector value={selected} onChange={setSelected} items={items}/>{loadingStatus ? <LoadingState label="Loading round status..." /> : <div className="student-info-list"><div><span>ROUND 3 ACCESS</span><strong>{roundCompleted ? "COMPLETED" : accessible ? "OPEN" : value(data?.message, "LOCKED")}</strong></div><div><span>SUBMISSION</span><strong>{value(submission?.status, "Not submitted")}</strong></div><div><span>SCORE</span><strong>{value(submission?.score, data?.score, "Not scored")}</strong></div><div><span>DECISION</span><strong>{value(submission?.decision, data?.decision?.decision, "Pending")}</strong></div><div className="student-feedback-row"><span>ORGANIZER FEEDBACK</span><strong>{value(submission?.organizer_feedback, data?.organizer_feedback, data?.decision?.organizer_feedback, "No feedback yet")}</strong></div></div>}</div><div className="student-feature-card student-round-form-card"><div className="student-feature-card-head"><div><span className="student-feature-label">FINAL BUILD</span><h2>Ship the final project</h2><p>GitHub is required. Demo URL and project description are optional.</p></div><div className="student-feature-icon"><Terminal size={18}/></div></div>{submitted ? <div className="student-round-submitted"><CheckCircle2 size={18}/><div><strong>FINAL SUBMISSION RECEIVED</strong><span>{submission.status || "SUBMITTED"}</span></div></div> : roundCompleted || hackathonCompleted ? <div className="student-round-notice student-round-completed-notice"><strong>HACKATHON COMPLETED</strong><span>All three rounds are finished. This hackathon is now read-only.</span></div> : !accessible ? <RoundLock round={3} reason={value(data?.message, "Your team must be selected from Round 2 and Round 3 must be opened by the organizer.")} /> : <div className="student-round-form"><label>GITHUB REPOSITORY URL *</label><div className="student-input-icon"><LinkIcon size={15}/><input value={github} onChange={(e)=>setGithub(e.target.value)} placeholder="https://github.com/username/project"/></div><label>LIVE DEMO URL <span>(OPTIONAL)</span></label><div className="student-input-icon"><ExternalLink size={15}/><input value={demo} onChange={(e)=>setDemo(e.target.value)} placeholder="https://your-project.vercel.app"/></div><label>PROJECT DESCRIPTION <span>(OPTIONAL)</span></label><textarea rows={6} maxLength={5000} value={description} onChange={(e)=>setDescription(e.target.value.slice(0,5000))} placeholder="Briefly explain the final solution, key features and how it works..."/><div className="student-form-counter">{description.length} / 5000</div><button className="student-primary-btn" disabled={saving || !github.trim()} onClick={submit}>{saving ? "SUBMITTING..." : "SUBMIT FINAL PROJECT ↗"}</button></div>}</div></div></section>;
 }
 
 function StudentSubmissionsPage({ project }) {
@@ -2820,7 +2895,7 @@ function StudentSubmissionsPage({ project }) {
 
 function StudentResultsPage() {
   const [hackathons, setHackathons] = useState([]);
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useSyncedHackathon();
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingResults, setLoadingResults] = useState(false);
@@ -2986,7 +3061,7 @@ function StudentResultsPage() {
 
 function StudentLeaderboardPage() {
   const [hackathons, setHackathons] = useState([]);
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useSyncedHackathon();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingBoard, setLoadingBoard] = useState(false);
