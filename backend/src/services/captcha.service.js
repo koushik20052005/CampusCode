@@ -18,10 +18,11 @@ function hashAnswer(text) {
 }
 
 export async function createCaptcha() {
+  // v6.11.1 — numbers only: no confusing letters, easy to read
   const c = svgCaptcha.create({
     size: 5,
-    ignoreChars: "0o1il",
-    noise: 3,
+    charPreset: "0123456789",
+    noise: 2,
     color: true,
     background: "#f4f4f0",
     width: 150,
