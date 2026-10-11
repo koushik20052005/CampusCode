@@ -73,22 +73,22 @@ function Login() {
       const pre = await fetch(`${API_URL}/auth/pre-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: form.password, captchaId, captchaText }),
+        body: JSON.stringify({ email, password: form.password }),
       });
       const preData = await pre.json().catch(() => ({}));
-      if (!pre.ok) {
-        if (preData.captchaFailed) loadCaptcha();
-        throw new Error(preData.message || "Invalid email or password.");
-      }
+      if (!pre.ok) throw new Error(preData.message || "Invalid email or password.");
 
-      // credentials OK — send OTP
+      // credentials OK — send OTP (v6.11.1: captcha goes here, single-use)
       const res = await fetch(`${API_URL}/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, purpose: "login" }),
+        body: JSON.stringify({ email, purpose: "login", captchaId, captchaText }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "Could not send OTP.");
+      if (!res.ok) {
+        if (data.captchaFailed) loadCaptcha();
+        throw new Error(data.message || "Could not send OTP.");
+      }
       // v6.10.1 — don't advance if the email wasn't actually delivered
       if (!data.delivered && !data.dev_otp) {
         throw new Error(data.message || "Could not send the code. Try a master code or try again later.");
@@ -152,10 +152,13 @@ function Login() {
       const res = await fetch(`${API_URL}/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email.trim().toLowerCase(), purpose: "login" }),
+        body: JSON.stringify({ email: form.email.trim().toLowerCase(), purpose: "login", captchaId, captchaText }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "Could not resend code.");
+      if (!res.ok) {
+        if (data.captchaFailed) { loadCaptcha(); setStep("credentials"); }
+        throw new Error(data.message || "Could not resend code.");
+      }
       if (!data.delivered && !data.dev_otp) {
         throw new Error(data.message || "Could not resend the code. Try again later.");
       }

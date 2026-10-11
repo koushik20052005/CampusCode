@@ -352,22 +352,15 @@ export const login = async (req, res) => {
    ========================================================= */
 export const preLogin = async (req, res) => {
   try {
-    const { email, password, captchaId, captchaText } = req.body || {};
+    const { email, password } = req.body || {};
     if (!email || !password) {
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
       });
     }
-    // v6.11 — captcha blocks bots from triggering OTP emails
-    const captchaOk = await verifyCaptcha(captchaId, captchaText);
-    if (!captchaOk) {
-      return res.status(400).json({
-        success: false,
-        message: "Captcha did not match. Try again.",
-        captchaFailed: true,
-      });
-    }
+    // v6.11.1 — captcha lives on send-otp (the actual email-sending step),
+    // not here: pre-login is rate-limited and needs the correct password anyway.
     const normalizedEmail = String(email).trim().toLowerCase();
     const result = await pool.query(
       `SELECT id, password_hash, is_active, role FROM users WHERE email = $1`,
