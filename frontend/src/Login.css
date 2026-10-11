@@ -890,3 +890,37 @@
 }
 
 .login-brand-mark{display:inline-flex;align-items:center;gap:4px;transform:skew(-17deg);height:31px;flex:0 0 auto}.login-brand-mark span{display:block;width:7px;height:29px;background:#111}.login-brand-mark span:nth-child(2){background:#7566ff}.login-brand-mark span:nth-child(3){background:#8bcf19}.login-brand-text strong{display:block;color:#111;font-size:13px;font-weight:900;letter-spacing:1.5px}.login-brand-text small{display:block;margin-top:3px;color:#999;font-family:"DM Mono",monospace;font-size:7px;letter-spacing:.18em;font-weight:800}
+
+/* v6.10 — email OTP verification step (login) */
+.login-otp-sent {
+  margin: 0 0 18px;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  color: #8a8fa3;
+}
+.login-otp-sent strong {
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+.login-otp-hint {
+  margin: 8px 2px 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #8a8fa3;
+}
+.login-otp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 2px 0;
+}
+#login-otp {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 12px;
+  text-indent: 12px;
+}
+#login-otp::placeholder {
+  letter-spacing: 12px;
+}

@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pool from "../config/db.js";
+import { hasVerified } from "../services/otp.service.js";
 
 /* =========================================================
    CREATE JWT
@@ -102,6 +103,21 @@ export const register = async (req, res) => {
       return res.status(409).json({
         success: false,
         message: "An account with this email already exists",
+      });
+    }
+
+    /*
+      v6.10 — email must be verified before the account is created.
+      The frontend sends a 6-digit OTP and calls /auth/verify-otp first;
+      this guard stops anyone skipping the UI and posting here directly.
+      Master OTPs count as verified (they're audit-logged in email_otps).
+    */
+    const verified = await hasVerified(normalizedEmail, "register", 30);
+    if (!verified) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Please verify your email with the OTP code before creating your account.",
       });
     }
 
@@ -320,5 +336,43 @@ export const login = async (req, res) => {
       success: false,
       message: "Unable to login",
     });
+  }
+};
+
+/* =========================================================
+   v6.10 — PRE-LOGIN credential check (no token issued).
+   Used by the login OTP step: verifies email+password are
+   correct BEFORE sending the OTP, so OTP emails can't be
+   triggered for arbitrary addresses.
+   ========================================================= */
+export const preLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const result = await pool.query(
+      `SELECT id, password_hash, is_active, role FROM users WHERE email = $1`,
+      [normalizedEmail]
+    );
+    if (result.rows.length === 0) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+    const user = result.rows[0];
+    if (!user.is_active) {
+      return res.status(403).json({ success: false, message: "Your account has been blocked" });
+    }
+    const ok = await bcrypt.compare(String(password), user.password_hash);
+    if (!ok) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+    return res.status(200).json({ success: true, message: "Credentials valid." });
+  } catch (err) {
+    console.error("[auth] pre-login error:", err.message);
+    return res.status(500).json({ success: false, message: "Unable to verify credentials." });
   }
 };

@@ -1,0 +1,81 @@
+/* =========================================================
+   authOtp.controller.js — email OTP endpoints (free via Gmail SMTP).
+
+   POST /api/auth/send-otp    { email, purpose }  → sends 6-digit OTP
+   POST /api/auth/verify-otp  { email, otp, purpose } → verifies
+
+   Purposes: "register" | "login" | anything custom.
+   Rate-limited at the router level.
+   ========================================================= */
+
+import { createOtp, verifyOtp } from "../services/otp.service.js";
+import {
+  sendMail,
+  otpEmailTemplate,
+  isMailConfigured,
+} from "../services/mail.service.js";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PURPOSES = new Set(["register", "login", "reset"]);
+
+export async function sendOtp(req, res) {
+  try {
+    const { email, purpose = "register" } = req.body || {};
+    const clean = String(email || "").trim().toLowerCase();
+
+    if (!EMAIL_RE.test(clean)) {
+      return res.status(400).json({ success: false, message: "Enter a valid email address." });
+    }
+    const use = PURPOSES.has(purpose) ? purpose : "register";
+
+    const { otp } = await createOtp(clean, use);
+    const result = await sendMail({
+      to: clean,
+      subject: `Your CampusCode OTP is ${otp}`,
+      html: otpEmailTemplate(otp, use),
+    });
+
+    // Dev fallback: when mail isn't configured AND not production,
+    // return the OTP so the flow can still be tested end-to-end.
+    const devMode = !isMailConfigured() && process.env.NODE_ENV !== "production";
+
+    return res.status(200).json({
+      success: true,
+      message: result.sent
+        ? "OTP sent to your email. It expires in 5 minutes."
+        : devMode
+          ? "Mail not configured — dev mode returned the OTP below."
+          : "Could not send email right now. Try a master OTP or try again later.",
+      delivered: result.sent,
+      ...(devMode ? { dev_otp: otp } : {}),
+    });
+  } catch (err) {
+    console.error("[auth] send-otp error:", err.message);
+    return res.status(500).json({ success: false, message: "Could not send OTP. Try again." });
+  }
+}
+
+export async function verifyOtpHandler(req, res) {
+  try {
+    const { email, otp, purpose = "register" } = req.body || {};
+    const clean = String(email || "").trim().toLowerCase();
+
+    if (!EMAIL_RE.test(clean) || !String(otp || "").trim()) {
+      return res.status(400).json({ success: false, message: "Email and OTP are required." });
+    }
+    const use = PURPOSES.has(purpose) ? purpose : "register";
+
+    const result = await verifyOtp(clean, otp, use);
+    if (!result.ok) {
+      return res.status(400).json({ success: false, message: result.reason });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Email verified.",
+      master: Boolean(result.master),
+    });
+  } catch (err) {
+    console.error("[auth] verify-otp error:", err.message);
+    return res.status(500).json({ success: false, message: "Verification failed. Try again." });
+  }
+}
