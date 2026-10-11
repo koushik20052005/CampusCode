@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertCircle,
@@ -1430,6 +1430,7 @@ function OrganizerSubmissions({
   const [reviewScore, setReviewScore] = useState("");
   const [reviewFeedback, setReviewFeedback] = useState("");
   const [reviewBusy, setReviewBusy] = useState("");
+  const loadSeq = useRef(0);
 
   const load = async (roundNumber = round) => {
     if (!hackathon?.id) {
@@ -1437,6 +1438,7 @@ function OrganizerSubmissions({
       return;
     }
 
+    const seq = ++loadSeq.current;
     setLoading(true);
     setError("");
 
@@ -1444,14 +1446,17 @@ function OrganizerSubmissions({
       const data = await apiFetch(
         `/organizer/round${roundNumber}/hackathons/${hackathon.id}/submissions`
       );
+      // v6.9.4: ignore stale responses when tabs are switched mid-flight
+      if (seq !== loadSeq.current) return;
       const nextItems = arr(data, "submissions", "data");
       setItems(nextItems);
       return nextItems;
     } catch (e) {
+      if (seq !== loadSeq.current) return;
       setItems([]);
       setError(e.message || `Unable to load Round ${roundNumber} submissions.`);
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
   };
 
@@ -1878,15 +1883,17 @@ function OrganizerSubmissions({
         {loading ? (
           <Loading />
         ) : items.length ? (
-          <div className="submission-list organizer-submission-list">
-            {items.map((s, i) =>
-              round === 1
-                ? renderRound1(s, i)
-                : round === 2
-                  ? renderRound2(s, i)
-                  : renderRound3(s, i)
-            )}
-          </div>
+          <OrganizerListErrorBoundary key={`round-${round}`}>
+            <div className="submission-list organizer-submission-list">
+              {items.map((s, i) =>
+                round === 1
+                  ? renderRound1(s, i)
+                  : round === 2
+                    ? renderRound2(s, i)
+                    : renderRound3(s, i)
+              )}
+            </div>
+          </OrganizerListErrorBoundary>
         ) : (
           <Empty text={`No Round ${round} submissions found for this hackathon.`} />
         )}
@@ -1917,6 +1924,36 @@ function OrganizerSubmissions({
 /* v6.4 — never let one bad submission black-screen the organizer panel */
 const safeText = (v, fallback = "—") =>
   typeof v === "string" ? v : v === null || v === undefined ? fallback : String(v);
+
+class OrganizerListErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { crashed: false };
+  }
+  static getDerivedStateFromError() {
+    return { crashed: true };
+  }
+  componentDidCatch() {
+    // Swallow the render error so a single bad row never whitescreens the panel
+  }
+  render() {
+    if (this.state.crashed) {
+      return (
+        <div className="form-error" style={{ margin: "12px 0" }}>
+          Something went wrong showing these submissions.{" "}
+          <button
+            type="button"
+            className="ai-analyze-btn small"
+            onClick={() => this.setState({ crashed: false })}
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 class OrganizerModalErrorBoundary extends React.Component {
   constructor(props) {
