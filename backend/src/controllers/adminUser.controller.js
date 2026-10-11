@@ -11,6 +11,78 @@ ADMIN ONLY
 =========================================================
 */
 
+
+/*
+=========================================================
+CREATE ORGANIZER
+POST /api/users/admin/organizers
+ADMIN ONLY — organizer accounts are created by admins,
+public registration is student-only.
+=========================================================
+*/
+
+export const createOrganizer = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name?.trim() || !email?.trim() || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email and password are required",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existing = await pool.query(
+      "SELECT id FROM users WHERE email = $1",
+      [normalizedEmail]
+    );
+
+    if (existing.rows.length) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists",
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const result = await pool.query(
+      `
+      INSERT INTO users
+        (name, email, password_hash, role, is_active)
+      VALUES
+        ($1, $2, $3, 'ORGANIZER', TRUE)
+      RETURNING
+        id, name, email, role, is_active, created_at
+      `,
+      [name.trim(), normalizedEmail, passwordHash]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Organizer account created successfully",
+      user: result.rows[0],
+    });
+  } catch (error) {
+    console.error("CREATE ORGANIZER ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to create organizer account",
+    });
+  }
+};
+
+
 export const createSubAdmin = async (req, res) => {
   try {
     const { name, email, password, campus_code_id = null } = req.body;

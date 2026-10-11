@@ -3351,3 +3351,127 @@ body,
 .organizer-page .org-shimmer { background: linear-gradient(90deg, #eef1f6 25%, #f8fafc 50%, #eef1f6 75%) !important; }
 .organizer-page ::-webkit-scrollbar-thumb { background: #cbd5e1 !important; }
 .organizer-page .hackathon-picker, .organizer-page .picker { background: #fff !important; border: 1px solid #e8edf3 !important; color: #1a2332 !important; }
+
+/* =========================================================
+   v6.7 — SOFT SAAS SPACING FIX + ANIMATIONS
+========================================================= */
+
+/* --- breathing room: tables, panels, stacks --- */
+.organizer-page .organizer-content { padding: 30px 40px 80px !important; }
+.organizer-page .org-panel { padding: 28px 30px !important; }
+.organizer-page .org-stack { gap: 22px !important; }
+.organizer-page table.org-table th,
+.organizer-page .org-table th { padding: 14px 18px !important; }
+.organizer-page table.org-table td,
+.organizer-page .org-table td { padding: 18px !important; }
+.organizer-page .submission-card { padding: 26px 28px !important; margin-bottom: 18px !important; }
+.organizer-page .org-hero { padding: 34px !important; }
+.organizer-page .org-topbar { padding: 20px 0 !important; margin-bottom: 8px !important; }
+.organizer-page .stat-card { padding: 26px !important; }
+.organizer-page .org-form { gap: 18px !important; }
+.organizer-page .org-field { margin-bottom: 6px !important; }
+.organizer-page .org-input, .organizer-page .org-select { padding: 14px 16px !important; }
+.organizer-page .round-tab { padding: 13px 22px !important; margin-right: 10px !important; }
+.organizer-page .approve-btn, .organizer-page .danger-btn,
+.organizer-page .outline-btn, .organizer-page .ai-analyze-btn { padding: 13px 22px !important; }
+.organizer-page .organizer-review-modal { padding: 0 !important; }
+.organizer-page .organizer-review-modal-head { padding: 26px 32px !important; }
+.organizer-page .organizer-review-details { padding: 28px 32px !important; gap: 20px !important; }
+.organizer-page .organizer-ai-panel { padding: 24px 26px !important; }
+.organizer-page .score-strip { padding: 16px 20px !important; gap: 18px !important; }
+
+/* --- entrance: panels & cards rise in --- */
+@keyframes orgRise {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: none; }
+}
+.organizer-page .org-panel,
+.organizer-page .stat-card,
+.organizer-page .submission-card,
+.organizer-page .org-hero {
+  animation: orgRise .55s cubic-bezier(.22,1,.36,1) both;
+}
+.organizer-page .org-stack > *:nth-child(2) { animation-delay: .07s; }
+.organizer-page .org-stack > *:nth-child(3) { animation-delay: .14s; }
+.organizer-page .org-stack > *:nth-child(4) { animation-delay: .21s; }
+.organizer-page .org-stack > *:nth-child(5) { animation-delay: .28s; }
+
+/* --- hover lift on cards --- */
+.organizer-page .submission-card,
+.organizer-page .stat-card,
+.organizer-page .org-panel {
+  transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s, border-color .25s !important;
+}
+.organizer-page .submission-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 18px 44px rgba(99,102,241,.14) !important;
+}
+.organizer-page .stat-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 14px 34px rgba(30,41,59,.1) !important;
+}
+
+/* --- nav + buttons: smooth --- */
+.organizer-page .org-nav-item { transition: all .22s cubic-bezier(.22,1,.36,1) !important; }
+.organizer-page .approve-btn, .organizer-page .outline-btn,
+.organizer-page .danger-btn, .organizer-page .ai-analyze-btn,
+.organizer-page .round-tab {
+  transition: all .22s cubic-bezier(.22,1,.36,1) !important;
+}
+.organizer-page .approve-btn:hover:not(:disabled),
+.organizer-page .ai-analyze-btn:hover:not(:disabled) { transform: translateY(-2px) !important; }
+.organizer-page .approve-btn:active:not(:disabled) { transform: translateY(0) scale(.98) !important; }
+
+/* --- modal pop-in --- */
+@keyframes orgModalIn {
+  from { opacity: 0; transform: translateY(26px) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+.organizer-page .organizer-review-modal,
+.organizer-page .organizer-submission-modal {
+  animation: orgModalIn .35s cubic-bezier(.22,1,.36,1) both !important;
+}
+@keyframes orgFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.organizer-page .organizer-review-modal-backdrop {
+  animation: orgFadeIn .25s ease both !important;
+}
+
+/* --- live dot pulse --- */
+@keyframes orgPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,.4); }
+  50% { box-shadow: 0 0 0 7px rgba(34,197,94,0); }
+}
+.organizer-page .live-dot { animation: orgPulse 2s ease-in-out infinite !important; }
+
+/* --- status pills: gentle pop on appear --- */
+@keyframes orgPop {
+  0% { transform: scale(.85); opacity: 0; }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.organizer-page .status-pill { animation: orgPop .4s cubic-bezier(.22,1,.36,1) both; }
+
+/* --- score bars: fill animation --- */
+@keyframes orgBarFill { from { width: 0 !important; } }
+.organizer-page .score-bar i { animation: orgBarFill 1s cubic-bezier(.22,1,.36,1) .2s both; }
+
+/* --- table rows: fade in --- */
+.organizer-page .org-table tbody tr { animation: orgRise .4s ease both; }
+.organizer-page .org-table tbody tr:nth-child(2) { animation-delay: .05s; }
+.organizer-page .org-table tbody tr:nth-child(3) { animation-delay: .1s; }
+.organizer-page .org-table tbody tr:nth-child(4) { animation-delay: .15s; }
+.organizer-page .org-table tbody tr:nth-child(5) { animation-delay: .2s; }
+
+/* --- shimmer on loading --- */
+@keyframes orgShimmerMove {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.organizer-page .org-shimmer {
+  background-size: 200% 100% !important;
+  animation: orgShimmerMove 1.6s linear infinite !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .organizer-page * { animation: none !important; transition: none !important; }
+}

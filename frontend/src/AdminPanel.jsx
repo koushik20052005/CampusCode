@@ -27,6 +27,7 @@ import {
   Search,
   Server,
   ShieldCheck,
+  ShieldPlus,
   Send,
   Settings,
   Trash2,
@@ -1626,6 +1627,40 @@ function UsersPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState("");
+  const [orgName, setOrgName] = useState("");
+  const [orgEmail, setOrgEmail] = useState("");
+  const [orgPassword, setOrgPassword] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const createOrganizer = async (e) => {
+    e.preventDefault();
+    if (!orgName.trim() || !orgEmail.trim() || !orgPassword) {
+      setError("Name, email and password are required to create an organizer.");
+      return;
+    }
+    setCreating(true);
+    setError("");
+    setSuccess("");
+    try {
+      await apiFetch("/users/admin/organizers", {
+        method: "POST",
+        body: JSON.stringify({
+          name: orgName.trim(),
+          email: orgEmail.trim(),
+          password: orgPassword,
+        }),
+      });
+      setSuccess(`Organizer account created for ${orgEmail.trim()}.`);
+      setOrgName("");
+      setOrgEmail("");
+      setOrgPassword("");
+      await load();
+    } catch (e2) {
+      setError(e2.message);
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -1758,6 +1793,42 @@ function UsersPage() {
           from logging in. Deletion is permanent and is protected by the
           database relationships.
         </span>
+      </div>
+
+      <div className="admin-card admin-create-org">
+        <div className="admin-create-org-head">
+          <ShieldPlus size={18} />
+          <div>
+            <strong>Create organizer account</strong>
+            <span>Organizer accounts can only be created here — public registration is student-only.</span>
+          </div>
+        </div>
+        <form className="admin-create-org-form" onSubmit={createOrganizer}>
+          <input
+            type="text"
+            placeholder="Full name"
+            value={orgName}
+            onChange={(e) => setOrgName(e.target.value)}
+            disabled={creating}
+          />
+          <input
+            type="email"
+            placeholder="Email address"
+            value={orgEmail}
+            onChange={(e) => setOrgEmail(e.target.value)}
+            disabled={creating}
+          />
+          <input
+            type="password"
+            placeholder="Password (min 6 characters)"
+            value={orgPassword}
+            onChange={(e) => setOrgPassword(e.target.value)}
+            disabled={creating}
+          />
+          <button type="submit" className="admin-btn-primary" disabled={creating}>
+            {creating ? "Creating..." : "Create organizer"}
+          </button>
+        </form>
       </div>
 
       <div className="admin-toolbar">

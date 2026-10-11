@@ -4,6 +4,7 @@ import {
   getAllUsers,
   getSubAdmins,
   createSubAdmin,
+  createOrganizer,
   updateUserStatus,
   deleteUser,
 } from "../controllers/adminUser.controller.js";
@@ -46,6 +47,13 @@ router.post(
   requireAuth,
   adminOnly,
   createSubAdmin
+);
+
+router.post(
+  "/organizers",
+  requireAuth,
+  adminOnly,
+  createOrganizer
 );
 
 /*
