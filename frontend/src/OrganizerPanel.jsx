@@ -420,15 +420,9 @@ function OrganizerSidebar({ section, navigate, open, user, onLogout }) {
         <button className="org-brand" onClick={() => navigate("dashboard")}>
           <img
             src="/logos/logo-light.png"
-            alt="CampusCode"
+            alt="CampusCode — Organizer Console"
             className="org-logo-img"
           />
-          <span>
-            <strong>
-              Campus<span>Code</span>
-            </strong>
-            <small>Organizer Console</small>
-          </span>
         </button>
         <button className="org-close-mobile" onClick={() => navigate(section)}>
           <X size={18} />
