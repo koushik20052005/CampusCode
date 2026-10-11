@@ -70,15 +70,21 @@ export const register = async (req, res) => {
       email.trim().toLowerCase();
 
     /*
-      IMPORTANT:
-      SUB_ADMIN is intentionally NOT allowed
-      through public registration.
+      v6.6 — STUDENT-ONLY public registration.
+      Organizer accounts are created by admins; anyone asking
+      for ORGANIZER here is pointed to campuscode@gmail.com.
+      SUB_ADMIN is intentionally NOT allowed either.
     */
 
-    const allowedRoles = [
-      "STUDENT",
-      "ORGANIZER",
-    ];
+    if (role === "ORGANIZER") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Organizer accounts are created by our team. Please contact campuscode@gmail.com",
+      });
+    }
+
+    const allowedRoles = ["STUDENT"];
 
     if (!allowedRoles.includes(role)) {
       return res.status(400).json({

@@ -1382,3 +1382,16 @@
     text-align: center;
   }
 }
+/* v6.6 — student-only registration note */
+.register-organizer-note {
+  margin: 10px 2px 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #77776e;
+}
+.register-organizer-note a {
+  color: #7c5cff;
+  font-weight: 700;
+  text-decoration: none;
+}
+.register-organizer-note a:hover { text-decoration: underline; }

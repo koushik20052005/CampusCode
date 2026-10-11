@@ -81,7 +81,7 @@ function Register() {
             name,
             email,
             password: form.password,
-            role: form.role,
+            role: "STUDENT", // v6.6 — student-only registration
           }),
         }
       );
@@ -372,31 +372,22 @@ function Register() {
                 <div className="register-input-wrap">
 
                   <span className="register-input-icon">
-                    +
+                    🎓
                   </span>
 
-                  <select
-                    name="role"
-                    value={form.role}
-                    onChange={handleChange}
-                    disabled={loading}
-                  >
-
-                    <option value="STUDENT">
-                      STUDENT
-                    </option>
-
-                    <option value="ORGANIZER">
-                      ORGANIZER
-                    </option>
-
-                  </select>
-
-                  <span className="register-select-arrow">
-                    ↓
-                  </span>
+                  <input
+                    type="text"
+                    value="STUDENT"
+                    disabled
+                    aria-label="Account type: student only"
+                  />
 
                 </div>
+
+                <p className="register-organizer-note">
+                  Organizer? Accounts are created by our team — contact{" "}
+                  <a href="mailto:campuscode@gmail.com">campuscode@gmail.com</a>
+                </p>
 
               </div>
 

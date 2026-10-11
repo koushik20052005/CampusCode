@@ -3176,3 +3176,178 @@ body,
 .organizer-page .organizer-card-feedback p {
   color: #444;
 }
+
+/* =========================================================
+   v6.6 — SOFT SAAS THEME (picked by Koushik)
+   Friendly light console: indigo primary, soft shadows,
+   rounded cards. Overrides the dark command theme above.
+========================================================= */
+.organizer-page {
+  --org-bg: #f6f8fb;
+  --org-panel: #ffffff;
+  --org-border: #e8edf3;
+  --org-green: #6366f1;
+  --org-neon: #6366f1;
+  --org-text: #1a2332;
+  --org-muted: rgba(26,35,50,.55);
+  background: #f6f8fb !important;
+  color: #1a2332 !important;
+  font-family: Inter, system-ui, sans-serif !important;
+}
+/* hide dark decorations */
+.organizer-page .org-bg, .organizer-page .org-grid, .organizer-page .org-orb { display: none !important; }
+
+/* sidebar */
+.organizer-page .org-sidebar {
+  background: #ffffff !important;
+  border-right: 1px solid #e8edf3 !important;
+  backdrop-filter: none !important;
+  box-shadow: 4px 0 24px rgba(30,41,59,.04) !important;
+}
+.organizer-page .org-brand-row { border-bottom: 1px solid #eef1f6 !important; }
+.organizer-page .org-brand strong { color: #1a2332 !important; }
+.organizer-page .org-brand strong span { color: #6366f1 !important; }
+.organizer-page .org-brand small { color: #9aa5b8 !important; }
+.organizer-page .org-logo i:nth-child(1) { background: #1a2332 !important; border: 0 !important; }
+.organizer-page .org-logo i:nth-child(2) { background: #6366f1 !important; }
+.organizer-page .org-logo i:nth-child(3) { background: #22d3ee !important; }
+.organizer-page .org-nav-label { color: #aab4c5 !important; }
+.organizer-page .org-nav-item { color: #64748b !important; }
+.organizer-page .org-nav-item:hover { color: #1a2332 !important; background: #f2f5fa !important; transform: none !important; }
+.organizer-page .org-nav-item.active {
+  color: #fff !important;
+  background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+  box-shadow: 0 8px 20px rgba(99,102,241,.28) !important;
+}
+.organizer-page .org-nav-icon { background: rgba(0,0,0,.04) !important; }
+.organizer-page .org-nav-item.active .org-nav-icon { background: rgba(255,255,255,.2) !important; }
+.organizer-page .org-user-card { background: #f6f8fb !important; border: 1px solid #e8edf3 !important; }
+.organizer-page .org-user-card b { color: #1a2332 !important; }
+.organizer-page .org-user-card span { color: #8b96a8 !important; }
+.organizer-page .org-avatar, .organizer-page .org-mini-avatar {
+  background: #eef0ff !important; border: 1px solid #dfe3ff !important; color: #6366f1 !important;
+}
+.organizer-page .org-signout, .organizer-page .org-profile-logout { color: #64748b !important; }
+.organizer-page .org-signout:hover, .organizer-page .org-profile-logout:hover { color: #dc2626 !important; background: #fef2f2 !important; }
+
+/* topbar */
+.organizer-page .org-topbar { background: transparent !important; border: 0 !important; }
+.organizer-page .org-breadcrumb, .organizer-page .org-topbar h1 { color: #1a2332 !important; }
+.organizer-page .org-search { background: #fff !important; border: 1px solid #e8edf3 !important; color: #1a2332 !important;
+  box-shadow: 0 2px 8px rgba(30,41,59,.04) !important; }
+.organizer-page .org-search::placeholder { color: #9aa5b8 !important; }
+.organizer-page .org-top-icon { background: #fff !important; border: 1px solid #e8edf3 !important; color: #64748b !important; }
+.organizer-page .org-top-icon:hover { color: #6366f1 !important; border-color: #c7d2fe !important; }
+.organizer-page .org-profile-chip { background: #fff !important; border: 1px solid #e8edf3 !important; }
+.organizer-page .org-profile-name { color: #1a2332 !important; }
+
+/* panels & cards */
+.organizer-page .org-panel, .organizer-page .panel-card, .organizer-page .org-hero {
+  background: #fff !important; border: 1px solid #e8edf3 !important; color: #1a2332 !important;
+  box-shadow: 0 6px 24px rgba(30,41,59,.06) !important; border-radius: 20px !important;
+}
+.organizer-page .org-panel h2, .organizer-page .org-panel h3 { color: #1a2332 !important; }
+.organizer-page .org-panel p, .organizer-page .stat-sub { color: #8b96a8 !important; }
+
+/* stat cards */
+.organizer-page .stat-card, organizer-page .org-stat {
+  background: #fff !important; border: 1px solid #e8edf3 !important;
+  box-shadow: 0 6px 24px rgba(30,41,59,.06) !important; border-radius: 18px !important;
+}
+.organizer-page .stat-card b, .organizer-page .stat-num { color: #1a2332 !important; }
+.organizer-page .stat-card span, .organizer-page .stat-label { color: #8b96a8 !important; }
+
+/* submission cards */
+.organizer-page .submission-card, .organizer-page .organizer-round-submission-card {
+  background: #fff !important; border: 1px solid #e8edf3 !important; color: #1a2332 !important;
+  box-shadow: 0 4px 18px rgba(30,41,59,.05) !important; border-radius: 18px !important;
+}
+.organizer-page .submission-card:hover { border-color: #c7d2fe !important; box-shadow: 0 10px 30px rgba(99,102,241,.12) !important; }
+.organizer-page .submission-card h3 { color: #1a2332 !important; }
+.organizer-page .submission-card p, .organizer-page .submission-meta span { color: #64748b !important; }
+.organizer-page .submission-meta b { color: #1a2332 !important; }
+.organizer-page .submission-index { background: #f1f4f9 !important; color: #64748b !important; }
+.organizer-page .organizer-card-feedback { background: #f8faff !important; border: 1px solid #e0e7ff !important; }
+.organizer-page .organizer-card-feedback span { color: #6366f1 !important; }
+.organizer-page .organizer-card-feedback p { color: #334155 !important; }
+.organizer-page .submission-open-hint { color: #6366f1 !important; }
+
+/* score strip */
+.organizer-page .score-strip, .organizer-page .ai-breakdown-strip { background: #f8faff !important; border: 1px solid #eef1f6 !important; }
+.organizer-page .score-strip span, .organizer-page .ai-breakdown-strip span { color: #8b96a8 !important; }
+.organizer-page .score-strip b, .organizer-page .ai-breakdown-strip b { color: #1a2332 !important; }
+
+/* status pills */
+.organizer-page .status-pill { border-radius: 20px !important; }
+.organizer-page .status-pill.SELECTED { background: #e5f6ea !important; color: #16a34a !important; }
+.organizer-page .status-pill.REJECTED { background: #fdecec !important; color: #dc2626 !important; }
+.organizer-page .status-pill.PENDING, .organizer-page .status-pill.SUBMITTED { background: #eef0ff !important; color: #6366f1 !important; }
+
+/* forms */
+.organizer-page .org-input, .organizer-page .org-select, .organizer-page .org-field input,
+.organizer-page .org-field textarea, .organizer-page .org-field select {
+  background: #fff !important; border: 1px solid #dfe5ee !important; color: #1a2332 !important; border-radius: 12px !important;
+}
+.organizer-page .org-input:focus, .organizer-page .org-field input:focus, .organizer-page .org-field textarea:focus {
+  border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,.14) !important; outline: none !important;
+}
+.organizer-page .org-input::placeholder { color: #9aa5b8 !important; }
+.organizer-page .org-field label, .organizer-page label { color: #475569 !important; }
+
+/* buttons */
+.organizer-page .approve-btn { background: linear-gradient(135deg, #6366f1, #4f46e5) !important; color: #fff !important;
+  box-shadow: 0 8px 20px rgba(99,102,241,.3) !important; border-radius: 12px !important; }
+.organizer-page .danger-btn { background: #fef2f2 !important; color: #dc2626 !important; border: 1px solid #fecaca !important; border-radius: 12px !important; }
+.organizer-page .outline-btn { background: #fff !important; color: #334155 !important; border: 1px solid #dfe5ee !important; border-radius: 12px !important; }
+.organizer-page .outline-btn:hover { border-color: #6366f1 !important; color: #6366f1 !important; }
+.organizer-page .ai-analyze-btn { background: #eef0ff !important; color: #4f46e5 !important; border: 1px solid #dfe3ff !important; border-radius: 12px !important; }
+.organizer-page .ai-analyze-btn:hover:not(:disabled) { background: #6366f1 !important; color: #fff !important; }
+
+/* round tabs */
+.organizer-page .round-tab { background: #fff !important; border: 1px solid #e8edf3 !important; color: #64748b !important; border-radius: 12px !important; }
+.organizer-page .round-tab:hover { border-color: #c7d2fe !important; color: #4f46e5 !important; }
+.organizer-page .round-tab.active { background: linear-gradient(135deg, #6366f1, #4f46e5) !important; color: #fff !important;
+  border-color: transparent !important; box-shadow: 0 8px 20px rgba(99,102,241,.3) !important; }
+
+/* review modal (light) */
+.organizer-page .organizer-review-modal-backdrop { background: rgba(26,35,50,.45) !important; backdrop-filter: blur(8px) !important; }
+.organizer-page .organizer-review-modal, .organizer-page .organizer-submission-modal {
+  background: #f8fafc !important; color: #1a2332 !important; border: 1px solid #e8edf3 !important;
+  box-shadow: 0 30px 90px rgba(30,41,59,.25) !important;
+}
+.organizer-page .organizer-review-modal-head { background: #fff !important; border-bottom: 1px solid #eef1f6 !important; }
+.organizer-page .organizer-review-modal-head h2 { color: #1a2332 !important; }
+.organizer-page .organizer-review-modal-head p, .organizer-page .organizer-review-modal-head span { color: #8b96a8 !important; }
+.organizer-page .organizer-review-close { background: #f1f4f9 !important; color: #64748b !important; }
+.organizer-page .organizer-review-close:hover { background: #fee2e2 !important; color: #dc2626 !important; }
+.organizer-page .organizer-ai-panel { background: #fff !important; border: 1px solid #e8edf3 !important; }
+.organizer-page .organizer-ai-panel-head strong { color: #1a2332 !important; }
+.organizer-page .organizer-ai-panel-head span { color: #6366f1 !important; }
+.organizer-page .organizer-ai-score-hero { background: linear-gradient(135deg, #eef0ff, #f8faff) !important; border: 1px solid #e0e7ff !important; }
+.organizer-page .organizer-ai-score-hero strong { color: #4f46e5 !important; }
+.organizer-page .organizer-ai-metrics > div { background: #f8faff !important; border: 1px solid #eef1f6 !important; }
+.organizer-page .organizer-ai-metrics b { color: #1a2332 !important; }
+.organizer-page .organizer-ai-metrics span { color: #8b96a8 !important; }
+.organizer-page .organizer-ai-response-box { background: #f8faff !important; border: 1px solid #eef1f6 !important; }
+.organizer-page .organizer-ai-response-box p { color: #334155 !important; }
+.organizer-page .organizer-review-detail-card { background: #fff !important; border: 1px solid #e8edf3 !important; }
+.organizer-page .organizer-review-detail-card span { color: #6366f1 !important; }
+.organizer-page .organizer-review-detail-card p, .organizer-page .organizer-review-detail-card a { color: #334155 !important; }
+.organizer-page .organizer-existing-feedback { background: #fffbeb !important; border: 1px solid #fde68a !important; }
+.organizer-page .organizer-existing-feedback p { color: #92400e !important; }
+.organizer-page .organizer-manual-review-panel { background: #eef0ff !important; border: 1px solid #dfe3ff !important; }
+.organizer-page .organizer-manual-review-panel p { color: #4338ca !important; }
+.organizer-page .form-error { background: #fef2f2 !important; color: #dc2626 !important; border: 1px solid #fecaca !important; }
+
+/* tables */
+.organizer-page table th { color: #8b96a8 !important; border-bottom: 1px solid #eef1f6 !important; }
+.organizer-page table td { color: #334155 !important; border-bottom: 1px solid #f1f4f9 !important; }
+.organizer-page table tr:hover td { background: #f8faff !important; }
+
+/* misc */
+.organizer-page .org-empty { color: #8b96a8 !important; }
+.organizer-page .org-alert { background: #fffbeb !important; border: 1px solid #fde68a !important; color: #92400e !important; }
+.organizer-page .live-dot { background: #22c55e !important; box-shadow: 0 0 0 4px rgba(34,197,94,.18) !important; }
+.organizer-page .org-shimmer { background: linear-gradient(90deg, #eef1f6 25%, #f8fafc 50%, #eef1f6 75%) !important; }
+.organizer-page ::-webkit-scrollbar-thumb { background: #cbd5e1 !important; }
+.organizer-page .hackathon-picker, .organizer-page .picker { background: #fff !important; border: 1px solid #e8edf3 !important; color: #1a2332 !important; }
