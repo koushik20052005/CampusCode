@@ -3476,10 +3476,10 @@ body,
   .organizer-page * { animation: none !important; transition: none !important; }
 }
 
-/* v6.12 — real logo image (replaces CSS-drawn mark) */
-.org-logo-img {
-  height: 34px;
-  width: auto;
-  object-fit: contain;
+/* v6.13 — hand-built SVG logo in exact theme colors */
+.org-logo-svg {
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
+  filter: drop-shadow(0 2px 6px rgba(99,102,241,.3));
 }

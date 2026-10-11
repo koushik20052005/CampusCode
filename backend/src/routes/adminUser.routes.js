@@ -7,6 +7,8 @@ import {
   createOrganizer,
   updateUserStatus,
   deleteUser,
+  generateStaffTfaKey,
+  removeStaffTfaKey,
 } from "../controllers/adminUser.controller.js";
 
 import {
@@ -96,6 +98,26 @@ router.delete(
   requireAuth,
   adminStaff,
   deleteUser
+);
+
+/*
+=========================================================
+STAFF 2FA KEYS (v6.13, ADMIN only)
+=========================================================
+*/
+
+router.post(
+  "/:id/tfa-key",
+  requireAuth,
+  adminOnly,
+  generateStaffTfaKey
+);
+
+router.delete(
+  "/:id/tfa-key",
+  requireAuth,
+  adminOnly,
+  removeStaffTfaKey
 );
 
 export default router;

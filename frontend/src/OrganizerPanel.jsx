@@ -418,11 +418,25 @@ function OrganizerSidebar({ section, navigate, open, user, onLogout }) {
     <aside className={`org-sidebar ${open ? "is-open" : ""}`}>
       <div className="org-brand-row">
         <button className="org-brand" onClick={() => navigate("dashboard")}>
-          <img
-            src="/logos/logo-light.png"
-            alt="CampusCode — Organizer Console"
-            className="org-logo-img"
-          />
+          {/* v6.13 — hand-built SVG logo in exact organizer theme colors (indigo on light) */}
+          <svg
+            className="org-logo-svg"
+            viewBox="0 0 48 48"
+            aria-label="CampusCode"
+            role="img"
+          >
+            <g transform="skewX(-12)">
+              <rect x="8" y="10" width="8" height="28" rx="2.5" fill="#4f46e5" />
+              <rect x="20" y="10" width="8" height="28" rx="2.5" fill="#6366f1" />
+              <rect x="32" y="10" width="8" height="28" rx="2.5" fill="#a5b4fc" />
+            </g>
+          </svg>
+          <span>
+            <strong>
+              Campus<span>Code</span>
+            </strong>
+            <small>Organizer Console</small>
+          </span>
         </button>
         <button className="org-close-mobile" onClick={() => navigate(section)}>
           <X size={18} />

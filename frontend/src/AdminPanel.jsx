@@ -28,6 +28,7 @@ import {
   Server,
   ShieldCheck,
   ShieldPlus,
+  KeyRound,
   Send,
   Settings,
   Trash2,
@@ -140,15 +141,22 @@ const formatTime = (v) => {
       });
 };
 
+/* v6.13 — hand-built SVG logo in exact admin theme colors (emerald on dark) */
 function Logo() {
   return (
     <div className="admin-brand">
-      <img
-        src="/logos/logo-dark.png"
-        alt="CampusCode"
-        className="admin-logo-img"
+      <svg
+        className="admin-logo-svg"
+        viewBox="0 0 48 48"
         aria-label="CampusCode"
-      />
+        role="img"
+      >
+        <g transform="skewX(-12)">
+          <rect x="8" y="10" width="8" height="28" rx="2.5" fill="#10b981" />
+          <rect x="20" y="10" width="8" height="28" rx="2.5" fill="#34d399" />
+          <rect x="32" y="10" width="8" height="28" rx="2.5" fill="#a7f3d0" />
+        </g>
+      </svg>
       <div>
         <div className="admin-brand-name">CAMPUSCODE</div>
         <div className="admin-brand-sub">HACKATHON ARENA</div>
@@ -1632,6 +1640,8 @@ function UsersPage() {
   const [orgEmail, setOrgEmail] = useState("");
   const [orgPassword, setOrgPassword] = useState("");
   const [creating, setCreating] = useState(false);
+  // v6.13 — staff 2FA key management (key shown ONCE after generation)
+  const [newTfaKey, setNewTfaKey] = useState(null); // { name, key }
 
   const createOrganizer = async (e) => {
     e.preventDefault();
@@ -1708,6 +1718,41 @@ function UsersPage() {
       await load();
     } catch (e) {
       setError(e.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  // v6.13 — generate an 8-digit 2FA key for a staff member (shown once)
+  const generateTfaKey = async (user) => {
+    if (!window.confirm(`Generate a new 8-digit 2FA key for ${user.name}? The old key stops working immediately.`)) return;
+    setBusy(`tfa-${user.id}`);
+    setError("");
+    setSuccess("");
+    setNewTfaKey(null);
+    try {
+      const d = await apiFetch(`/users/admin/${user.id}/tfa-key`, { method: "POST" });
+      setNewTfaKey({ name: user.name, key: d.tfaKey });
+      setSuccess(`2FA key generated for ${user.name}.`);
+      await load();
+    } catch (e2) {
+      setError(e2.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  // v6.13 — remove a staff member's 2FA key
+  const removeTfaKey = async (user) => {
+    if (!window.confirm(`Remove the 2FA key for ${user.name}? They will log in with password only until a new key is set.`)) return;
+    setBusy(`tfa-${user.id}`);
+    setError("");
+    try {
+      await apiFetch(`/users/admin/${user.id}/tfa-key`, { method: "DELETE" });
+      setSuccess(`2FA key removed for ${user.name}.`);
+      await load();
+    } catch (e2) {
+      setError(e2.message);
     } finally {
       setBusy("");
     }
@@ -1795,6 +1840,17 @@ function UsersPage() {
           database relationships.
         </span>
       </div>
+
+      {newTfaKey && (
+        <div className="admin-card admin-tfa-reveal" role="alert">
+          <KeyRound size={18} />
+          <div>
+            <strong>2FA key for {newTfaKey.name}: <span className="admin-tfa-digits">{newTfaKey.key}</span></strong>
+            <span>Share this key with them NOW — it will never be shown again. Losing it means generating a new one.</span>
+          </div>
+          <button className="user-action" onClick={() => setNewTfaKey(null)}>Dismiss</button>
+        </div>
+      )}
 
       <div className="admin-card admin-create-org">
         <div className="admin-create-org-head">
@@ -1922,6 +1978,38 @@ function UsersPage() {
                           )}
                           {blocked ? "Unblock" : "Block"}
                         </button>
+
+                        {user.role !== "STUDENT" && (
+                          user.has_tfa_key ? (
+                            <button
+                              className="user-action tfa-remove"
+                              disabled={!!busy}
+                              title="Remove 2FA key"
+                              onClick={() => removeTfaKey(user)}
+                            >
+                              {busy === `tfa-${user.id}` ? (
+                                <LoaderCircle className="spin" size={14} />
+                              ) : (
+                                <KeyRound size={14} />
+                              )}
+                              2FA ✓
+                            </button>
+                          ) : (
+                            <button
+                              className="user-action tfa-add"
+                              disabled={!!busy}
+                              title="Generate 8-digit 2FA key"
+                              onClick={() => generateTfaKey(user)}
+                            >
+                              {busy === `tfa-${user.id}` ? (
+                                <LoaderCircle className="spin" size={14} />
+                              ) : (
+                                <KeyRound size={14} />
+                              )}
+                              2FA +
+                            </button>
+                          )
+                        )}
 
                         <button
                           className="user-action delete"

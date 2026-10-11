@@ -17,8 +17,10 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   // v6.10 — login OTP step (free via Resend)
-  const [step, setStep] = useState("credentials"); // "credentials" | "otp" | "forgot" | "reset"
+  const [step, setStep] = useState("credentials"); // "credentials" | "otp" | "tfa" | "forgot" | "reset"
   const [otp, setOtp] = useState("");
+  // v6.13 — staff 2FA (8-digit key set by admin)
+  const [tfaKey, setTfaKey] = useState("");
   const [otpBusy, setOtpBusy] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [devOtp, setDevOtp] = useState(null);
@@ -56,11 +58,16 @@ function Login() {
   };
 
   // v6.11.3 — shared login completion (direct admin/organizer login + post-OTP student login)
-  const completeLogin = async (email) => {
+  // v6.13 — tfaKey passed for staff 2FA
+  const completeLogin = async (email, tfaKeyValue) => {
     const response = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password: form.password }),
+      body: JSON.stringify({
+        email,
+        password: form.password,
+        ...(tfaKeyValue ? { tfaKey: tfaKeyValue } : {}),
+      }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.message || "Invalid email or password.");
@@ -94,9 +101,15 @@ function Login() {
       const preData = await pre.json().catch(() => ({}));
       if (!pre.ok) throw new Error(preData.message || "Invalid email or password.");
 
-      // v6.11.3 — admin/organizer log in directly (their emails aren't real inboxes);
-      // students go through the OTP step
+      // v6.11.3 — admin/organizer skip email OTP (their emails aren't real inboxes);
+      // students go through the OTP step.
+      // v6.13 — staff with a 2FA key go through the 2FA step instead.
       if (!preData.requiresOtp) {
+        if (preData.requiresTfa) {
+          setTfaKey("");
+          setStep("tfa");
+          return;
+        }
         await completeLogin(email);
         return;
       }
@@ -231,6 +244,19 @@ function Login() {
       alert("Password reset. Log in with your new password.");
     } catch (err) { setError(err.message); }
     finally { setOtpBusy(false); }
+  };
+
+  // v6.13 — staff 2FA: submit the 8-digit key
+  const handleTfaSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    const code = tfaKey.replace(/\D/g, "");
+    if (code.length !== 8) { setError("Enter the 8-digit 2FA key."); return; }
+    try {
+      setLoading(true);
+      await completeLogin(form.email.trim().toLowerCase(), code);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
   // resend countdown
@@ -581,6 +607,38 @@ function Login() {
               <div className="login-otp-row">
                 <button type="button" className="login-password-toggle"
                   onClick={() => { setStep("credentials"); setError(""); setDevOtp(null); }} disabled={busy}>← BACK TO LOGIN</button>
+              </div>
+            </form>
+            ) : step === "tfa" ? (
+            <form onSubmit={handleTfaSubmit}>
+              <p className="login-otp-sent">STAFF <strong>VERIFICATION</strong></p>
+              <p className="login-otp-hint">Enter the 8-digit 2FA key given to you by the admin.</p>
+              <div className="login-field">
+                <label htmlFor="login-tfa">8-DIGIT 2FA KEY</label>
+                <div className="login-input-wrap">
+                  <span className="login-input-icon">#</span>
+                  <input
+                    id="login-tfa"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={tfaKey}
+                    onChange={(e) => { setTfaKey(e.target.value.replace(/\D/g, "").slice(0, 8)); setError(""); }}
+                    placeholder="••••••••"
+                    maxLength={8}
+                    disabled={busy}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              {error && (<div className="login-message login-error" role="alert"><span>!</span><p>{error}</p></div>)}
+              <button type="submit" className="login-submit" disabled={busy}>
+                <span>{loading ? "VERIFYING..." : "VERIFY & LOG IN"}</span>
+                <b className={loading ? "is-loading" : ""}>{loading ? "↻" : "✓"}</b>
+              </button>
+              <div className="login-otp-row">
+                <button type="button" className="login-password-toggle"
+                  onClick={() => { setStep("credentials"); setError(""); setTfaKey(""); loadCaptcha(); }} disabled={busy}>← BACK</button>
               </div>
             </form>
             ) : (

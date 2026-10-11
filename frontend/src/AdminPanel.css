@@ -3684,11 +3684,44 @@ button.primary:hover, .event-action.primary:hover { box-shadow: 0 10px 30px rgba
   .admin-create-org-form { grid-template-columns: 1fr; }
 }
 
-/* v6.12 — real logo image (replaces CSS-drawn mark) */
-.admin-logo-img {
-  width: 42px;
-  height: 42px;
-  object-fit: contain;
-  border-radius: 10px;
+/* v6.13 — hand-built SVG logo in exact theme colors */
+.admin-logo-svg {
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
+  filter: drop-shadow(0 2px 8px rgba(16,185,129,.35));
+}
+
+/* v6.13 — staff 2FA key management */
+.user-action.tfa-add {
+  border-color: rgba(16,185,129,.4);
+  color: #34d399;
+}
+.user-action.tfa-add:hover:not(:disabled) {
+  background: rgba(16,185,129,.12);
+  border-color: rgba(16,185,129,.6);
+}
+.user-action.tfa-remove {
+  border-color: rgba(16,185,129,.6);
+  color: #34d399;
+  background: rgba(16,185,129,.08);
+}
+.admin-tfa-reveal {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-color: rgba(16,185,129,.45) !important;
+  background: rgba(16,185,129,.06) !important;
+  margin-bottom: 20px;
+  padding: 18px 22px;
+}
+.admin-tfa-reveal svg { color: #34d399; flex-shrink: 0; }
+.admin-tfa-reveal strong { display: block; font-size: 14px; color: var(--admin-text); }
+.admin-tfa-reveal span { display: block; font-size: 12px; color: var(--admin-muted); margin-top: 3px; }
+.admin-tfa-digits {
+  font-size: 20px;
+  letter-spacing: 4px;
+  color: #34d399;
+  font-weight: 800;
+  font-family: ui-monospace, monospace;
 }

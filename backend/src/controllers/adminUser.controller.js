@@ -207,7 +207,8 @@ export const getAllUsers = async (req, res) => {
         skills,
         avatar_url,
         is_active,
-        created_at
+        created_at,
+        (tfa_key_hash IS NOT NULL) AS has_tfa_key
       FROM users
       ORDER BY created_at DESC
     `);
@@ -437,5 +438,60 @@ export const deleteUser = async (req, res) => {
       success: false,
       message: "Unable to delete user",
     });
+  }
+};
+/* =========================================================
+   v6.13 — STAFF 2FA KEY MANAGEMENT (admin only)
+
+   POST   /api/users/admin/:id/tfa-key → generate new 8-digit key
+   DELETE /api/users/admin/:id/tfa-key → remove key
+
+   The plaintext key is returned ONCE so the admin can share it
+   with the organizer. Only the SHA-256 hash is stored.
+   ========================================================= */
+import {
+  generateTfaKey as _genTfa,
+  setStaffTfaKey as _setTfa,
+  clearStaffTfaKey as _clearTfa,
+} from "../services/staffTfa.service.js";
+
+export const generateStaffTfaKey = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query(
+      `SELECT id, role FROM users WHERE id = $1`,
+      [id]
+    );
+    const target = rows[0];
+    if (!target) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+    if (target.role === "STUDENT") {
+      return res.status(400).json({
+        success: false,
+        message: "Students use email OTP — 2FA keys are for staff only.",
+      });
+    }
+    const key = _genTfa();
+    await _setTfa(id, key);
+    return res.status(200).json({
+      success: true,
+      message: `2FA key set for ${target.role}. Share it with them now — it won't be shown again.`,
+      tfaKey: key,
+    });
+  } catch (err) {
+    console.error("[admin] generate TFA key error:", err.message);
+    return res.status(500).json({ success: false, message: "Could not generate key." });
+  }
+};
+
+export const removeStaffTfaKey = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await _clearTfa(id);
+    return res.status(200).json({ success: true, message: "2FA key removed." });
+  } catch (err) {
+    console.error("[admin] remove TFA key error:", err.message);
+    return res.status(500).json({ success: false, message: "Could not remove key." });
   }
 };

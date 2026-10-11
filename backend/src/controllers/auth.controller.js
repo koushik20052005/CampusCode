@@ -4,6 +4,12 @@ import pool from "../config/db.js";
 import { hasVerified } from "../services/otp.service.js";
 import { createCaptcha, verifyCaptcha } from "../services/captcha.service.js";
 import { checkPasswordStrength } from "../utils/password.util.js";
+import {
+  checkLockout, lockoutMessage, recordFailedAttempt, resetAttempts,
+} from "../services/authAttempt.service.js";
+import {
+  generateTfaKey, verifyTfaKey, setStaffTfaKey, clearStaffTfaKey,
+} from "../services/staffTfa.service.js";
 import { createOtp } from "../services/otp.service.js";
 import { sendMail, otpEmailTemplate, isMailConfigured } from "../services/mail.service.js";
 
@@ -238,7 +244,8 @@ export const login = async (req, res) => {
         email,
         password_hash,
         role,
-        is_active
+        is_active,
+        tfa_key_hash
       FROM users
       WHERE email = $1
       `,
@@ -265,6 +272,15 @@ export const login = async (req, res) => {
       });
     }
 
+    // v6.13 — brute-force lockout (checked here too in case of direct API calls)
+    const lock = await checkLockout(normalizedEmail);
+    if (lock.locked) {
+      return res.status(429).json({
+        success: false,
+        message: lockoutMessage(lock.retryAfterSec),
+      });
+    }
+
     const passwordMatches =
       await bcrypt.compare(
         password,
@@ -273,6 +289,15 @@ export const login = async (req, res) => {
 
     if (!passwordMatches) {
 
+      // v6.13 — count failures here as well (direct-API brute force)
+      const nowLocked = await recordFailedAttempt(normalizedEmail);
+      if (nowLocked) {
+        const l2 = await checkLockout(normalizedEmail);
+        return res.status(429).json({
+          success: false,
+          message: lockoutMessage(l2.retryAfterSec || 900),
+        });
+      }
       return res.status(401).json({
         success: false,
         message:
@@ -318,6 +343,32 @@ export const login = async (req, res) => {
         });
       }
     }
+
+    /*
+      v6.13 — staff 2FA: 8-digit key set by admin. Verified here so a
+      stolen password alone is useless. Wrong keys also feed the
+      brute-force lockout via recordFailedAttempt below.
+    */
+    if (user.role !== "STUDENT" && user.tfa_key_hash) {
+      const tfaKey = String(req.body?.tfaKey || "").trim();
+      if (!verifyTfaKey(tfaKey, user.tfa_key_hash)) {
+        const nowLocked = await recordFailedAttempt(normalizedEmail);
+        if (nowLocked) {
+          const l2 = await checkLockout(normalizedEmail);
+          return res.status(429).json({
+            success: false,
+            message: lockoutMessage(l2.retryAfterSec || 900),
+          });
+        }
+        return res.status(401).json({
+          success: false,
+          message: "Incorrect 2FA key.",
+        });
+      }
+    }
+
+    // v6.13 — successful login clears the failure counter
+    await resetAttempts(normalizedEmail);
 
     const token =
       createToken(user);
@@ -375,11 +426,17 @@ export const preLogin = async (req, res) => {
         message: "Email and password are required",
       });
     }
+    // v6.13 — brute-force lockout
+    const normalized = String(email).trim().toLowerCase();
+    const lock = await checkLockout(normalized);
+    if (lock.locked) {
+      return res.status(429).json({ success: false, message: lockoutMessage(lock.retryAfterSec) });
+    }
     // v6.11.1 — captcha lives on send-otp (the actual email-sending step),
     // not here: pre-login is rate-limited and needs the correct password anyway.
     const normalizedEmail = String(email).trim().toLowerCase();
     const result = await pool.query(
-      `SELECT id, password_hash, is_active, role FROM users WHERE email = $1`,
+      `SELECT id, password_hash, is_active, role, tfa_key_hash FROM users WHERE email = $1`,
       [normalizedEmail]
     );
     if (result.rows.length === 0) {
@@ -391,11 +448,19 @@ export const preLogin = async (req, res) => {
     }
     const ok = await bcrypt.compare(String(password), user.password_hash);
     if (!ok) {
+      // v6.13 — count the failure; lock the account at the threshold
+      const nowLocked = await recordFailedAttempt(normalized);
+      if (nowLocked) {
+        const l2 = await checkLockout(normalized);
+        return res.status(429).json({ success: false, message: lockoutMessage(l2.retryAfterSec || 900) });
+      }
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
     // v6.11.3 — OTP only for students (admin/organizer emails aren't real inboxes)
+    // v6.13 — staff use 8-digit 2FA key instead (admin-managed)
     const requiresOtp = user.role === "STUDENT";
-    return res.status(200).json({ success: true, message: "Credentials valid.", requiresOtp, role: user.role });
+    const requiresTfa = !requiresOtp && Boolean(user.tfa_key_hash);
+    return res.status(200).json({ success: true, message: "Credentials valid.", requiresOtp, requiresTfa, role: user.role });
   } catch (err) {
     console.error("[auth] pre-login error:", err.message);
     return res.status(500).json({ success: false, message: "Unable to verify credentials." });
