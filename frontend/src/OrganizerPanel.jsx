@@ -1755,7 +1755,7 @@ function OrganizerSubmissions({
           <p>{s.description || s.project_description || "No project description provided."}</p>
           <div className="submission-meta organizer-submission-meta">
             <span>GitHub: <b>{s.github_url ? "Provided" : "Missing"}</b></span>
-            <span>PDF: <b>{s.pdf_url || s.pdf_file_name || s.pdf_file_url || s.pdf ? "Provided" : "Missing"}</b></span>
+            <span>PDF: <b>{s.pdf_url || s.pdf_file_name || s.pdf_file_url || (typeof s.pdf === "string" ? s.pdf : s.pdf?.url) ? "Provided" : "Missing"}</b></span>
             <span>Submitted: {dateText(s.submitted_at || s.created_at)}</span>
           </div>
           {s.ai_analysis && (
@@ -2459,7 +2459,9 @@ function OrganizerSubmissionModal({
                     href={
                       submission.pdf_url ||
                       submission.pdf_file_url ||
-                      submission.pdf
+                      (typeof submission.pdf === "string"
+                        ? submission.pdf
+                        : submission.pdf?.url)
                     }
                     target="_blank"
                     rel="noreferrer"

@@ -294,6 +294,8 @@ export async function getRound1Submissions(req, res) {
 
         status: submission.status,
 
+        feedback_draft: submission.feedback_draft,
+
         ai: {
           score:
             submission.ai_score !== null
@@ -566,6 +568,8 @@ export async function getRound1Submission(req, res) {
         problem_statement: submission.problem_statement,
 
         status: submission.status,
+
+        feedback_draft: submission.feedback_draft,
 
         ai: {
           score:

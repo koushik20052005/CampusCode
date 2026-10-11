@@ -538,6 +538,8 @@ export const getRound2Submissions =
 
             status: row.status,
 
+            feedback_draft: row.feedback_draft,
+
             submitted_at:
               row.submitted_at,
             created_at:
