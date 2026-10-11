@@ -141,7 +141,7 @@ const formatTime = (v) => {
       });
 };
 
-/* v6.13 — hand-built SVG logo in exact admin theme colors (emerald on dark) */
+/* v6.13.1 — logo matches the loading animation: #f4f7fb, #10b981, #10b981 */
 function Logo() {
   return (
     <div className="admin-brand">
@@ -151,10 +151,10 @@ function Logo() {
         aria-label="CampusCode"
         role="img"
       >
-        <g transform="skewX(-12)">
-          <rect x="8" y="10" width="8" height="28" rx="2.5" fill="#10b981" />
-          <rect x="20" y="10" width="8" height="28" rx="2.5" fill="#34d399" />
-          <rect x="32" y="10" width="8" height="28" rx="2.5" fill="#a7f3d0" />
+        <g transform="skewX(-14)">
+          <rect x="8" y="11" width="9" height="26" fill="#f4f7fb" />
+          <rect x="20" y="11" width="9" height="26" fill="#10b981" />
+          <rect x="32" y="11" width="9" height="26" fill="#10b981" />
         </g>
       </svg>
       <div>
@@ -1640,8 +1640,9 @@ function UsersPage() {
   const [orgEmail, setOrgEmail] = useState("");
   const [orgPassword, setOrgPassword] = useState("");
   const [creating, setCreating] = useState(false);
-  // v6.13 — staff 2FA key management (key shown ONCE after generation)
-  const [newTfaKey, setNewTfaKey] = useState(null); // { name, key }
+  // v6.13.1 — staff 2FA: admin TYPES the 8-digit key manually
+  const [tfaEditId, setTfaEditId] = useState(null);
+  const [tfaEditValue, setTfaEditValue] = useState("");
 
   const createOrganizer = async (e) => {
     e.preventDefault();
@@ -1723,17 +1724,24 @@ function UsersPage() {
     }
   };
 
-  // v6.13 — generate an 8-digit 2FA key for a staff member (shown once)
-  const generateTfaKey = async (user) => {
-    if (!window.confirm(`Generate a new 8-digit 2FA key for ${user.name}? The old key stops working immediately.`)) return;
+  // v6.13.1 — admin types the 8-digit 2FA key manually and saves it
+  const saveTfaKey = async (user) => {
+    const key = tfaEditValue.replace(/\D/g, "");
+    if (key.length !== 8) {
+      setError("2FA key must be exactly 8 digits.");
+      return;
+    }
     setBusy(`tfa-${user.id}`);
     setError("");
     setSuccess("");
-    setNewTfaKey(null);
     try {
-      const d = await apiFetch(`/users/admin/${user.id}/tfa-key`, { method: "POST" });
-      setNewTfaKey({ name: user.name, key: d.tfaKey });
-      setSuccess(`2FA key generated for ${user.name}.`);
+      await apiFetch(`/users/admin/${user.id}/tfa-key`, {
+        method: "POST",
+        body: JSON.stringify({ key }),
+      });
+      setSuccess(`8-digit 2FA key saved for ${user.name}. Share it with them.`);
+      setTfaEditId(null);
+      setTfaEditValue("");
       await load();
     } catch (e2) {
       setError(e2.message);
@@ -1840,17 +1848,6 @@ function UsersPage() {
           database relationships.
         </span>
       </div>
-
-      {newTfaKey && (
-        <div className="admin-card admin-tfa-reveal" role="alert">
-          <KeyRound size={18} />
-          <div>
-            <strong>2FA key for {newTfaKey.name}: <span className="admin-tfa-digits">{newTfaKey.key}</span></strong>
-            <span>Share this key with them NOW — it will never be shown again. Losing it means generating a new one.</span>
-          </div>
-          <button className="user-action" onClick={() => setNewTfaKey(null)}>Dismiss</button>
-        </div>
-      )}
 
       <div className="admin-card admin-create-org">
         <div className="admin-create-org-head">
@@ -1980,33 +1977,70 @@ function UsersPage() {
                         </button>
 
                         {user.role !== "STUDENT" && (
-                          user.has_tfa_key ? (
-                            <button
-                              className="user-action tfa-remove"
-                              disabled={!!busy}
-                              title="Remove 2FA key"
-                              onClick={() => removeTfaKey(user)}
-                            >
-                              {busy === `tfa-${user.id}` ? (
-                                <LoaderCircle className="spin" size={14} />
-                              ) : (
+                          tfaEditId === user.id ? (
+                            <span className="tfa-inline-edit">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={8}
+                                placeholder="8 digits"
+                                value={tfaEditValue}
+                                onChange={(e) => setTfaEditValue(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                                disabled={!!busy}
+                                autoFocus
+                              />
+                              <button
+                                className="user-action tfa-save"
+                                disabled={!!busy || tfaEditValue.length !== 8}
+                                onClick={() => saveTfaKey(user)}
+                              >
+                                {busy === `tfa-${user.id}` ? (
+                                  <LoaderCircle className="spin" size={14} />
+                                ) : (
+                                  <CheckCircle2 size={14} />
+                                )}
+                                Save
+                              </button>
+                              <button
+                                className="user-action"
+                                disabled={!!busy}
+                                onClick={() => { setTfaEditId(null); setTfaEditValue(""); }}
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : user.has_tfa_key ? (
+                            <>
+                              <span className="tfa-badge" title="2FA key is set">
+                                <KeyRound size={13} /> 2FA ON
+                              </span>
+                              <button
+                                className="user-action tfa-change"
+                                disabled={!!busy}
+                                title="Change 2FA key"
+                                onClick={() => { setTfaEditId(user.id); setTfaEditValue(""); }}
+                              >
                                 <KeyRound size={14} />
-                              )}
-                              2FA ✓
-                            </button>
+                                Change key
+                              </button>
+                              <button
+                                className="user-action tfa-remove"
+                                disabled={!!busy}
+                                title="Remove 2FA key"
+                                onClick={() => removeTfaKey(user)}
+                              >
+                                Remove
+                              </button>
+                            </>
                           ) : (
                             <button
                               className="user-action tfa-add"
                               disabled={!!busy}
-                              title="Generate 8-digit 2FA key"
-                              onClick={() => generateTfaKey(user)}
+                              title="Set 8-digit 2FA key"
+                              onClick={() => { setTfaEditId(user.id); setTfaEditValue(""); }}
                             >
-                              {busy === `tfa-${user.id}` ? (
-                                <LoaderCircle className="spin" size={14} />
-                              ) : (
-                                <KeyRound size={14} />
-                              )}
-                              2FA +
+                              <KeyRound size={14} />
+                              Set 2FA key
                             </button>
                           )
                         )}

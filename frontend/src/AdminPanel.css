@@ -3692,36 +3692,68 @@ button.primary:hover, .event-action.primary:hover { box-shadow: 0 10px 30px rgba
   filter: drop-shadow(0 2px 8px rgba(16,185,129,.35));
 }
 
-/* v6.13 — staff 2FA key management */
-.user-action.tfa-add {
-  border-color: rgba(16,185,129,.4);
-  color: #34d399;
+/* v6.13.1 — staff 2FA key management (manual 8-digit entry) */
+.user-action.tfa-add,
+.user-action.tfa-change,
+.user-action.tfa-save {
+  border: 1px solid rgba(16,185,129,.5) !important;
+  color: #a7f3d0 !important;
+  background: rgba(16,185,129,.1) !important;
+  font-weight: 700;
 }
-.user-action.tfa-add:hover:not(:disabled) {
-  background: rgba(16,185,129,.12);
-  border-color: rgba(16,185,129,.6);
+.user-action.tfa-add:hover:not(:disabled),
+.user-action.tfa-change:hover:not(:disabled),
+.user-action.tfa-save:hover:not(:disabled) {
+  background: rgba(16,185,129,.2) !important;
+  border-color: rgba(16,185,129,.7) !important;
+  color: #d1fae5 !important;
 }
 .user-action.tfa-remove {
-  border-color: rgba(16,185,129,.6);
-  color: #34d399;
-  background: rgba(16,185,129,.08);
+  border: 1px solid rgba(248,113,113,.4) !important;
+  color: #fca5a5 !important;
+  background: rgba(248,113,113,.06) !important;
+  font-weight: 700;
 }
-.admin-tfa-reveal {
-  display: flex;
+.user-action.tfa-remove:hover:not(:disabled) {
+  background: rgba(248,113,113,.14) !important;
+}
+.tfa-badge {
+  display: inline-flex;
   align-items: center;
-  gap: 14px;
-  border-color: rgba(16,185,129,.45) !important;
-  background: rgba(16,185,129,.06) !important;
-  margin-bottom: 20px;
-  padding: 18px 22px;
-}
-.admin-tfa-reveal svg { color: #34d399; flex-shrink: 0; }
-.admin-tfa-reveal strong { display: block; font-size: 14px; color: var(--admin-text); }
-.admin-tfa-reveal span { display: block; font-size: 12px; color: var(--admin-muted); margin-top: 3px; }
-.admin-tfa-digits {
-  font-size: 20px;
-  letter-spacing: 4px;
-  color: #34d399;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 11px;
   font-weight: 800;
+  letter-spacing: .05em;
+  color: #04110c;
+  background: linear-gradient(135deg, #34d399, #10b981);
+  white-space: nowrap;
+}
+.tfa-inline-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tfa-inline-edit input {
+  width: 110px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(16,185,129,.5);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--admin-text);
   font-family: ui-monospace, monospace;
+}
+.tfa-inline-edit input:focus {
+  outline: none;
+  border-color: #34d399;
+  box-shadow: 0 0 0 3px rgba(16,185,129,.15);
+}
+.tfa-inline-edit input::placeholder {
+  color: var(--admin-muted);
+  letter-spacing: 0;
+  font-weight: 400;
 }

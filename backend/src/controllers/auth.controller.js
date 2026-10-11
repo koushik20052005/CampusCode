@@ -456,6 +456,21 @@ export const preLogin = async (req, res) => {
       }
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
+    /*
+      v6.13.1 — CAPTCHA for staff, verified here (single-use).
+      Students skip this: their captcha is verified at send-otp.
+      Without this, staff login had NO captcha check at all.
+    */
+    if (user.role !== "STUDENT") {
+      const captchaOk = await verifyCaptcha(req.body?.captchaId, req.body?.captchaText);
+      if (!captchaOk) {
+        return res.status(400).json({
+          success: false,
+          message: "Captcha did not match. Try again.",
+          captchaFailed: true,
+        });
+      }
+    }
     // v6.11.3 — OTP only for students (admin/organizer emails aren't real inboxes)
     // v6.13 — staff use 8-digit 2FA key instead (admin-managed)
     const requiresOtp = user.role === "STUDENT";

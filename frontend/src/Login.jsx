@@ -96,10 +96,13 @@ function Login() {
       const pre = await fetch(`${API_URL}/auth/pre-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: form.password }),
+        body: JSON.stringify({ email, password: form.password, captchaId, captchaText }),
       });
       const preData = await pre.json().catch(() => ({}));
-      if (!pre.ok) throw new Error(preData.message || "Invalid email or password.");
+      if (!pre.ok) {
+        if (preData.captchaFailed) loadCaptcha();
+        throw new Error(preData.message || "Invalid email or password.");
+      }
 
       // v6.11.3 — admin/organizer skip email OTP (their emails aren't real inboxes);
       // students go through the OTP step.

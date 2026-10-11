@@ -455,9 +455,18 @@ import {
   clearStaffTfaKey as _clearTfa,
 } from "../services/staffTfa.service.js";
 
+/* v6.13.1 — admin TYPES the 8-digit key manually (no auto-generate) */
 export const generateStaffTfaKey = async (req, res) => {
   try {
     const { id } = req.params;
+    // v6.13.1 — admin creates the key themselves: exactly 8 digits
+    const key = String(req.body?.key || "").trim().replace(/\D/g, "");
+    if (key.length !== 8) {
+      return res.status(400).json({
+        success: false,
+        message: "2FA key must be exactly 8 digits.",
+      });
+    }
     const { rows } = await pool.query(
       `SELECT id, role FROM users WHERE id = $1`,
       [id]
@@ -472,16 +481,14 @@ export const generateStaffTfaKey = async (req, res) => {
         message: "Students use email OTP — 2FA keys are for staff only.",
       });
     }
-    const key = _genTfa();
     await _setTfa(id, key);
     return res.status(200).json({
       success: true,
-      message: `2FA key set for ${target.role}. Share it with them now — it won't be shown again.`,
-      tfaKey: key,
+      message: `8-digit 2FA key saved for ${target.role}.`,
     });
   } catch (err) {
-    console.error("[admin] generate TFA key error:", err.message);
-    return res.status(500).json({ success: false, message: "Could not generate key." });
+    console.error("[admin] set TFA key error:", err.message);
+    return res.status(500).json({ success: false, message: "Could not save key." });
   }
 };
 

@@ -418,17 +418,17 @@ function OrganizerSidebar({ section, navigate, open, user, onLogout }) {
     <aside className={`org-sidebar ${open ? "is-open" : ""}`}>
       <div className="org-brand-row">
         <button className="org-brand" onClick={() => navigate("dashboard")}>
-          {/* v6.13 — hand-built SVG logo in exact organizer theme colors (indigo on light) */}
+          {/* v6.13.1 — logo matches the loading animation: #f4f7fb, #10b981, #10b981 */}
           <svg
             className="org-logo-svg"
             viewBox="0 0 48 48"
             aria-label="CampusCode"
             role="img"
           >
-            <g transform="skewX(-12)">
-              <rect x="8" y="10" width="8" height="28" rx="2.5" fill="#4f46e5" />
-              <rect x="20" y="10" width="8" height="28" rx="2.5" fill="#6366f1" />
-              <rect x="32" y="10" width="8" height="28" rx="2.5" fill="#a5b4fc" />
+            <g transform="skewX(-14)">
+              <rect x="8" y="11" width="9" height="26" fill="#94a3b8" />
+              <rect x="20" y="11" width="9" height="26" fill="#10b981" />
+              <rect x="32" y="11" width="9" height="26" fill="#10b981" />
             </g>
           </svg>
           <span>
