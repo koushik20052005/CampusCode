@@ -109,6 +109,14 @@ function Register() {
         );
       }
 
+      // v6.10.1 — don't advance if the email wasn't actually delivered
+      if (!data.delivered && !data.dev_otp) {
+        throw new Error(
+          data.message ||
+            "Could not send the code. Try a master code or try again later."
+        );
+      }
+
       setDevOtp(data.dev_otp || null);
       setStep("otp");
       setResendIn(60);
