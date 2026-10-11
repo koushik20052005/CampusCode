@@ -32,6 +32,9 @@ function getTransporter() {
     port: MAIL_PORT,
     secure: MAIL_PORT === 465,
     auth: { user: MAIL_USER, pass: MAIL_PASS },
+    connectionTimeout: 10000, // fail fast if SMTP is unreachable
+    greetingTimeout: 8000,
+    socketTimeout: 15000,
   });
   return transporter;
 }
