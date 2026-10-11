@@ -388,9 +388,9 @@ function OverviewPage({ navigate, studentName }) {
 
         <div className="student-panel-card">
           <div className="student-panel-title"><span>02 / NOTIFICATIONS</span><button onClick={() => navigate("Notifications")}>OPEN ALL ↗</button></div>
-          {notifications.length ? (
+          {(() => { const _unread = (notifications || []).filter((n) => !n.is_read && n.is_read !== 1 && n.read_at == null && n.readAt == null); return _unread.length ? (
             <div className="notification-mini-list">
-              {notifications.slice(0, 4).map((item, index) => (
+              {_unread.slice(0, 4).map((item, index) => (
                 <div className="notification-mini" key={item.id || index}>
                   <span className="live-dot" />
                   <div><strong>{value(item.title, item.subject, item.message)}</strong><small>{value(item.body, item.message, item.description)}</small></div>
@@ -398,7 +398,7 @@ function OverviewPage({ navigate, studentName }) {
                 </div>
               ))}
             </div>
-          ) : <EmptyState title="NO NOTIFICATIONS" text="There are no notifications returned by the backend." />}
+          ) : <EmptyState title="ALL CAUGHT UP" text="No unread notifications." />})()}
         </div>
       </div>
     </section>
@@ -1023,11 +1023,100 @@ function ProfilePage() {
   );
 }
 
+/* v6.5 — notifications with read/unread: unread-only by default, mark as read */
 function NotificationsPage() {
-  const [items, setItems] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
-  const load = async () => { setLoading(true); setError(""); try { const result = await apiFetch("/student/notifications"); setItems(unwrapList(result, ["notifications", "items", "data"])); } catch (err) { setError(err.message); } finally { setLoading(false); } };
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [filter, setFilter] = useState("unread");
+  const [marking, setMarking] = useState("");
+
+  const load = async () => {
+    setLoading(true); setError("");
+    try {
+      const result = await apiFetch("/student/notifications");
+      setItems(unwrapList(result, ["notifications", "items", "data"]));
+    } catch (err) { setError(err.message); } finally { setLoading(false); }
+  };
   useEffect(() => { load(); }, []);
-  return <section><PageHeading eyebrow="ALERTS / BACKEND DATA" title="NOTIFICATIONS." text="Live notifications for the authenticated student." count={items.length} />{loading && <LoadingState />}{!loading && error && <ErrorState message={error} retry={load} />}{!loading && !error && !items.length && <EmptyState title="NO NOTIFICATIONS" text="No notification records were returned." />}{!loading && !error && items.map((item, i) => <div className="notification-full" key={item.id || i}><span className="live-dot" /><div><strong>{value(item.title, item.subject, item.message)}</strong><p>{value(item.body, item.message, item.description)}</p></div><time>{formatDate(item.created_at || item.createdAt)}</time></div>)}</section>;
+
+  const isUnread = (n) => !n.is_read && n.is_read !== 1 && n.read_at == null && n.readAt == null;
+  const unreadItems = items.filter(isUnread);
+  const shown = filter === "unread" ? unreadItems : items;
+
+  const markRead = async (id) => {
+    if (!id) return;
+    setMarking(String(id));
+    try {
+      await apiFetch(`/student/notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" });
+      setItems((prev) => prev.map((n) => (String(n.id) === String(id) ? { ...n, is_read: true } : n)));
+    } catch (err) { setError(err.message); } finally { setMarking(""); }
+  };
+
+  const markAllRead = async () => {
+    setMarking("all");
+    try {
+      await apiFetch("/student/notifications/read-all", { method: "PATCH" });
+      setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    } catch (err) { setError(err.message); } finally { setMarking(""); }
+  };
+
+  return (
+    <section>
+      <PageHeading
+        eyebrow="ALERTS / BACKEND DATA"
+        title="NOTIFICATIONS."
+        text="Only unread notifications are shown by default. Mark them read as you go."
+        count={unreadItems.length}
+      />
+      <div className="notif-toolbar">
+        <div className="notif-filter" role="tablist" aria-label="Notification filter">
+          <button type="button" role="tab" aria-selected={filter === "unread"}
+            className={filter === "unread" ? "active" : ""} onClick={() => setFilter("unread")}>
+            UNREAD <b>{unreadItems.length}</b>
+          </button>
+          <button type="button" role="tab" aria-selected={filter === "all"}
+            className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>
+            ALL <b>{items.length}</b>
+          </button>
+        </div>
+        {unreadItems.length > 0 && (
+          <button type="button" className="notif-mark-all" onClick={markAllRead} disabled={marking === "all"}>
+            {marking === "all" ? "MARKING..." : "MARK ALL AS READ ✓"}
+          </button>
+        )}
+      </div>
+      {loading && <LoadingState />}
+      {!loading && error && <ErrorState message={error} retry={load} />}
+      {!loading && !error && !shown.length && (
+        <EmptyState
+          title={filter === "unread" ? "ALL CAUGHT UP" : "NO NOTIFICATIONS"}
+          text={filter === "unread" ? "You have no unread notifications." : "No notification records were returned."}
+        />
+      )}
+      {!loading && !error && shown.map((item, i) => {
+        const unread = isUnread(item);
+        const busy = marking === String(item.id);
+        return (
+          <div className={`notification-full ${unread ? "is-unread" : "is-read"}`} key={item.id || i}>
+            <span className="live-dot" />
+            <div>
+              <strong>{value(item.title, item.subject, item.message)}</strong>
+              <p>{value(item.body, item.message, item.description)}</p>
+            </div>
+            <time>{formatDate(item.created_at || item.createdAt)}</time>
+            {unread ? (
+              <button type="button" className="notif-mark-one" onClick={() => markRead(item.id)} disabled={busy}>
+                {busy ? "..." : "MARK AS READ"}
+              </button>
+            ) : (
+              <span className="notif-read-tick">READ ✓</span>
+            )}
+          </div>
+        );
+      })}
+    </section>
+  );
 }
 
 function HackMatePage() {
@@ -3179,7 +3268,6 @@ function StudentPanel() {
     ["IdeaCheck AI", <Sparkles size={16} strokeWidth={1.8} />],
     ["My Team", <Users size={16} strokeWidth={1.8} />],
     ["Rounds", <Layers size={16} strokeWidth={1.8} />],
-    ["Submissions", <Send size={16} strokeWidth={1.8} />],
     ["Results", <Trophy size={16} strokeWidth={1.8} />],
     ["Leaderboard", <Trophy size={16} strokeWidth={1.8} />],
     ["RuleBot AI", <Bot size={16} strokeWidth={1.8} />],
@@ -3204,7 +3292,7 @@ function StudentPanel() {
   if (activeNav === "IdeaCheck AI") content = <IdeaCheckAIPage />;
   if (activeNav === "My Team") content = <StudentMyTeamPage />;
   if (activeNav === "Rounds") content = <StudentRoundsPage />;
-  if (activeNav === "Submissions") content = <StudentSubmissionsPage project={project} />;
+
   if (activeNav === "Results") content = <StudentResultsPage />;
   if (activeNav === "Leaderboard") content = <StudentLeaderboardPage />;
   if (activeNav === "RuleBot AI") content = <RuleBotPage />;

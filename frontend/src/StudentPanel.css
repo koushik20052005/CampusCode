@@ -5089,3 +5089,32 @@ html, body, #root {
 @media (prefers-reduced-motion: reduce) {
   .student-hero-avatars .student-avatar { animation: none; }
 }
+
+/* =========================================================
+   v6.5 — notifications: unread filter + mark as read
+========================================================= */
+.notification-full { grid-template-columns: 8px 1fr auto auto; align-items: center; }
+.notif-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 22px 0 18px; flex-wrap: wrap; }
+.notif-filter { display: flex; gap: 6px; padding: 5px; border: 1px solid #e3e3da; border-radius: 12px; background: #fff; }
+.notif-filter button { border: 0; background: transparent; padding: 9px 16px; border-radius: 8px; font: 700 11px Inter, system-ui, sans-serif; letter-spacing: .08em; color: #8a8a80; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .2s; }
+.notif-filter button b { font: 700 10px 'DM Mono', monospace; background: #f0f0ea; border-radius: 20px; padding: 2px 8px; color: #55554e; }
+.notif-filter button.active { background: #111; color: #fff; }
+.notif-filter button.active b { background: #a7f37a; color: #111; }
+.notif-mark-all { border: 1px solid #111; background: #111; color: #fff; padding: 10px 18px; border-radius: 10px; font: 700 11px Inter, system-ui, sans-serif; letter-spacing: .08em; cursor: pointer; transition: all .2s; }
+.notif-mark-all:hover:not(:disabled) { background: #a7f37a; border-color: #a7f37a; color: #111; }
+.notif-mark-all:disabled { opacity: .55; cursor: default; }
+.notification-full.is-unread { border-color: #a7f37a; border-left: 4px solid #a7f37a; box-shadow: 0 8px 24px rgba(167,243,122,.14); }
+.notification-full.is-unread .live-dot { background: #65c71f; box-shadow: 0 0 0 4px rgba(167,243,122,.25); animation: livePulse 2s infinite; }
+.notification-full.is-read { opacity: .72; }
+.notification-full.is-read .live-dot { background: #d4d4cc; box-shadow: none; animation: none; }
+@keyframes livePulse { 0%,100% { box-shadow: 0 0 0 4px rgba(167,243,122,.25); } 50% { box-shadow: 0 0 0 7px rgba(167,243,122,.12); } }
+.notif-mark-one { border: 1px solid #deded8; background: #fff; color: #111; padding: 8px 14px; border-radius: 8px; font: 700 10px Inter, system-ui, sans-serif; letter-spacing: .08em; cursor: pointer; white-space: nowrap; transition: all .2s; }
+.notif-mark-one:hover:not(:disabled) { background: #111; color: #fff; border-color: #111; }
+.notif-mark-one:disabled { opacity: .55; cursor: default; }
+.notif-read-tick { font: 700 10px 'DM Mono', monospace; letter-spacing: .1em; color: #65c71f; white-space: nowrap; }
+@media (max-width: 780px) {
+  .notification-full { grid-template-columns: 8px 1fr; }
+  .notification-full time { grid-column: 2; }
+  .notif-mark-one, .notif-read-tick { grid-column: 2; justify-self: start; margin-top: 6px; }
+  .notif-toolbar { flex-direction: column; align-items: stretch; }
+}
