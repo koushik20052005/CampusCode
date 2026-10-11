@@ -4,6 +4,7 @@ import {
   getRound2Submissions,
   analyzeRound2Submission,
   decideRound2Submission,
+  saveRound2FeedbackDraft,
 } from "../controllers/organizerRound2.controller.js";
 
 import {
@@ -47,6 +48,13 @@ router.patch(
   requireAuth,
   requireRole("ORGANIZER", "ADMIN"),
   decideRound2Submission
+);
+
+router.patch(
+  "/submissions/:submissionId/feedback",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  saveRound2FeedbackDraft
 );
 
 export default router;

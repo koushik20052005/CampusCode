@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   LoaderCircle,
   LogOut,
+  Save,
   Menu,
   Plus,
   RefreshCw,
@@ -1472,8 +1473,10 @@ function OrganizerSubmissions({
     );
     // v6.3: feedback lives at different paths per round —
     // R1: decision.feedback | R2: organizer_decision.feedback | R3: organizer_feedback
+    // v6.9: feedback_draft is the saved-but-undecided note
     setReviewFeedback(
-      submission?.organizer_feedback ||
+      submission?.feedback_draft ||
+        submission?.organizer_feedback ||
         submission?.decision?.feedback ||
         submission?.organizer_decision?.feedback ||
         ""
@@ -1482,9 +1485,9 @@ function OrganizerSubmissions({
 
   const closeSubmission = () => {
     if (reviewBusy) return;
+    // v6.9: keep reviewFeedback so a typed-but-unsaved note is never silently lost
     setSelectedSubmission(null);
     setReviewScore("");
-    setReviewFeedback("");
   };
 
   const analyzeSubmission = async (submissionId, roundNumber) => {
@@ -1512,6 +1515,42 @@ function OrganizerSubmissions({
       setError(e.message || `Round ${roundNumber} AI analysis failed.`);
     } finally {
       setBusy("");
+    }
+  };
+
+  // v6.9: save feedback note without finalizing a decision
+  const saveFeedbackDraft = async () => {
+    const submissionId = selectedSubmission?.id || selectedSubmission?.submission_id;
+    if (!submissionId) {
+      setError("Submission ID is missing.");
+      return;
+    }
+    if (!reviewFeedback.trim()) {
+      setError("Write some feedback before saving the draft.");
+      return;
+    }
+    setReviewBusy("DRAFT");
+    setError("");
+    setMessage("");
+    try {
+      const endpoint =
+        round === 3
+          ? `/organizer/round3/submissions/${submissionId}/feedback`
+          : `/organizer/round${round}/submissions/${submissionId}/feedback`;
+      await apiFetch(endpoint, {
+        method: "PATCH",
+        body: JSON.stringify({ feedback_draft: reviewFeedback.trim() }),
+      });
+      setMessage("Feedback draft saved. You can finalize the decision later.");
+      const refreshedItems = await load(round);
+      const updated = refreshedItems?.find(
+        (item) => String(item.id || item.submission_id) === String(submissionId)
+      );
+      if (updated) setSelectedSubmission(updated);
+    } catch (e) {
+      setError(e.message || "Unable to save feedback draft.");
+    } finally {
+      setReviewBusy("");
     }
   };
 
@@ -1647,7 +1686,7 @@ function OrganizerSubmissions({
           </div>
           <div className="submission-meta organizer-submission-meta">
             <span>AI score: <b>{aiScore ?? "Not analyzed"}</b></span>
-            <span>AI: <b>{s.ai_analyzed_at ? "Analyzed" : "Pending"}</b></span>
+            <span>AI: <b>{(s.ai_analyzed_at || s.ai_score != null) ? "Analyzed" : "Pending"}</b></span>
             <span>Submitted: {dateText(s.submitted_at || s.created_at)}</span>
           </div>
           {(s.ai?.novelty_score != null || s.ai?.impact_score != null) && (
@@ -1868,6 +1907,7 @@ function OrganizerSubmissions({
           onAnalyze={analyzeSubmission}
           onDecision={saveDecision}
           onRound3Decision={reviewRound3}
+          onSaveDraft={saveFeedbackDraft}
         />
       )}
     </>
@@ -1930,6 +1970,7 @@ function OrganizerSubmissionModal({
   onAnalyze,
   onDecision,
   onRound3Decision,
+  onSaveDraft,
 }) {
   const id =
     submission?.id ||
@@ -2533,6 +2574,20 @@ function OrganizerSubmissionModal({
               onClick={onClose}
             >
               Cancel
+            </button>
+
+            <button
+              className="ai-analyze-btn"
+              disabled={!!reviewBusy || !reviewFeedback.trim()}
+              onClick={onSaveDraft}
+              title="Save this feedback note without finalizing a decision"
+            >
+              {reviewBusy === "DRAFT" ? (
+                <LoaderCircle size={14} className="spin" />
+              ) : (
+                <Save size={14} />
+              )}
+              Save draft
             </button>
 
             <button

@@ -3,6 +3,7 @@ import express from "express";
 import {
   getRound3Submissions,
   reviewRound3Submission,
+  saveRound3FeedbackDraft,
 } from "../controllers/organizerRound3.controller.js";
 
 import {
@@ -30,6 +31,13 @@ router.patch(
   requireAuth,
   requireRole("ORGANIZER", "ADMIN"),
   reviewRound3Submission
+);
+
+router.patch(
+  "/submissions/:submissionId/feedback",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  saveRound3FeedbackDraft
 );
 
 export default router;

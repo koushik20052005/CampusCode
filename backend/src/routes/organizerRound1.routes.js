@@ -6,6 +6,7 @@ import {
   analyzeRound1Submission,
   decideRound1,
   getRound1Decision,
+  saveRound1FeedbackDraft,
 } from "../controllers/organizerRound1.controller.js";
 
 import {
@@ -61,6 +62,13 @@ router.patch(
   requireAuth,
   requireRole("ORGANIZER", "ADMIN"),
   decideRound1
+);
+
+router.patch(
+  "/submissions/:submissionId/feedback",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  saveRound1FeedbackDraft
 );
 
 

@@ -23,6 +23,7 @@ async function getRound1SubmissionAccess(submissionId, user) {
       r1.ai_feedback,
       r1.ai_recommendation,
       r1.ai_analyzed_at,
+      r1.feedback_draft,
       r1.submitted_at,
 
       h.title AS hackathon_title,
@@ -1385,5 +1386,49 @@ export async function getRound1Decision(req, res) {
       message:
         "Failed to fetch Round 1 decision",
     });
+  }
+}
+/*
+=========================================================
+SAVE FEEDBACK DRAFT (no decision)
+PATCH /organizer/round1/submissions/:submissionId/feedback
+Lets the organizer save a feedback note without
+finalizing SELECTED/REJECTED.
+=========================================================
+*/
+export async function saveRound1FeedbackDraft(req, res) {
+  try {
+    const { submissionId } = req.params;
+    const { feedback_draft } = req.body;
+
+    if (!submissionId) {
+      return res.status(400).json({ success: false, message: "Submission ID is required" });
+    }
+
+    const check = await pool.query(
+      `SELECT r1.id, h.organizer_id
+       FROM round1_submissions r1
+       INNER JOIN hackathons h ON h.id = r1.hackathon_id
+       WHERE r1.id = $1 LIMIT 1`,
+      [submissionId]
+    );
+
+    if (!check.rows.length) {
+      return res.status(404).json({ success: false, message: "Submission not found" });
+    }
+
+    if (req.user.role !== "ADMIN" && check.rows[0].organizer_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not your hackathon" });
+    }
+
+    await pool.query(
+      `UPDATE round1_submissions SET feedback_draft = $1, updated_at = NOW() WHERE id = $2`,
+      [feedback_draft?.trim() || null, submissionId]
+    );
+
+    return res.json({ success: true, message: "Feedback draft saved" });
+  } catch (error) {
+    console.error("SAVE R1 FEEDBACK DRAFT ERROR:", error);
+    return res.status(500).json({ success: false, message: "Unable to save feedback draft" });
   }
 }

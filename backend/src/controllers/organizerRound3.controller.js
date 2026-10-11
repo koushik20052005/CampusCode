@@ -147,6 +147,7 @@ export const getRound3Submissions = async (
           r3.decision,
           r3.score,
           r3.organizer_feedback,
+          r3.feedback_draft,
 
           r3.submitted_at,
           r3.reviewed_at,
@@ -549,3 +550,45 @@ export const reviewRound3Submission =
       });
     }
   };
+/*
+=========================================================
+SAVE FEEDBACK DRAFT (no decision)
+PATCH /organizer/round3/submissions/:submissionId/feedback
+=========================================================
+*/
+export async function saveRound3FeedbackDraft(req, res) {
+  try {
+    const { submissionId } = req.params;
+    const { feedback_draft } = req.body;
+
+    if (!submissionId) {
+      return res.status(400).json({ success: false, message: "Submission ID is required" });
+    }
+
+    const check = await pool.query(
+      `SELECT r3.id, h.organizer_id
+       FROM round3_submissions r3
+       INNER JOIN hackathons h ON h.id = r3.hackathon_id
+       WHERE r3.id = $1 LIMIT 1`,
+      [submissionId]
+    );
+
+    if (!check.rows.length) {
+      return res.status(404).json({ success: false, message: "Submission not found" });
+    }
+
+    if (req.user.role !== "ADMIN" && check.rows[0].organizer_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not your hackathon" });
+    }
+
+    await pool.query(
+      `UPDATE round3_submissions SET feedback_draft = $1, updated_at = NOW() WHERE id = $2`,
+      [feedback_draft?.trim() || null, submissionId]
+    );
+
+    return res.json({ success: true, message: "Feedback draft saved" });
+  } catch (error) {
+    console.error("SAVE R3 FEEDBACK DRAFT ERROR:", error);
+    return res.status(500).json({ success: false, message: "Unable to save feedback draft" });
+  }
+}
