@@ -139,7 +139,9 @@ export async function joinHackathon(req, res) {
       });
     }
 
-    if (hackathon.status !== "OPEN") {
+    // v6.8 fix: registration stays open while hackathon is OPEN or LIVE.
+    // (Going LIVE used to flip status to LIVE and silently block all joins.)
+    if (!["OPEN", "LIVE"].includes(hackathon.status)) {
       return res.status(400).json({
         success: false,
         message: "Hackathon registration is not open",
@@ -462,7 +464,8 @@ export async function createTeam(req, res) {
       });
     }
 
-    if (hackathon.status !== "OPEN") {
+    // v6.8 fix: see above — LIVE hackathons must accept joins too.
+    if (!["OPEN", "LIVE"].includes(hackathon.status)) {
       await client.query("ROLLBACK");
 
       return res.status(400).json({
