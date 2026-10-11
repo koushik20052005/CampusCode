@@ -1,64 +1,56 @@
 /* =========================================================
-   mail.service.js — free email sending via Brevo SMTP (nodemailer)
+   mail.service.js — free email sending via Brevo HTTP API
    + HTML templates for OTP and hackathon notifications.
 
+   Why HTTP API instead of SMTP: Render blocks outbound SMTP
+   ports (587/465 timeout). The HTTPS API on port 443 works.
+
    Required env vars (Render dashboard → Environment):
-     MAIL_HOST   e.g. smtp-relay.brevo.com
-     MAIL_PORT   e.g. 587
-     MAIL_USER   Brevo login email
-     MAIL_PASS   Brevo SMTP key
-     MAIL_FROM   e.g. "CampusCode <you@gmail.com>" (verified sender)
+     BREVO_API_KEY   Brevo API key (xkeysib-...) from SMTP & API → API Keys
+     MAIL_FROM_NAME  e.g. "CampusCode" (optional)
+     MAIL_FROM_EMAIL e.g. "you@gmail.com" — must be a verified sender in Brevo
 
    Free tier: 300 emails/day, no custom domain needed.
    If vars are missing, sendMail() logs instead of sending
    so local dev never crashes.
    ========================================================= */
 
-import nodemailer from "nodemailer";
-
-const MAIL_HOST = process.env.MAIL_HOST || "";
-const MAIL_PORT = Number(process.env.MAIL_PORT || 587);
-const MAIL_USER = process.env.MAIL_USER || "";
-const MAIL_PASS = process.env.MAIL_PASS || "";
-const MAIL_FROM = process.env.MAIL_FROM || "";
-
-let transporter = null;
-
-function getTransporter() {
-  if (transporter) return transporter;
-  if (!MAIL_HOST || !MAIL_USER || !MAIL_PASS || !MAIL_FROM) return null;
-  transporter = nodemailer.createTransport({
-    host: MAIL_HOST,
-    port: MAIL_PORT,
-    secure: MAIL_PORT === 465,
-    auth: { user: MAIL_USER, pass: MAIL_PASS },
-    connectionTimeout: 10000, // fail fast if SMTP is unreachable
-    greetingTimeout: 8000,
-    socketTimeout: 15000,
-  });
-  return transporter;
-}
+const BREVO_API_KEY = process.env.BREVO_API_KEY || "";
+const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || "CampusCode";
+const MAIL_FROM_EMAIL = process.env.MAIL_FROM_EMAIL || "";
 
 export function isMailConfigured() {
-  return Boolean(MAIL_HOST && MAIL_USER && MAIL_PASS && MAIL_FROM);
+  return Boolean(BREVO_API_KEY && MAIL_FROM_EMAIL);
 }
 
 /* Generic sender — used by OTP, hackathon alerts, login alerts. */
 export async function sendMail({ to, subject, html, text }) {
-  const tx = getTransporter();
-  if (!tx) {
+  if (!isMailConfigured()) {
     console.log(`[mail] (not configured) to=${to} subject=${subject}`);
     return { sent: false, reason: "mail_not_configured" };
   }
   try {
-    await tx.sendMail({
-      from: MAIL_FROM,
-      to,
-      subject,
-      html,
-      text: text || undefined,
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": BREVO_API_KEY,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: MAIL_FROM_NAME, email: MAIL_FROM_EMAIL },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+        textContent: text || undefined,
+      }),
+      signal: AbortSignal.timeout(15000),
     });
-    return { sent: true };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || `Brevo API error ${res.status}`);
+    }
+    return { sent: true, id: data.messageId };
   } catch (err) {
     console.error("[mail] send failed:", err.message);
     return { sent: false, reason: err.message };
