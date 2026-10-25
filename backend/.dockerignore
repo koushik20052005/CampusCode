@@ -1,0 +1,7 @@
+node_modules
+uploads
+scripts
+.env
+.env.*
+*.md
+.git

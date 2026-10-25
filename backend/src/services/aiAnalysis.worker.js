@@ -257,6 +257,11 @@ async function analyzeRound1(client, job) {
         innovation_score = $7,
         technical_score = $8,
         impact_score = $9,
+        theme_fit_score = $10,
+        feasibility_score = $11,
+        clarity_score = $12,
+        theme_verdict = $13,
+        score_breakdown = $14,
         updated_at = NOW()
     WHERE id = $4
     `,
@@ -270,8 +275,49 @@ async function analyzeRound1(client, job) {
       analysis.innovation_score ?? null,
       analysis.technical_score ?? null,
       analysis.impact_score ?? null,
+      analysis.theme_fit_score ?? null,
+      analysis.feasibility_score ?? null,
+      analysis.clarity_score ?? null,
+      analysis.theme_verdict || null,
+      analysis.breakdown ? JSON.stringify(analysis.breakdown) : null,
     ]
   );
+
+  /* v6.16 — best-effort training log. Logging must never
+     break scoring (e.g. if migration 014 has not applied
+     yet at boot, the job retry covers the main write). */
+  try {
+    await client.query(
+      `
+      INSERT INTO ai_score_log (
+        hackathon_id, team_id, round, submission_id,
+        facts, scores, theme_verdict, recommendation, model_name
+      )
+      VALUES ($1, $2, 1, $3, $4, $5, $6, $7, $8)
+      `,
+      [
+        s.hackathon_id,
+        s.team_id,
+        s.id,
+        JSON.stringify(analysis.facts || {}),
+        JSON.stringify({
+          theme_fit_score: analysis.theme_fit_score ?? null,
+          innovation_score: analysis.innovation_score_algo ?? null,
+          feasibility_score: analysis.feasibility_score ?? null,
+          clarity_score: analysis.clarity_score ?? null,
+          overall_score: overallScore,
+        }),
+        analysis.theme_verdict || null,
+        analysis.recommendation || "REVIEW",
+        analysis.model_name || "Gemini",
+      ]
+    );
+  } catch (logError) {
+    console.warn(
+      "🤖 AI worker: ai_score_log insert skipped:",
+      logError.message
+    );
+  }
 
   return {
     overall_score: overallScore,
@@ -280,6 +326,11 @@ async function analyzeRound1(client, job) {
     innovation_score: analysis.innovation_score ?? null,
     technical_score: analysis.technical_score ?? null,
     impact_score: analysis.impact_score ?? null,
+    theme_fit_score: analysis.theme_fit_score ?? null,
+    feasibility_score: analysis.feasibility_score ?? null,
+    clarity_score: analysis.clarity_score ?? null,
+    theme_verdict: analysis.theme_verdict || null,
+    breakdown: analysis.breakdown || [],
     recommendation: analysis.recommendation || "REVIEW",
     model_name: analysis.model_name || "Gemini",
   };
@@ -295,7 +346,8 @@ async function analyzeRound2(client, job) {
     SELECT
       rs.id, rs.hackathon_id, rs.team_id,
       rs.github_url, rs.extracted_text, rs.status,
-      h.title AS hackathon_title
+      h.title AS hackathon_title,
+      h.description AS hackathon_description
     FROM round2_submissions rs
     INNER JOIN hackathons h ON h.id = rs.hackathon_id
     WHERE rs.id = $1
@@ -313,6 +365,7 @@ async function analyzeRound2(client, job) {
 
   const analysis = await analyzeRound2ProjectWithAI({
     hackathon_title: s.hackathon_title,
+    hackathon_description: s.hackathon_description,
     github_url: s.github_url,
     pdf_text: s.extracted_text || "",
   });
@@ -337,9 +390,11 @@ async function analyzeRound2(client, job) {
       round2_submission_id,
       novelty_score, relevance_score, innovation_score,
       technical_score, impact_score, overall_score,
-      recommendation, feedback, model_name, created_at
+      recommendation, feedback, model_name,
+      theme_fit_score, feasibility_score, clarity_score,
+      theme_verdict, score_breakdown, created_at
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW())
     ON CONFLICT (round2_submission_id)
     DO UPDATE SET
       novelty_score = EXCLUDED.novelty_score,
@@ -351,6 +406,11 @@ async function analyzeRound2(client, job) {
       recommendation = EXCLUDED.recommendation,
       feedback = EXCLUDED.feedback,
       model_name = EXCLUDED.model_name,
+      theme_fit_score = EXCLUDED.theme_fit_score,
+      feasibility_score = EXCLUDED.feasibility_score,
+      clarity_score = EXCLUDED.clarity_score,
+      theme_verdict = EXCLUDED.theme_verdict,
+      score_breakdown = EXCLUDED.score_breakdown,
       created_at = NOW()
     `,
     [
@@ -364,11 +424,55 @@ async function analyzeRound2(client, job) {
       recommendation,
       JSON.stringify(feedback),
       analysis.model_name || "Gemini",
+      analysis.theme_fit_score ?? null,
+      analysis.feasibility_score ?? null,
+      analysis.clarity_score ?? null,
+      analysis.theme_verdict || null,
+      analysis.breakdown ? JSON.stringify(analysis.breakdown) : null,
     ]
   );
 
+  /* v6.16 — best-effort training log (see Round 1 path). */
+  try {
+    await client.query(
+      `
+      INSERT INTO ai_score_log (
+        hackathon_id, team_id, round, submission_id,
+        facts, scores, theme_verdict, recommendation, model_name
+      )
+      VALUES ($1, $2, 2, $3, $4, $5, $6, $7, $8)
+      `,
+      [
+        s.hackathon_id,
+        s.team_id,
+        s.id,
+        JSON.stringify(analysis.facts || {}),
+        JSON.stringify({
+          theme_fit_score: analysis.theme_fit_score ?? null,
+          innovation_score: analysis.innovation_score_algo ?? null,
+          feasibility_score: analysis.feasibility_score ?? null,
+          clarity_score: analysis.clarity_score ?? null,
+          overall_score: analysis.overall_score ?? null,
+        }),
+        analysis.theme_verdict || null,
+        recommendation,
+        analysis.model_name || "Gemini",
+      ]
+    );
+  } catch (logError) {
+    console.warn(
+      "🤖 AI worker: ai_score_log insert skipped:",
+      logError.message
+    );
+  }
+
   return {
     overall_score: analysis.overall_score ?? null,
+    theme_fit_score: analysis.theme_fit_score ?? null,
+    feasibility_score: analysis.feasibility_score ?? null,
+    clarity_score: analysis.clarity_score ?? null,
+    theme_verdict: analysis.theme_verdict || null,
+    breakdown: analysis.breakdown || [],
     recommendation,
     model_name: analysis.model_name || "Gemini",
   };

@@ -30,6 +30,7 @@ async function getSubmissionAccess(
        t.hackathon_id,
 
        h.title AS hackathon_title,
+       h.description AS hackathon_description,
        h.organizer_id
 
      FROM submissions s
@@ -113,6 +114,7 @@ async function getHackathonAccess(
       `SELECT
          id,
          title,
+         description,
          status,
          organizer_id
        FROM hackathons
@@ -405,6 +407,10 @@ export async function analyzeHackathonRound1(
       const submission of submissions
     ) {
       try {
+        /* v6.16 — theme context for algorithmic scoring. */
+        submission.hackathon_title = hackathon.title;
+        submission.hackathon_description = hackathon.description;
+
         const analysis =
           await analyzeProjectWithAI(
             submission

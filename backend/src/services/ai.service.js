@@ -1,3 +1,50 @@
+/* =========================================================
+   AI SERVICE — Gemini extraction + algorithmic scoring
+
+   v6.16 (Oct 25, 2026) — "AI reads, algorithm decides."
+
+   ARCHITECTURE CHANGE (read before editing):
+   Gemini NEVER assigns a score anymore. It only extracts
+   structured FACTS from a submission (problem, features,
+   tech, theme keywords, demo evidence). The deterministic
+   rubric in scoring.service.js turns those facts into
+   scores, so the same submission always gets the same
+   score and any score can be re-checked from its breakdown.
+
+   What changed vs v6.15:
+   - Prompts ask for FACTS only (no novelty/relevance/
+     innovation/technical/impact scores from the model).
+   - generationConfig now sets temperature: 0 (least
+     creative, most repeatable extraction).
+   - API keys come from the geminiKeys pool: GEMINI_API_KEYS
+     (comma-separated, 5-10 for events) + legacy
+     GEMINI_API_KEY. A failing key cools down 60s and the
+     next key is tried immediately.
+   - analyzeProjectWithAI / analyzeRound2ProjectWithAI keep
+     their names and return the legacy 0-100 score fields
+     as DOCUMENTED projections of the algorithmic criteria
+     (see scoring.service.js legacyProjection), so every
+     existing controller, worker write and organizer screen
+     keeps working unchanged. The new criteria, theme
+     verdict and breakdown ride along in the same object.
+
+   These functions do NOT write to the database.
+   Controllers / the worker handle persistence.
+========================================================= */
+
+import {
+  scoreSubmission,
+  legacyProjection,
+} from "./scoring.service.js";
+
+import {
+  nextKeyIndex,
+  getKeyByIndex,
+  reportKeyFailure,
+  reportKeySuccess,
+  geminiKeyCount,
+} from "./geminiKeys.service.js";
+
 const GEMINI_API_BASE =
   "https://generativelanguage.googleapis.com/v1beta";
 
@@ -83,21 +130,88 @@ function extractJson(text) {
 }
 
 /* =========================================================
-   BUILD AI PROMPT
+   FACTS SCHEMA (shared by R1 + R2 extraction)
 ========================================================= */
 
-function buildProjectPrompt(project) {
+const FACTS_SCHEMA = {
+  type: "object",
+
+  properties: {
+    problem_summary: { type: "string" },
+    features: { type: "array", items: { type: "string" } },
+    technologies: { type: "array", items: { type: "string" } },
+    theme_keywords_present: { type: "array", items: { type: "string" } },
+    demo_evidence: {
+      type: "object",
+      properties: {
+        github_provided: { type: "boolean" },
+        demo_provided: { type: "boolean" },
+      },
+    },
+    claimed_novelty: { type: "string" },
+    strengths: { type: "array", items: { type: "string" } },
+    weaknesses: { type: "array", items: { type: "string" } },
+    suggestions: { type: "array", items: { type: "string" } },
+    feedback: { type: "string" },
+  },
+
+  required: [
+    "problem_summary",
+    "features",
+    "technologies",
+    "theme_keywords_present",
+    "demo_evidence",
+    "claimed_novelty",
+    "feedback",
+  ],
+};
+
+function validateFacts(facts) {
+  if (!facts || typeof facts !== "object") {
+    throw new Error("AI facts are missing");
+  }
+  for (const field of ["features", "technologies", "theme_keywords_present"]) {
+    if (!Array.isArray(facts[field])) facts[field] = [];
+    facts[field] = facts[field].map(String).filter(Boolean);
+  }
+  if (!facts.demo_evidence || typeof facts.demo_evidence !== "object") {
+    facts.demo_evidence = {};
+  }
+  facts.demo_evidence.github_provided = Boolean(
+    facts.demo_evidence.github_provided
+  );
+  facts.demo_evidence.demo_provided = Boolean(
+    facts.demo_evidence.demo_provided
+  );
+  for (const field of ["strengths", "weaknesses", "suggestions"]) {
+    if (!Array.isArray(facts[field])) facts[field] = [];
+    facts[field] = facts[field].map(String).filter(Boolean);
+  }
+  facts.problem_summary = String(facts.problem_summary || "");
+  facts.claimed_novelty = String(facts.claimed_novelty || "");
+  facts.feedback = String(facts.feedback || "");
+  if (!facts.feedback.trim()) {
+    throw new Error("AI feedback is missing");
+  }
+  return facts;
+}
+
+/* =========================================================
+   BUILD FACTS-EXTRACTION PROMPT (ROUND 1)
+========================================================= */
+
+function buildExtractionPrompt(project, themeText) {
   return `
-You are the official AI analysis engine for CampusCode,
+You are the fact-extraction engine for CampusCode,
 a student hackathon platform.
 
-Your job is to analyze a hackathon project and provide
-a recommendation for whether the TEAM should progress
-to the next round.
+Your job is ONLY to read a project submission and extract
+structured facts. You do NOT score, rank, or recommend.
+A deterministic algorithm scores the project from the
+facts you return.
 
-This is AI decision support only.
-
-The organizer must make the final selection decision.
+HACKATHON THEME (the problem space this event is about):
+${themeText || "Not provided"}
 
 PROJECT INFORMATION
 
@@ -126,61 +240,30 @@ ${project.github_url || "Not provided"}
 Live Demo:
 ${project.live_demo_url || "Not provided"}
 
-Evaluate the project using these five criteria:
+EXTRACT, DO NOT JUDGE:
 
-1. novelty_score
-2. relevance_score
-3. innovation_score
-4. technical_score
-5. impact_score
-
-Each score must be an integer from 0 to 100.
-
-Evaluation guidelines:
-
-NOVELTY:
-How original and differentiated is the project?
-
-RELEVANCE:
-How clearly does the solution address the stated problem?
-
-INNOVATION:
-How effectively does the project introduce a meaningful new approach?
-
-TECHNICAL:
-How strong and appropriate is the technical implementation based on
-the provided technologies and project description?
-
-IMPACT:
-How useful could the solution be for its intended users or broader community?
-
-RECOMMENDATION:
-
-After calculating the five scores, provide exactly ONE recommendation:
-
-SELECT:
-The project shows strong overall potential and should be considered
-for progression to the next round.
-
-REVIEW:
-The project has potential but requires closer human evaluation
-before making a selection decision.
-
-REJECT:
-The project currently does not demonstrate enough strength,
-relevance, innovation, technical quality, or impact for progression.
+- problem_summary: one faithful paragraph of what problem
+  the team says they solve (their words, condensed).
+- features: every concrete feature the submission mentions.
+- technologies: every technology named.
+- theme_keywords_present: words from the hackathon theme
+  that actually appear in the submission text.
+- demo_evidence: whether a GitHub URL / live demo URL was
+  actually provided (true/false, from the fields above).
+- claimed_novelty: what the team claims is new or different
+  about their approach, in their own terms. If they claim
+  nothing specific, say so.
+- strengths / weaknesses / suggestions: short, specific,
+  constructive observations a student team can act on.
+- feedback: a constructive summary of the project.
 
 IMPORTANT:
 
-- The recommendation is advisory only.
-- Do not automatically select or reject the team.
-- The organizer makes the final decision.
+- Do not invent features that are not mentioned.
+- Do not assume a GitHub repository or live demo works
+  if no evidence is provided.
 - Do not evaluate personal characteristics of team members.
 - Evaluate only the project information provided.
-- Do not invent features that are not mentioned.
-- Do not assume a GitHub repository or live demo works if no evidence is provided.
-- Be constructive but critical.
-- Give specific feedback that a student team can act on.
 - Return ONLY valid JSON.
 - Do not use Markdown.
 - Do not wrap the JSON in code fences.
@@ -188,25 +271,95 @@ IMPORTANT:
 Required JSON format:
 
 {
-  "novelty_score": 0,
-  "relevance_score": 0,
-  "innovation_score": 0,
-  "technical_score": 0,
-  "impact_score": 0,
-  "recommendation": "SELECT",
-  "feedback": "Constructive analysis of the project."
+  "problem_summary": "",
+  "features": [],
+  "technologies": [],
+  "theme_keywords_present": [],
+  "demo_evidence": { "github_provided": false, "demo_provided": false },
+  "claimed_novelty": "",
+  "strengths": [],
+  "weaknesses": [],
+  "suggestions": [],
+  "feedback": ""
 }
-
-The recommendation MUST be exactly one of:
-
-SELECT
-REVIEW
-REJECT
 `;
 }
 
 /* =========================================================
-   CALL ONE GEMINI MODEL
+   BUILD FACTS-EXTRACTION PROMPT (ROUND 2, PDF REPORT)
+========================================================= */
+
+function buildRound2ExtractionPrompt({
+  hackathonTitle,
+  themeText,
+  githubUrl,
+  pdfText,
+}) {
+  return `
+You are the fact-extraction engine for CampusCode,
+a student hackathon platform.
+
+Your job is ONLY to read a Round 2 project report and
+extract structured facts. You do NOT score, rank, or
+recommend. A deterministic algorithm scores the project
+from the facts you return.
+
+HACKATHON:
+${hackathonTitle || "Not provided"}
+
+HACKATHON THEME (the problem space this event is about):
+${themeText || "Not provided"}
+
+GITHUB URL:
+${githubUrl || "Not provided"}
+
+PROJECT REPORT EXTRACTED FROM PDF:
+${pdfText}
+
+EXTRACT, DO NOT JUDGE:
+
+- problem_summary: one faithful paragraph of what problem
+  the team says they solve.
+- features: every concrete feature the report mentions.
+- technologies: every technology named.
+- theme_keywords_present: words from the hackathon theme
+  that actually appear in the report text.
+- demo_evidence: github_provided = whether a GitHub URL
+  was provided above; demo_provided = whether the report
+  mentions a working live demo link.
+- claimed_novelty: what the team claims is new or different
+  about their approach, in their own terms.
+- strengths / weaknesses / suggestions: short, specific,
+  constructive observations.
+- feedback: a constructive summary of the project.
+
+IMPORTANT:
+
+- Base the extraction only on the information provided.
+- Do not invent project features.
+- If information is missing, say so in the feedback.
+- Do not evaluate information that is not supplied.
+- Return ONLY valid JSON, no Markdown, no code fences.
+
+Required JSON format:
+
+{
+  "problem_summary": "",
+  "features": [],
+  "technologies": [],
+  "theme_keywords_present": [],
+  "demo_evidence": { "github_provided": false, "demo_provided": false },
+  "claimed_novelty": "",
+  "strengths": [],
+  "weaknesses": [],
+  "suggestions": [],
+  "feedback": ""
+}
+`;
+}
+
+/* =========================================================
+   CALL ONE GEMINI MODEL (key pool + rotation)
 ========================================================= */
 
 async function callGeminiModel(prompt, model) {
@@ -217,15 +370,23 @@ async function callGeminiModel(prompt, model) {
     attempt <= MAX_RETRIES_PER_MODEL;
     attempt++
   ) {
+    const keyIndex = nextKeyIndex();
+    if (keyIndex === null) {
+      throw new Error(
+        "All Gemini API keys are cooling down after failures"
+      );
+    }
+    const apiKey = getKeyByIndex(keyIndex);
+
     try {
       console.log(
-        `Gemini request: model=${model}, attempt=${attempt + 1}/${
+        `Gemini request: model=${model}, key#${keyIndex}, attempt=${attempt + 1}/${
           MAX_RETRIES_PER_MODEL + 1
         }`
       );
 
       const response = await fetch(
-        `${GEMINI_API_BASE}/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
         {
           method: "POST",
 
@@ -241,57 +402,13 @@ async function callGeminiModel(prompt, model) {
             ],
 
             generationConfig: {
+              /* v6.16: temperature 0 = least creative,
+                 most repeatable extraction. */
+              temperature: 0,
+
               responseMimeType: "application/json",
 
-              responseSchema: {
-                type: "object",
-
-                properties: {
-                  novelty_score: {
-                    type: "integer",
-                  },
-
-                  relevance_score: {
-                    type: "integer",
-                  },
-
-                  innovation_score: {
-                    type: "integer",
-                  },
-
-                  technical_score: {
-                    type: "integer",
-                  },
-
-                  impact_score: {
-                    type: "integer",
-                  },
-
-                  recommendation: {
-                    type: "string",
-
-                    enum: [
-                      "SELECT",
-                      "REVIEW",
-                      "REJECT",
-                    ],
-                  },
-
-                  feedback: {
-                    type: "string",
-                  },
-                },
-
-                required: [
-                  "novelty_score",
-                  "relevance_score",
-                  "innovation_score",
-                  "technical_score",
-                  "impact_score",
-                  "recommendation",
-                  "feedback",
-                ],
-              },
+              responseSchema: FACTS_SCHEMA,
             },
           }),
         }
@@ -301,62 +418,56 @@ async function callGeminiModel(prompt, model) {
         const errorText = await response.text();
 
         console.error(
-          `GEMINI API ERROR [${response.status}] using ${model}:`,
-          errorText
+          `GEMINI API ERROR [${response.status}] using ${model}, key#${keyIndex}:`,
+          errorText.slice(0, 300)
         );
 
         if (
           isRetryableStatus(response.status) &&
           attempt < MAX_RETRIES_PER_MODEL
         ) {
+          reportKeyFailure(keyIndex, response.status);
           const delay = RETRY_DELAYS[attempt];
-
           console.log(
             `Temporary Gemini error (${response.status}). ` +
-              `Retrying ${model} in ${delay / 1000}s...`
+              `Rotating key, retrying ${model} in ${delay / 1000}s...`
           );
-
           await sleep(delay);
-
           continue;
         }
 
         const error = new Error(
           `Gemini API error: ${response.status}`
         );
-
         error.status = response.status;
         error.model = model;
         error.responseBody = errorText;
-
         throw error;
       }
 
       const data = await response.json();
 
       console.log(
-        `GEMINI RESPONSE RECEIVED FROM ${model}`
+        `GEMINI RESPONSE RECEIVED FROM ${model} (key#${keyIndex})`
       );
 
       const outputText =
         data.candidates?.[0]?.content?.parts
-          ?.map(
-            (part) =>
-              part?.text || ""
-          )
+          ?.map((part) => part?.text || "")
           ?.join("")
           ?.trim() || "";
 
       if (!outputText) {
         console.error(
           `GEMINI EMPTY RESPONSE FROM ${model}:`,
-          JSON.stringify(data, null, 2)
+          JSON.stringify(data, null, 2).slice(0, 500)
         );
-
         throw new Error(
           `Gemini returned no text output from ${model}`
         );
       }
+
+      reportKeySuccess(keyIndex);
 
       return {
         outputText,
@@ -372,21 +483,16 @@ async function callGeminiModel(prompt, model) {
 
       const shouldRetry =
         attempt < MAX_RETRIES_PER_MODEL &&
-        (
-          !status ||
-          isRetryableStatus(status)
-        );
+        (!status || isRetryableStatus(status));
 
       if (shouldRetry) {
+        reportKeyFailure(keyIndex, status);
         const delay = RETRY_DELAYS[attempt];
-
         console.log(
           `Gemini request error for ${model}. ` +
-            `Retrying in ${delay / 1000}s...`
+            `Rotating key, retrying in ${delay / 1000}s...`
         );
-
         await sleep(delay);
-
         continue;
       }
 
@@ -405,27 +511,13 @@ async function callGeminiModel(prompt, model) {
 ========================================================= */
 
 async function callGemini(prompt) {
-  if (!process.env.GEMINI_API_KEY) {
+  if (geminiKeyCount() === 0) {
     throw new Error(
       "GEMINI_API_KEY is not configured"
     );
   }
 
   let lastError = null;
-
-  /*
-   * Try each model.
-   *
-   * Example:
-   *
-   * gemini-3.6-flash
-   *       ↓ 503
-   * retry
-   *       ↓ 503
-   * gemini-3.5-flash-lite
-   *       ↓
-   * response
-   */
 
   for (const model of GEMINI_MODELS) {
     try {
@@ -440,7 +532,7 @@ async function callGemini(prompt) {
         );
 
       console.log(
-        `Gemini analysis successful using ${model}`
+        `Gemini extraction successful using ${model}`
       );
 
       return result;
@@ -465,11 +557,6 @@ async function callGemini(prompt) {
         throw error;
       }
 
-      /*
-       * Otherwise continue to the next
-       * fallback model.
-       */
-
       console.log(
         `Switching from ${model} to next Gemini fallback model...`
       );
@@ -483,144 +570,108 @@ async function callGemini(prompt) {
 }
 
 /* =========================================================
-   ANALYZE PROJECT WITH AI
+   COMBINE FACTS + ALGORITHMIC SCORE (shared)
+========================================================= */
+
+function buildAnalysis({ facts, scores, model }) {
+  const legacy = legacyProjection(scores);
+  return {
+    /* Legacy 0-100 fields (projections of algorithmic
+       criteria — keeps every existing screen working). */
+    ...legacy,
+
+    /* New algorithmic criteria (primary truth). */
+    theme_fit_score: scores.theme_fit_score,
+    feasibility_score: scores.feasibility_score,
+    clarity_score: scores.clarity_score,
+    innovation_score_algo: scores.innovation_score,
+
+    overall_score: scores.overall_score,
+    theme_verdict: scores.theme_verdict,
+    recommendation:
+      scores.recommendation,
+    breakdown: scores.breakdown,
+    theme_gate_capped: scores.theme_gate_capped,
+
+    feedback: facts.feedback,
+    strengths: facts.strengths,
+    weaknesses: facts.weaknesses,
+    suggestions: facts.suggestions,
+    facts,
+
+    model_name: model,
+  };
+}
+
+/* =========================================================
+   ANALYZE PROJECT WITH AI (ROUND 1 + generic projects)
+
+   Shared by:
+   - automatic student-side analysis after submission
+   - organizer manual Analyze / Re-analyze
+
+   This function does NOT write to the database.
+   The controller / worker handles persistence.
 ========================================================= */
 
 export async function analyzeProjectWithAI(
   project
 ) {
-  if (!process.env.GEMINI_API_KEY) {
+  if (geminiKeyCount() === 0) {
     throw new Error(
       "GEMINI_API_KEY is not configured"
     );
   }
 
-  const prompt =
-    buildProjectPrompt(project);
+  const themeText = [
+    project.hackathon_title || "",
+    project.hackathon_description || "",
+  ]
+    .join(" ")
+    .trim();
 
-  /*
-   * callGemini now returns:
-   *
-   * {
-   *   outputText,
-   *   model
-   * }
-   */
+  const text = [
+    project.problem_statement || "",
+    project.solution || "",
+  ]
+    .join("\n")
+    .trim();
+
+  const prompt =
+    buildExtractionPrompt(project, themeText);
 
   const {
     outputText,
     model,
   } = await callGemini(prompt);
 
-  const analysis =
-    extractJson(outputText);
+  const facts = validateFacts(extractJson(outputText));
 
-  /* =======================================================
-     VALIDATE SCORES
-  ======================================================= */
+  /* Evidence flags come from the actual submitted fields,
+     not from the model's reading of them. */
+  facts.demo_evidence.github_provided = Boolean(
+    project.github_url && String(project.github_url).trim()
+  );
+  facts.demo_evidence.demo_provided = Boolean(
+    project.live_demo_url && String(project.live_demo_url).trim()
+  );
 
-  const scoreFields = [
-    "novelty_score",
-    "relevance_score",
-    "innovation_score",
-    "technical_score",
-    "impact_score",
-  ];
+  const scores = scoreSubmission({
+    facts,
+    text,
+    themeText,
+    round: 1,
+  });
 
-  for (const field of scoreFields) {
-    const value =
-      Number(analysis[field]);
-
-    if (
-      !Number.isInteger(value) ||
-      value < 0 ||
-      value > 100
-    ) {
-      throw new Error(
-        `Invalid AI score for ${field}`
-      );
-    }
-
-    analysis[field] = value;
-  }
-
-  /* =======================================================
-     VALIDATE RECOMMENDATION
-  ======================================================= */
-
-  const validRecommendations = [
-    "SELECT",
-    "REVIEW",
-    "REJECT",
-  ];
-
-  if (
-    !validRecommendations.includes(
-      analysis.recommendation
-    )
-  ) {
-    throw new Error(
-      "Invalid AI recommendation"
-    );
-  }
-
-  /* =======================================================
-     VALIDATE FEEDBACK
-  ======================================================= */
-
-  if (
-    typeof analysis.feedback !==
-      "string" ||
-    !analysis.feedback.trim()
-  ) {
-    throw new Error(
-      "AI feedback is missing"
-    );
-  }
-
-  /* =======================================================
-     CALCULATE OVERALL SCORE
-  ======================================================= */
-
-  const overallScore =
-    (
-      (
-        analysis.novelty_score +
-        analysis.relevance_score +
-        analysis.innovation_score +
-        analysis.technical_score +
-        analysis.impact_score
-      ) / 5
-    );
-
-  /* =======================================================
-     RETURN FINAL ANALYSIS
-  ======================================================= */
-
-  return {
-    ...analysis,
-
-    overall_score:
-      Number(
-        overallScore.toFixed(2)
-      ),
-
-    /*
-     * Return the model that actually
-     * produced the analysis.
-     */
-    model_name: model,
-  };
+  return buildAnalysis({ facts, scores, model });
 }
+
 /* =========================================================
-   ANALYZE ROUND 2 PROJECT WITH AI
+   ANALYZE ROUND 2 PROJECT WITH AI (PDF REPORT)
 
    Shared by:
    - automatic student-side analysis after submission
    - organizer manual Analyze / Re-analyze
-
-   Gemini request uses the same retry + fallback pipeline
-   already used by Round 1.
 
    This function does NOT write to the database.
    The controller handles database persistence.
@@ -628,10 +679,11 @@ export async function analyzeProjectWithAI(
 
 export async function analyzeRound2ProjectWithAI({
   hackathon_title,
+  hackathon_description,
   github_url,
   pdf_text,
 }) {
-  if (!process.env.GEMINI_API_KEY) {
+  if (geminiKeyCount() === 0) {
     throw new Error(
       "GEMINI_API_KEY is not configured"
     );
@@ -665,208 +717,37 @@ export async function analyzeRound2ProjectWithAI({
         "\n\n[PDF text truncated for AI analysis]"
       : pdfText;
 
-  const prompt = `
-You are an AI evaluation assistant for a student hackathon.
+  const themeText = [
+    hackathon_title || "",
+    hackathon_description || "",
+  ]
+    .join(" ")
+    .trim();
 
-You are analyzing a Round 2 project submission.
-
-Your job is to evaluate the project fairly and provide a recommendation to the human organizer.
-
-IMPORTANT:
-- Do NOT make the final winner decision.
-- The organizer is the final decision-maker.
-- Base the evaluation only on the information provided.
-- Do not invent project features.
-- If information is missing, mention that clearly.
-- Do not evaluate information that is not supplied.
-
-Evaluate these five categories from 0 to 100:
-
-1. Novelty
-2. Relevance
-3. Innovation
-4. Technical Quality
-5. Impact
-
-Then calculate an overall score from 0 to 100.
-
-Recommendation must be exactly ONE of:
-
-SELECT
-REVIEW
-REJECT
-
-Meaning:
-
-SELECT:
-The project appears strong and suitable to proceed based on the available information.
-
-REVIEW:
-The project has potential, but the organizer should manually inspect it carefully.
-
-REJECT:
-The project appears to have major issues based on the available information.
-
-Also provide:
-- strengths
-- weaknesses
-- improvement suggestions
-- detailed evaluation feedback
-
-Return ONLY valid JSON.
-
-Required JSON format:
-
-{
-  "novelty_score": 0,
-  "relevance_score": 0,
-  "innovation_score": 0,
-  "technical_score": 0,
-  "impact_score": 0,
-  "overall_score": 0,
-  "recommendation": "SELECT",
-  "strengths": [],
-  "weaknesses": [],
-  "suggestions": [],
-  "feedback": ""
-}
-
-HACKATHON:
-${hackathon_title || "Not provided"}
-
-GITHUB URL:
-${githubUrl}
-
-PROJECT REPORT EXTRACTED FROM PDF:
-${limitedPdfText}
-`;
+  const prompt = buildRound2ExtractionPrompt({
+    hackathonTitle: hackathon_title,
+    themeText,
+    githubUrl,
+    pdfText: limitedPdfText,
+  });
 
   const {
     outputText,
     model,
   } = await callGemini(prompt);
 
-  const analysis =
-    extractJson(outputText);
+  const facts = validateFacts(extractJson(outputText));
 
-  const scoreFields = [
-    "novelty_score",
-    "relevance_score",
-    "innovation_score",
-    "technical_score",
-    "impact_score",
-    "overall_score",
-  ];
+  /* GitHub evidence from the actual submitted field. */
+  facts.demo_evidence.github_provided =
+    githubUrl !== "Not provided";
 
-  for (const field of scoreFields) {
-    const value =
-      Number(analysis[field]);
+  const scores = scoreSubmission({
+    facts,
+    text: limitedPdfText,
+    themeText,
+    round: 2,
+  });
 
-    if (
-      !Number.isFinite(value) ||
-      value < 0 ||
-      value > 100
-    ) {
-      throw new Error(
-        `Invalid AI score for ${field}`
-      );
-    }
-
-    analysis[field] =
-      Number(value.toFixed(2));
-  }
-
-  /*
-   * Always calculate the overall score
-   * from the five evaluation categories.
-   */
-  const calculatedOverall =
-    (
-      analysis.novelty_score +
-      analysis.relevance_score +
-      analysis.innovation_score +
-      analysis.technical_score +
-      analysis.impact_score
-    ) / 5;
-
-  analysis.overall_score =
-    Number(
-      calculatedOverall.toFixed(2)
-    );
-
-  const allowedRecommendations = [
-    "SELECT",
-    "REVIEW",
-    "REJECT",
-  ];
-
-  let recommendation =
-    String(
-      analysis.recommendation ||
-        "REVIEW"
-    )
-      .trim()
-      .toUpperCase();
-
-  if (
-    !allowedRecommendations.includes(
-      recommendation
-    )
-  ) {
-    recommendation = "REVIEW";
-  }
-
-  const feedback = {
-    strengths:
-      Array.isArray(
-        analysis.strengths
-      )
-        ? analysis.strengths
-        : [],
-
-    weaknesses:
-      Array.isArray(
-        analysis.weaknesses
-      )
-        ? analysis.weaknesses
-        : [],
-
-    suggestions:
-      Array.isArray(
-        analysis.suggestions
-      )
-        ? analysis.suggestions
-        : [],
-
-    feedback:
-      String(
-        analysis.feedback || ""
-      ),
-  };
-
-  if (!feedback.feedback.trim()) {
-    throw new Error(
-      "AI feedback is missing"
-    );
-  }
-
-  return {
-    ...analysis,
-
-    recommendation,
-
-    strengths:
-      feedback.strengths,
-
-    weaknesses:
-      feedback.weaknesses,
-
-    suggestions:
-      feedback.suggestions,
-
-    feedback:
-      feedback.feedback,
-
-    model_name: model,
-  };
+  return buildAnalysis({ facts, scores, model });
 }

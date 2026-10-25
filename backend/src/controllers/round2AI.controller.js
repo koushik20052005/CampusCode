@@ -25,6 +25,7 @@ async function getRound2SubmissionAccess(
        t.name AS team_name,
 
        h.title AS hackathon_title,
+       h.description AS hackathon_description,
        h.status AS hackathon_status,
        h.current_round,
        h.organizer_id
@@ -207,6 +208,9 @@ export async function analyzeRound2Submission(
 
       hackathon_title:
         submission.hackathon_title,
+
+      hackathon_description:
+        submission.hackathon_description,
     };
 
     const analysis =
