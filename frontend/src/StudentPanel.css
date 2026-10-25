@@ -5355,3 +5355,141 @@ html, body, #root {
     grid-template-columns:1fr;
   }
 }
+
+/* =========================================================
+   ROUND 1 — TEAM APPROVAL FLOW (2026-10-25)
+   Submitted / proposed idea visible to the whole team,
+   leader approval card, leader-note banner.
+========================================================= */
+
+.student-round-submitted-wrap,
+.student-round-waiting {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.student-round-submitted-details {
+  background: #ffffff;
+  border: 1px solid #deded8;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.student-round-submitted-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.student-round-submitted-meta span,
+.student-round-submitted-text span {
+  font-size: 9px;
+  letter-spacing: .12em;
+  color: #777770;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.student-round-submitted-meta strong {
+  font-size: 12px;
+  color: #222222;
+  text-align: right;
+}
+
+.student-round-submitted-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid #efefe9;
+  padding-top: 10px;
+}
+
+.student-round-submitted-text p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #222222;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.student-round-approval {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.student-round-approval-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.student-round-approval-head strong {
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  color: #222222;
+}
+
+.student-round-approval-head span {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #777770;
+}
+
+.student-round-approval textarea,
+.student-round-reject textarea {
+  width: 100%;
+  border: 1px solid #deded8;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #222222;
+  background: #ffffff;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.student-round-approval-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.student-round-reject {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid #efefe9;
+  padding-top: 12px;
+}
+
+.student-round-leader-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #fff8e6;
+  border: 1px solid #f0d98c;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.student-round-leader-note strong {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  color: #7a5b00;
+}
+
+.student-round-leader-note span {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #4a3d00;
+}

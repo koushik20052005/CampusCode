@@ -2819,6 +2819,8 @@ function StudentRoundOnePage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [showAgreement, setShowAgreement] = useState(false);
+  const [agreementAction, setAgreementAction] = useState("submit");
+  const [leaderNote, setLeaderNote] = useState("");
 
   const loadStatus = async (id) => {
     if (!id) return;
@@ -2852,20 +2854,57 @@ function StudentRoundOnePage() {
   const accessible = !roundCompleted && !hackathonCompleted && (
     data?.accessible === true || round?.accessible === true || (roundStatus === "LIVE" && currentRound === 1)
   );
-  const submitted = Boolean(submission);
-  const canSubmit = accessible && Boolean(team) && !submitted && !saving;
+  const submitted = submission?.status === "SUBMITTED";
+  const pendingApproval = submission?.status === "PENDING_APPROVAL";
+  const draft = submission?.status === "DRAFT";
+  const currentUserId = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").id || ""; } catch { return ""; } })();
+  const isLeader = Boolean(team?.leader_id) && String(team.leader_id) === String(currentUserId);
+  const canSubmit = accessible && Boolean(team) && !submitted && !pendingApproval && !saving;
+  const submissionLabel = !submission ? "Not submitted" : submission.status === "PENDING_APPROVAL" ? "AWAITING LEADER APPROVAL" : submission.status === "DRAFT" ? "DRAFT — LEADER ASKED FOR CHANGES" : submission.status;
 
-  const submit = async () => {
+  const doSubmit = async () => {
     const clean = statement.trim();
     if (clean.length < 20) return setError("Problem statement must contain at least 20 characters.");
     if (!selected) return setError("Select a hackathon first.");
     if (!team) return setError("You must be part of a team before submitting Round 1.");
     setSaving(true); setError(""); setMessage("");
     try {
-      await apiFetch(`/student/round1/hackathons/${selected}/submit`, { method: "POST", body: JSON.stringify({ problem_statement: clean }) });
-      setMessage("Round 1 idea submitted successfully.");
+      const result = await apiFetch(`/student/round1/hackathons/${selected}/submit`, { method: "POST", body: JSON.stringify({ problem_statement: clean }) });
+      setMessage(result?.message || (isLeader ? "Round 1 idea submitted successfully." : "Round 1 idea sent to your team leader for approval."));
       await loadStatus(selected);
     } catch (err) { setError(err.message || "Failed to submit Round 1 idea"); }
+    finally { setSaving(false); }
+  };
+
+  // Leader submits directly (agreement = final submission).
+  // Member only proposes — the leader's approval is the submission.
+  const handleSubmitClick = () => {
+    if (isLeader) { setAgreementAction("submit"); setShowAgreement(true); }
+    else doSubmit();
+  };
+
+  const approve = async () => {
+    const clean = statement.trim();
+    if (clean.length < 20) return setError("Problem statement must contain at least 20 characters.");
+    if (!selected) return setError("Select a hackathon first.");
+    setSaving(true); setError(""); setMessage("");
+    try {
+      await apiFetch(`/student/round1/hackathons/${selected}/approve`, { method: "POST", body: JSON.stringify({ problem_statement: clean }) });
+      setMessage("Round 1 idea approved and submitted.");
+      await loadStatus(selected);
+    } catch (err) { setError(err.message || "Failed to approve Round 1 proposal"); }
+    finally { setSaving(false); }
+  };
+
+  const reject = async () => {
+    if (!selected) return setError("Select a hackathon first.");
+    setSaving(true); setError(""); setMessage("");
+    try {
+      await apiFetch(`/student/round1/hackathons/${selected}/reject`, { method: "POST", body: JSON.stringify({ note: leaderNote.trim() }) });
+      setMessage("Proposal sent back for changes.");
+      setLeaderNote("");
+      await loadStatus(selected);
+    } catch (err) { setError(err.message || "Failed to reject Round 1 proposal"); }
     finally { setSaving(false); }
   };
 
@@ -2882,16 +2921,16 @@ function StudentRoundOnePage() {
           <h2>{value(hackathon.title, "Hackathon")}</h2>
           <div className="student-round-status-row"><span className={`student-round-status ${roundStatus === "LIVE" ? "live" : ""}`}>{roundStatus || "NOT AVAILABLE"}</span><span>{currentRound ? `CURRENT ROUND ${currentRound}` : "ROUND STATUS"}</span></div>
           <StudentHackathonSelector value={selected} onChange={setSelected} items={items} />
-          {loadingStatus ? <LoadingState label="Loading round status..." /> : <div className="student-info-list"><div><span>TEAM</span><strong>{value(team?.name, team?.team_name, "No team")}</strong></div><div><span>SUBMISSION</span><strong>{value(submission?.status, "Not submitted")}</strong></div><div><span>DECISION</span><strong>{value(data?.decision?.decision, "Pending")}</strong></div><div className="student-feedback-row"><span>ORGANIZER FEEDBACK</span><strong>{value(data?.decision?.organizer_feedback, "No feedback yet")}</strong></div></div>}
+          {loadingStatus ? <LoadingState label="Loading round status..." /> : <div className="student-info-list"><div><span>TEAM</span><strong>{value(team?.name, team?.team_name, "No team")}</strong></div><div><span>SUBMISSION</span><strong>{submissionLabel}</strong></div><div><span>DECISION</span><strong>{value(data?.decision?.decision, "Pending")}</strong></div><div className="student-feedback-row"><span>ORGANIZER FEEDBACK</span><strong>{value(data?.decision?.organizer_feedback, "No feedback yet")}</strong></div></div>}
         </div>
         <div className="student-feature-card student-round-form-card">
           <div className="student-feature-card-head"><div><span className="student-feature-label">ROUND 1 SUBMISSION</span><h2>What are you solving?</h2><p>Explain the problem, who experiences it, and what your team plans to solve.</p></div><div className="student-feature-icon"><Send size={18} /></div></div>
-          {!team ? <div className="student-round-notice warning"><strong>TEAM REQUIRED</strong><span>Create or join a team before submitting Round 1.</span></div> : submitted ? <div className="student-round-submitted"><CheckCircle2 size={18} /><div><strong>SUBMITTED SUCCESSFULLY</strong><span>{submission.status || "SUBMITTED"}</span></div></div> : roundCompleted || hackathonCompleted ? <div className="student-round-notice student-round-completed-notice"><strong>{hackathonCompleted ? "HACKATHON COMPLETED" : "ROUND 1 COMPLETED"}</strong><span>{hackathonCompleted ? "This hackathon has finished. Round 1 is now read-only." : "Round 1 has been completed. New submissions are closed."}</span></div> : !accessible ? <RoundLock round={1} reason={round.reason === "ROUND_COMPLETED" ? "Round 1 has been completed." : "The organizer has not opened Round 1 yet."} /> : (
-            <div className="student-round-form"><div className="student-form-label-row"><label>PROBLEM STATEMENT *</label><span>{statement.length} / 5000</span></div><textarea value={statement} onChange={(e) => setStatement(e.target.value.slice(0, 5000))} rows={10} maxLength={5000} disabled={!canSubmit} placeholder="Example: Students struggle to discover relevant hackathons and form teams with complementary skills..." /><div className="student-form-actions"><span>Minimum 20 characters. Once submitted, your team cannot submit Round 1 again.</span><button className="student-primary-btn" disabled={!canSubmit || statement.trim().length < 20} onClick={() => setShowAgreement(true)}>{saving ? "SUBMITTING..." : "SUBMIT ROUND 1 ↗"}</button></div></div>
+          {!team ? <div className="student-round-notice warning"><strong>TEAM REQUIRED</strong><span>Create or join a team before submitting Round 1.</span></div> : submitted ? (<div className="student-round-submitted-wrap"><div className="student-round-submitted"><CheckCircle2 size={18} /><div><strong>SUBMITTED SUCCESSFULLY</strong><span>{submission.status || "SUBMITTED"}</span></div></div><div className="student-round-submitted-details"><div className="student-round-submitted-meta"><span>SUBMITTED BY</span><strong>{value(submission.submitted_by_name, "A teammate")}</strong></div><div className="student-round-submitted-meta"><span>SUBMITTED ON</span><strong>{formatDate(submission.submitted_at)}</strong></div><div className="student-round-submitted-text"><span>PROBLEM STATEMENT — VISIBLE TO THE WHOLE TEAM</span><p>{submission.problem_statement}</p></div></div></div>) : pendingApproval ? (isLeader ? (<div className="student-round-approval"><div className="student-round-approval-head"><strong>AWAITING YOUR APPROVAL</strong><span>Proposed by {value(submission.submitted_by_name, "a teammate")} — review it, edit if needed, then approve. Your approval submits it officially.</span></div><div className="student-form-label-row"><label>PROBLEM STATEMENT *</label><span>{statement.length} / 5000</span></div><textarea value={statement} onChange={(e) => setStatement(e.target.value.slice(0, 5000))} rows={10} maxLength={5000} disabled={saving} /><div className="student-round-approval-actions"><button className="student-primary-btn" disabled={saving || statement.trim().length < 20} onClick={() => { setAgreementAction("approve"); setShowAgreement(true); }}>{saving ? "APPROVING..." : "APPROVE & SUBMIT ↗"}</button></div><div className="student-round-reject"><div className="student-form-label-row"><label>NOTE FOR YOUR TEAM (OPTIONAL)</label></div><textarea value={leaderNote} onChange={(e) => setLeaderNote(e.target.value.slice(0, 1000))} rows={3} maxLength={1000} disabled={saving} placeholder="What should they change?" /><button className="student-outline-btn" disabled={saving} onClick={reject}>SEND BACK FOR CHANGES</button></div></div>) : (<div className="student-round-waiting"><div className="student-round-submitted"><CheckCircle2 size={18} /><div><strong>AWAITING LEADER APPROVAL</strong><span>Proposed by {value(submission.submitted_by_name, "a teammate")}</span></div></div><div className="student-round-submitted-details"><div className="student-round-submitted-text"><span>PROPOSED PROBLEM STATEMENT — VISIBLE TO THE WHOLE TEAM</span><p>{submission.problem_statement}</p></div></div></div>)) : roundCompleted || hackathonCompleted ? <div className="student-round-notice student-round-completed-notice"><strong>{hackathonCompleted ? "HACKATHON COMPLETED" : "ROUND 1 COMPLETED"}</strong><span>{hackathonCompleted ? "This hackathon has finished. Round 1 is now read-only." : "Round 1 has been completed. New submissions are closed."}</span></div> : !accessible ? <RoundLock round={1} reason={round.reason === "ROUND_COMPLETED" ? "Round 1 has been completed." : "The organizer has not opened Round 1 yet."} /> : (
+            <div className="student-round-form">{draft && submission.leader_note ? <div className="student-round-leader-note"><strong>LEADER ASKED FOR CHANGES</strong><span>{submission.leader_note}</span></div> : null}<div className="student-form-label-row"><label>PROBLEM STATEMENT *</label><span>{statement.length} / 5000</span></div><textarea value={statement} onChange={(e) => setStatement(e.target.value.slice(0, 5000))} rows={10} maxLength={5000} disabled={!canSubmit} placeholder="Example: Students struggle to discover relevant hackathons and form teams with complementary skills..." /><div className="student-form-actions"><span>{isLeader ? "Minimum 20 characters. Once submitted, your team cannot submit Round 1 again." : "Minimum 20 characters. Your leader reviews it before it becomes official."}</span><button className="student-primary-btn" disabled={!canSubmit || statement.trim().length < 20} onClick={handleSubmitClick}>{saving ? "SUBMITTING..." : isLeader ? "SUBMIT ROUND 1 ↗" : "SEND TO LEADER FOR APPROVAL ↗"}</button></div></div>
           )}
         </div>
       </div>
-      <ParticipantAgreementModal open={showAgreement} hackathonName={value(hackathon.title, "Hackathon")} accepted={false} onClose={() => setShowAgreement(false)} onAccept={() => { setShowAgreement(false); submit(); }} />
+      <ParticipantAgreementModal open={showAgreement} hackathonName={value(hackathon.title, "Hackathon")} accepted={false} onClose={() => setShowAgreement(false)} onAccept={() => { setShowAgreement(false); agreementAction === "approve" ? approve() : doSubmit(); }} />
     </section>
   );
 }

@@ -3,6 +3,8 @@ import express from "express";
 import {
   getRound1Status,
   submitRound1,
+  approveRound1,
+  rejectRound1,
 } from "../controllers/studentRound1.controller.js";
 
 import {
@@ -27,6 +29,8 @@ router.get(
 
 /* =========================================================
    SUBMIT ROUND 1 IDEA
+   Member -> proposal (PENDING_APPROVAL).
+   Leader -> direct submission (SUBMITTED).
 ========================================================= */
 
 router.post(
@@ -34,6 +38,30 @@ router.post(
   requireAuth,
   requireRole("STUDENT"),
   submitRound1
+);
+
+
+/* =========================================================
+   APPROVE ROUND 1 PROPOSAL (team leader only)
+========================================================= */
+
+router.post(
+  "/hackathons/:hackathonId/approve",
+  requireAuth,
+  requireRole("STUDENT"),
+  approveRound1
+);
+
+
+/* =========================================================
+   REJECT ROUND 1 PROPOSAL (team leader only)
+========================================================= */
+
+router.post(
+  "/hackathons/:hackathonId/reject",
+  requireAuth,
+  requireRole("STUDENT"),
+  rejectRound1
 );
 
 export default router;

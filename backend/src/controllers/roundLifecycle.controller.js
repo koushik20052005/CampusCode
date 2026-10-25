@@ -1,5 +1,9 @@
 import pool from "../config/db.js";
 
+import {
+  enqueueAnalysisJob,
+} from "../services/aiAnalysis.worker.js";
+
 /*
 |--------------------------------------------------------------------------
 | HELPER
@@ -785,7 +789,61 @@ export async function completeRound(req, res) {
       );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | ROUND 1 AUTO-SUBMIT
+    |--------------------------------------------------------------------------
+    |
+    | A team must never lose its idea because the leader went
+    | missing. When Round 1 closes, any proposal still awaiting
+    | leader approval auto-submits. Drafts (never sent to the
+    | leader) do NOT auto-submit.
+    |
+    | The UPDATE runs inside this transaction; the AI jobs are
+    | enqueued after COMMIT so the worker never reads
+    | uncommitted rows.
+    |
+    */
+
+    let autoSubmitted = [];
+
+    if (round === 1) {
+      const autoResult = await client.query(
+        `
+        UPDATE round1_submissions
+        SET
+          status = 'SUBMITTED',
+          submitted_at = NOW(),
+          updated_at = NOW()
+        WHERE hackathon_id = $1
+          AND status = 'PENDING_APPROVAL'
+        RETURNING
+          id,
+          team_id
+        `,
+        [hackathonId]
+      );
+
+      autoSubmitted = autoResult.rows;
+    }
+
     await client.query("COMMIT");
+
+    if (autoSubmitted.length > 0) {
+      for (const row of autoSubmitted) {
+        enqueueAnalysisJob({
+          hackathonId,
+          teamId: row.team_id,
+          round: 1,
+          submissionId: row.id,
+        }).catch((queueError) => {
+          console.error(
+            "AI ANALYSIS ENQUEUE FAILED (R1 AUTO-SUBMIT):",
+            queueError?.message || queueError
+          );
+        });
+      }
+    }
 
     return res.json({
       success: true,
