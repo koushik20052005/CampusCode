@@ -734,3 +734,125 @@ export async function getHackMateRecommendations(
     });
   }
 }
+
+/* =========================================================
+   FIND STUDENT BY CAMPUSCODE ID (HackMate "Search by ID"
+   + QR scan target)
+
+   v6.16 — HackMate-by-ID, student UI implementation.
+
+   GET /api/student/hackmate/:hackathonId/find/:campusId
+
+   Authenticated + STUDENT only. Unlike the public digital
+   card endpoint, this returns the user_id the team-add
+   endpoint needs, plus whether the student is registered
+   for this hackathon and already in a team for it — so the
+   UI can explain a failed add before the add is attempted.
+   No email or private data is returned.
+========================================================= */
+
+export async function findHackMateByCampusId(
+  req,
+  res
+) {
+  try {
+    const { hackathonId, campusId } = req.params;
+
+    if (req.user.role !== "STUDENT") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only students can use HackMate",
+      });
+    }
+
+    const normalizedId = String(campusId || "").trim();
+
+    if (!normalizedId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "CampusCode ID is required",
+      });
+    }
+
+    const userResult = await pool.query(
+      `
+      SELECT
+        id,
+        name,
+        campus_code_id,
+        skills,
+        avatar_url
+      FROM users
+      WHERE campus_code_id = $1
+        AND role = 'STUDENT'
+      LIMIT 1
+      `,
+      [normalizedId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "No student found with this CampusCode ID",
+      });
+    }
+
+    const student = userResult.rows[0];
+
+    const registeredResult = await pool.query(
+      `
+      SELECT 1
+      FROM hackathon_participants
+      WHERE hackathon_id = $1
+        AND user_id = $2
+      LIMIT 1
+      `,
+      [hackathonId, student.id]
+    );
+
+    const inTeamResult = await pool.query(
+      `
+      SELECT 1
+      FROM team_members tm
+      INNER JOIN teams t
+        ON t.id = tm.team_id
+      WHERE t.hackathon_id = $1
+        AND tm.user_id = $2
+      LIMIT 1
+      `,
+      [hackathonId, student.id]
+    );
+
+    return res.status(200).json({
+      success: true,
+
+      student: {
+        user_id: student.id,
+        name: student.name,
+        campus_code_id: student.campus_code_id,
+        skills: student.skills || [],
+        avatar_url: student.avatar_url || null,
+      },
+
+      registered_for_hackathon:
+        registeredResult.rows.length > 0,
+
+      already_in_team:
+        inTeamResult.rows.length > 0,
+    });
+  } catch (error) {
+    console.error(
+      "FIND HACKMATE BY CAMPUS ID ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Unable to find this student",
+    });
+  }
+}

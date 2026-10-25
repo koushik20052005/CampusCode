@@ -1119,7 +1119,7 @@ function NotificationsPage() {
   );
 }
 
-function HackMatePage() {
+function HackMatePage({ onGoToMyTeam }) {
   const [hackathons, setHackathons] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [data, setData] = useState(null);
@@ -1129,6 +1129,44 @@ function HackMatePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
+
+  /* v6.16 — HackMate-by-ID: find a friend by search or QR scan. */
+  const [findTab, setFindTab] = useState("search");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [foundStudent, setFoundStudent] = useState(null);
+  const [finding, setFinding] = useState(false);
+  const [findMessage, setFindMessage] = useState("");
+  const [myCampusId, setMyCampusId] = useState("");
+  const [scanMessage, setScanMessage] = useState("");
+  const [isMobileView, setIsMobileView] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 780px)").matches
+  );
+  const scannerRef = useRef(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 780px)");
+    const onChange = () => setIsMobileView(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  /* Own CampusCode ID for the "My card" QR (same source as Digital ID). */
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch("/users/me")
+      .then((result) => {
+        const profile = result?.profile || result?.user || result?.data || null;
+        if (!cancelled && profile?.campus_code_id) {
+          setMyCampusId(profile.campus_code_id);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadHackathons = async () => {
     setLoadingHackathons(true);
@@ -1214,6 +1252,154 @@ function HackMatePage() {
     ? data.recommendations
     : [];
 
+  /* ---- v6.16: HackMate-by-ID helpers (search + QR scan) ---- */
+
+  const currentUserId = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}").id || "";
+    } catch {
+      return "";
+    }
+  })();
+
+  const currentTeamForFind = data?.my_team || null;
+  const isTeamLeaderForFind = Boolean(
+    currentTeamForFind &&
+      String(currentTeamForFind.leader_id || "") === String(currentUserId)
+  );
+  const canAddMemberForFind = Boolean(
+    currentTeamForFind &&
+      Number(currentTeamForFind.available_slots ?? 0) > 0 &&
+      isTeamLeaderForFind
+  );
+
+  const myPublicUrl = myCampusId
+    ? `${import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin}/u/${encodeURIComponent(myCampusId)}`
+    : "";
+
+  const lookupByCampusId = async (campusId) => {
+    if (!selectedId) {
+      setFindMessage("Select a registered hackathon first.");
+      return;
+    }
+    setFinding(true);
+    setFindMessage("");
+    setFoundStudent(null);
+    try {
+      const result = await apiFetch(
+        `/student/hackmate/${encodeURIComponent(selectedId)}/find/${encodeURIComponent(campusId)}`
+      );
+      setFoundStudent(result?.student || null);
+      if (result?.student && !result.registered_for_hackathon) {
+        setFindMessage(
+          "Found, but this student is not registered for the selected hackathon — they must register before you can add them."
+        );
+      } else if (result?.student && result.already_in_team) {
+        setFindMessage(
+          "Found, but this student is already in a team for this hackathon."
+        );
+      }
+    } catch (err) {
+      setFindMessage(err.message);
+    } finally {
+      setFinding(false);
+    }
+  };
+
+  const extractCampusId = (text) => {
+    const match = String(text || "").match(/CC-[A-Z0-9]+/i);
+    return match ? match[0].toUpperCase() : "";
+  };
+
+  const stopScanner = async () => {
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
+    if (!scanner) return;
+    try {
+      await scanner.stop();
+    } catch {
+      /* Scanner may already be stopped; safe to ignore. */
+    }
+    try {
+      scanner.clear();
+    } catch {
+      /* Clearing an unstarted scanner is safe to ignore. */
+    }
+  };
+
+  const startScanner = async () => {
+    if (scannerRef.current) return;
+    setScanMessage("");
+    try {
+      /* Scanner code loads only when the Scan tab opens on mobile,
+         so desktop bundles stay light. */
+      const { Html5Qrcode } = await import("html5-qrcode");
+      const scanner = new Html5Qrcode("hackmate-qr-reader");
+      scannerRef.current = scanner;
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 240, height: 240 } },
+        (decodedText) => {
+          const campusId = extractCampusId(decodedText);
+          if (!campusId) {
+            setScanMessage("This QR code is not a CampusCode profile.");
+            return;
+          }
+          stopScanner();
+          setScanMessage(`QR detected: ${campusId}`);
+          lookupByCampusId(campusId);
+        },
+        () => {}
+      );
+    } catch {
+      setScanMessage(
+        "Camera could not be started. Allow camera permission in your browser and try again."
+      );
+    }
+  };
+
+  useEffect(
+    () => () => {
+      stopScanner();
+    },
+    []
+  );
+
+  const switchFindTab = (tab) => {
+    setFindTab(tab);
+    setFindMessage("");
+    setScanMessage("");
+  };
+
+  /* Start the camera only after the Scan tab has rendered,
+     and stop it whenever the tab closes or the view changes. */
+  useEffect(() => {
+    if (findTab === "scan" && isMobileView) {
+      /* Scanner start is async (camera permission + dynamic
+         import), so this cannot loop renders. */
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      startScanner();
+    } else {
+      stopScanner();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [findTab, isMobileView]);
+
+  const searchNorm = searchQuery.trim().toLowerCase();
+  const isIdQuery = /^cc-[a-z0-9]+$/i.test(searchQuery.trim());
+  const searchResults = !searchNorm
+    ? []
+    : recommendations.filter(
+        (candidate) =>
+          String(candidate.name || "")
+            .toLowerCase()
+            .includes(searchNorm) ||
+          (Array.isArray(candidate.skills) &&
+            candidate.skills.some((skill) =>
+              String(skill).toLowerCase().includes(searchNorm)
+            ))
+      );
+
   const currentTeam = data?.my_team || null;
   const selectedHackathon = hackathons.find(
     (item) => String(item.id || item.hackathon_id) === String(selectedId)
@@ -1226,7 +1412,7 @@ function HackMatePage() {
       <PageHeading
         eyebrow="INTELLIGENCE / HACKMATE"
         title="FIND YOUR TEAM."
-        text="Find registered students from the same hackathon using HackMate match scores."
+        text="Find registered students from the same hackathon using HackMate match scores. Search by name or CampusCode ID, or scan a teammate's QR on mobile."
         count={recommendations.length}
       />
 
@@ -1319,6 +1505,15 @@ function HackMatePage() {
                   <p className="hackmate-no-team-note">
                     Open <b>My Team</b>, create your team for this hackathon, then return here.
                   </p>
+                  {onGoToMyTeam && (
+                    <button
+                      type="button"
+                      className="student-outline-btn"
+                      onClick={onGoToMyTeam}
+                    >
+                      OPEN MY TEAM ↗
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1336,6 +1531,249 @@ function HackMatePage() {
                 <small>CANDIDATES</small>
                 <b>{value(data?.meta?.total_candidates, recommendations.length)}</b>
               </div>
+            </div>
+          </section>
+
+          {/* v6.16 — HackMate-by-ID: my card + find a friend (search / scan). */}
+          <section className="hackmate-find-section">
+            <div className="hackmate-find-card">
+              <span>YOUR HACKMATE CARD</span>
+              <h2>SHOW THIS QR.</h2>
+              <p>
+                Friends scan this on their phone, or search your CampusCode ID,
+                to find you. Only public info is shared — no phone, no email.
+              </p>
+              {myPublicUrl ? (
+                <div className="hackmate-my-qr">
+                  <QRCodeSVG
+                    value={myPublicUrl}
+                    size={132}
+                    level="H"
+                    bgColor="#ffffff"
+                    fgColor="#0a0a0a"
+                  />
+                  <div>
+                    <small>CAMPUSCODE ID</small>
+                    <strong>{myCampusId}</strong>
+                    <button
+                      type="button"
+                      className="student-outline-btn"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(myCampusId);
+                        setSuccess(`CampusCode ID ${myCampusId} copied.`);
+                      }}
+                    >
+                      COPY ID
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="hackmate-find-note">
+                  Your CampusCode ID was not returned by the backend.
+                </p>
+              )}
+            </div>
+
+            <div className="hackmate-find-card">
+              <span>FIND A FRIEND</span>
+              <h2>ADD TO YOUR TEAM.</h2>
+              <p>
+                Your team needs a leader seat first — create it in My Team,
+                then add friends here. Team size is capped at 4.
+              </p>
+
+              <div className="hackmate-find-tabs">
+                <button
+                  type="button"
+                  className={`hackmate-find-tab${findTab === "search" ? " on" : ""}`}
+                  onClick={() => switchFindTab("search")}
+                >
+                  🔍 SEARCH
+                </button>
+                <button
+                  type="button"
+                  className={`hackmate-find-tab${findTab === "scan" ? " on" : ""}`}
+                  onClick={() => switchFindTab("scan")}
+                >
+                  📷 SCAN QR
+                  {!isMobileView && <small>mobile only</small>}
+                </button>
+              </div>
+
+              {findTab === "search" && (
+                <>
+                  <input
+                    type="text"
+                    className="hackmate-find-input"
+                    placeholder="Name, skill — or CampusCode ID like CC-8K2N4P"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setFoundStudent(null);
+                      setFindMessage("");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && isIdQuery) {
+                        lookupByCampusId(searchQuery.trim().toUpperCase());
+                      }
+                    }}
+                  />
+
+                  {isIdQuery && (
+                    <button
+                      type="button"
+                      className="hackmate-add-btn hackmate-find-id-btn"
+                      disabled={finding}
+                      onClick={() =>
+                        lookupByCampusId(searchQuery.trim().toUpperCase())
+                      }
+                    >
+                      {finding ? "FINDING..." : "FIND BY ID"}
+                    </button>
+                  )}
+
+                  {findMessage && (
+                    <p className="hackmate-find-note">{findMessage}</p>
+                  )}
+
+                  {foundStudent && (
+                    <div className="hackmate-found-card">
+                      <div className="hackmate-candidate-person">
+                        <div className="hackmate-candidate-avatar">
+                          {String(foundStudent.name || "U")
+                            .split(" ")
+                            .map((part) => part[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </div>
+                        <div>
+                          <h3>{value(foundStudent.name)}</h3>
+                          <span>{value(foundStudent.campus_code_id)}</span>
+                        </div>
+                      </div>
+                      <div className="hackmate-skill-list">
+                        {(foundStudent.skills || []).map((skill) => (
+                          <b key={skill}>{skill}</b>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        className="hackmate-add-btn"
+                        disabled={
+                          !canAddMemberForFind ||
+                          addingMember === String(foundStudent.user_id)
+                        }
+                        onClick={() => addMemberToTeam(foundStudent)}
+                      >
+                        {addingMember === String(foundStudent.user_id)
+                          ? "ADDING..."
+                          : canAddMemberForFind
+                            ? "ADD TO TEAM"
+                            : currentTeamForFind
+                              ? "TEAM FULL"
+                              : "CREATE TEAM FIRST"}
+                      </button>
+                    </div>
+                  )}
+
+                  {searchNorm && !isIdQuery && (
+                    <div className="hackmate-find-results">
+                      {!searchResults.length ? (
+                        <p className="hackmate-find-note">
+                          No registered student matches “{searchQuery}” for
+                          this hackathon. Try a CampusCode ID instead.
+                        </p>
+                      ) : (
+                        searchResults.map((candidate) => (
+                          <div
+                            className="hackmate-find-row"
+                            key={candidate.user_id}
+                          >
+                            <div className="hackmate-candidate-avatar">
+                              {String(candidate.name || "U")
+                                .split(" ")
+                                .map((part) => part[0])
+                                .join("")
+                                .slice(0, 2)
+                                .toUpperCase()}
+                            </div>
+                            <div className="hackmate-find-row-info">
+                              <strong>{value(candidate.name)}</strong>
+                              <small>
+                                {value(candidate.match_score, 0)}% match
+                                {Array.isArray(candidate.skills) &&
+                                candidate.skills.length
+                                  ? ` · ${candidate.skills.slice(0, 3).join(", ")}`
+                                  : ""}
+                              </small>
+                            </div>
+                            <button
+                              type="button"
+                              className="hackmate-add-btn"
+                              disabled={
+                                !canAddMemberForFind ||
+                                addingMember === String(candidate.user_id)
+                              }
+                              onClick={() => addMemberToTeam(candidate)}
+                            >
+                              {addingMember === String(candidate.user_id)
+                                ? "ADDING..."
+                                : canAddMemberForFind
+                                  ? "ADD"
+                                  : "FULL"}
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {findTab === "scan" && (
+                <>
+                  {!isMobileView ? (
+                    <div className="hackmate-find-note">
+                      <strong>QR scanning is mobile-only.</strong>
+                      <br />
+                      On a laptop you can&apos;t scan — use Search above, or
+                      open HackMate on your phone and scan a friend&apos;s QR
+                      there. Your own QR is on the left card.
+                    </div>
+                  ) : (
+                    <>
+                      <div id="hackmate-qr-reader" className="hackmate-qr-reader" />
+                      {scanMessage && (
+                        <p className="hackmate-find-note">{scanMessage}</p>
+                      )}
+                      {foundStudent && (
+                        <div className="hackmate-found-card">
+                          <h3>{value(foundStudent.name)}</h3>
+                          <span>{value(foundStudent.campus_code_id)}</span>
+                          <button
+                            type="button"
+                            className="hackmate-add-btn"
+                            disabled={
+                              !canAddMemberForFind ||
+                              addingMember === String(foundStudent.user_id)
+                            }
+                            onClick={() => addMemberToTeam(foundStudent)}
+                          >
+                            {addingMember === String(foundStudent.user_id)
+                              ? "ADDING..."
+                              : canAddMemberForFind
+                                ? "ADD TO TEAM"
+                                : currentTeamForFind
+                                  ? "TEAM FULL"
+                                  : "CREATE TEAM FIRST"}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </section>
 
@@ -3363,7 +3801,7 @@ function StudentPanel() {
   let content = <OverviewPage navigate={handleNav} studentName={displayName} />;
   if (activeNav === "Hackathons") content = <HackathonsPage onOpen={(item) => { setSelectedHackathon(item); setActiveNav("My Registrations"); }} onJoined={(payload) => showMilestone("registered", payload)} />;
   if (activeNav === "My Registrations") content = selectedHackathon ? <RegistrationDetail registration={selectedHackathon} onBack={() => setSelectedHackathon(null)} /> : <RegistrationsPage onOpen={setSelectedHackathon} />;
-  if (activeNav === "HackMate AI") content = <HackMatePage />;
+  if (activeNav === "HackMate AI") content = <HackMatePage onGoToMyTeam={() => handleNav("My Team")} />;
   if (activeNav === "IdeaCheck AI") content = <IdeaCheckAIPage />;
   if (activeNav === "My Team") content = <StudentMyTeamPage />;
   if (activeNav === "Rounds") content = <StudentRoundsPage />;

@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   getHackMateRecommendations,
+  findHackMateByCampusId,
 } from "../controllers/studentHackMate.controller.js";
 
 import {
@@ -19,6 +20,17 @@ router.get(
   "/:hackathonId",
   requireAuth,
   getHackMateRecommendations
+);
+
+/* =========================================================
+   FIND STUDENT BY CAMPUSCODE ID
+   (HackMate Search-by-ID + QR scan target)
+========================================================= */
+
+router.get(
+  "/:hackathonId/find/:campusId",
+  requireAuth,
+  findHackMateByCampusId
 );
 
 

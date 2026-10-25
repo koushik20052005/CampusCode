@@ -5172,3 +5172,186 @@ html, body, #root {
   color: #64748b;
   max-width: 420px;
 }
+
+/* =========================================================
+   v6.16 — HackMate-by-ID: my card + find a friend (search/scan)
+   Same visual language as the existing HackMate panels:
+   white cards, #deded8 borders, DM Mono labels, lime accent.
+========================================================= */
+
+.hackmate-find-section{
+  display:grid;
+  grid-template-columns:.85fr 1.35fr;
+  gap:14px;
+  margin-bottom:14px;
+  animation:cardRise .65s .14s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.hackmate-find-card{
+  background:#fff;
+  border:1px solid #deded8;
+  padding:18px;
+}
+
+.hackmate-find-card>span{
+  display:block;
+  font:500 9px 'DM Mono',monospace;
+  color:#777;
+  letter-spacing:.16em;
+}
+
+.hackmate-find-card h2{
+  font-size:20px;
+  margin:8px 0;
+  color:#111;
+}
+
+.hackmate-find-card>p{
+  color:#666;
+  font-size:13px;
+  line-height:1.55;
+}
+
+.hackmate-my-qr{
+  display:flex;
+  gap:16px;
+  align-items:center;
+  margin-top:16px;
+}
+
+.hackmate-my-qr small{
+  display:block;
+  font:500 9px 'DM Mono',monospace;
+  color:#777;
+  letter-spacing:.12em;
+}
+
+.hackmate-my-qr strong{
+  display:block;
+  font-size:16px;
+  margin:6px 0 10px;
+}
+
+.hackmate-find-tabs{
+  display:flex;
+  gap:8px;
+  margin:14px 0;
+}
+
+.hackmate-find-tab{
+  flex:1;
+  padding:11px 6px;
+  border:1px solid #d8d8d1;
+  background:#fafaf7;
+  font-weight:800;
+  font-size:12px;
+  cursor:pointer;
+  color:#111;
+}
+
+.hackmate-find-tab small{
+  display:block;
+  font-weight:400;
+  font-size:10px;
+  opacity:.7;
+  margin-top:2px;
+}
+
+.hackmate-find-tab.on{
+  background:#111;
+  color:#fff;
+  border-color:#111;
+}
+
+.hackmate-find-input{
+  width:100%;
+  padding:12px;
+  border:1px solid #d8d8d1;
+  background:#fafaf7;
+  font-size:13px;
+  outline:none;
+  color:#111;
+}
+
+.hackmate-find-id-btn{
+  width:100%;
+  margin-top:10px;
+}
+
+.hackmate-find-note{
+  margin-top:12px;
+  background:#fff8e1;
+  border:1px solid #ffe082;
+  padding:12px 14px;
+  font-size:13px;
+  line-height:1.55;
+  color:#111;
+}
+
+.hackmate-found-card{
+  margin-top:14px;
+  border:1px solid #deded8;
+  padding:16px;
+}
+
+.hackmate-found-card h3{
+  font-size:16px;
+  margin:0;
+}
+
+.hackmate-found-card>span{
+  color:#777;
+  font-size:12px;
+}
+
+.hackmate-found-card .hackmate-add-btn{
+  width:100%;
+  margin-top:12px;
+}
+
+.hackmate-find-results{
+  margin-top:6px;
+}
+
+.hackmate-find-row{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  padding:12px 0;
+  border-bottom:1px solid #eee;
+}
+
+.hackmate-find-row:last-child{
+  border-bottom:none;
+}
+
+.hackmate-find-row-info{
+  flex:1;
+  min-width:0;
+}
+
+.hackmate-find-row-info strong{
+  display:block;
+  font-size:14px;
+}
+
+.hackmate-find-row-info small{
+  color:#777;
+  font-size:12px;
+}
+
+.hackmate-qr-reader{
+  margin-top:12px;
+  border:1px solid #deded8;
+  overflow:hidden;
+}
+
+.hackmate-qr-reader video{
+  width:100% !important;
+}
+
+@media(max-width:780px){
+  .hackmate-find-section{
+    grid-template-columns:1fr;
+  }
+}
