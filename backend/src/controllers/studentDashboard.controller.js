@@ -189,6 +189,34 @@ export async function getStudentDashboard(req, res) {
 
 
     /* =======================================================
+       5b. CERTIFICATE COUNT (Module 8)
+       Counts issued certificates, not the placeholder zero.
+       Guarded: a missing table must never break the dashboard.
+    ======================================================= */
+
+    let certificateStatsResult = { rows: [{ certificate_count: 0 }] };
+    try {
+      certificateStatsResult = await pool.query(
+        `
+        SELECT
+          COUNT(*)::integer
+            AS certificate_count
+
+        FROM certificates
+
+        WHERE user_id = $1
+        `,
+        [userId]
+      );
+    } catch (certCountError) {
+      console.error(
+        "CERTIFICATE COUNT FAILED:",
+        certCountError?.message || certCountError
+      );
+    }
+
+
+    /* =======================================================
        6. RECENT REGISTERED HACKATHONS
 
        IMPORTANT:
@@ -699,6 +727,9 @@ export async function getStudentDashboard(req, res) {
     const wins =
       winsResult.rows[0] || {};
 
+    const certificateStats =
+      certificateStatsResult.rows[0] || {};
+
     const unreadCount =
       unreadResult.rows[0] || {};
 
@@ -844,10 +875,14 @@ export async function getStudentDashboard(req, res) {
           completed,
 
         certificates:
-          0,
+          Number(
+            certificateStats.certificate_count || 0
+          ),
 
         certificate_count:
-          0,
+          Number(
+            certificateStats.certificate_count || 0
+          ),
 
         teams:
           totalTeams,

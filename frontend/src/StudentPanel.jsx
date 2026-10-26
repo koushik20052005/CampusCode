@@ -765,36 +765,127 @@ function DigitalCard() {
 }
 
 /* =========================================================
-   v6 — CERTIFICATES (launching soon placeholder)
+   v6 — CERTIFICATES (Module 8: real issued certificates)
 ========================================================= */
 function CertificatesPage() {
+  const [certificates, setCertificates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [downloadingId, setDownloadingId] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await apiFetch("/certificates/mine");
+      setCertificates(Array.isArray(data?.certificates) ? data.certificates : []);
+    } catch (e) {
+      setError(e.message || "Unable to load certificates.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const download = async (cert) => {
+    setDownloadingId(cert.id);
+    setMessage("");
+    try {
+      const response = await fetch(`${API_URL}/certificates/${cert.id}/download`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!response.ok) {
+        throw new Error(`Download failed (${response.status})`);
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `CampusCode-Certificate-${cert.code}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      setMessage(e.message || "Download failed.");
+    } finally {
+      setDownloadingId("");
+    }
+  };
+
+  const copyVerifyLink = async (cert) => {
+    const link = `https://campuscode.co.in/verify/${cert.code}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setMessage("Verify link copied.");
+    } catch {
+      setMessage(link);
+    }
+  };
+
+  const formatDate = (value) => {
+    if (!value) return "—";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value);
+    return new Intl.DateTimeFormat("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(parsed);
+  };
+
   return (
     <section>
-      <PageHeading eyebrow="REWARDS / CERTIFICATES" title="CERTIFICATES." text="Your achievements, certified. The CampusCode certificate engine is on its way." />
-      <div className="cert-soon">
-        <div className="cert-mock">
-          <div className="cert-mock-inner">
-            <span className="cert-mock-brand">CAMPUSCODE</span>
-            <strong>Certificate of Achievement</strong>
-            <p>This is a preview of how your certificate will look.</p>
-            <div className="cert-mock-seal"><Award size={30} /></div>
-            <span className="cert-mock-id">CC-CERT-000000</span>
-          </div>
-          <div className="cert-soon-ribbon">LAUNCHING SOON</div>
+      <PageHeading eyebrow="REWARDS / CERTIFICATES" title="CERTIFICATES." text="Every certificate carries a unique code anyone can verify — share the verify link with recruiters." />
+      {error && <p className="student-inline-error">{error}</p>}
+      {message && <p className="student-inline-success">{message}</p>}
+      {loading ? (
+        <div className="student-panel-card"><p>Loading your certificates…</p></div>
+      ) : certificates.length === 0 ? (
+        <div className="student-panel-card">
+          <h3>No certificates yet</h3>
+          <p>Participation certificates appear here once an organizer issues them for a hackathon you submitted in. Winner certificates appear for Round 3 top 3 teams.</p>
         </div>
-        <div className="cert-soon-info">
-          <span>COMING SOON / 01</span>
-          <h2>PROOF OF<br />YOUR WORK.</h2>
-          <p>Certificates are almost here. Every participation and win will generate a verifiable PDF certificate with a unique code anyone can check.</p>
-          <div className="cert-soon-list">
-            <div><CheckCircle2 size={15} /><span>Participation certificates for every hackathon</span></div>
-            <div><CheckCircle2 size={15} /><span>Winner certificates for Round 3 selections</span></div>
-            <div><CheckCircle2 size={15} /><span>Unique verification code on every certificate</span></div>
-            <div><CheckCircle2 size={15} /><span>Public verification page — shareable with recruiters</span></div>
-          </div>
-          <div className="cert-soon-note"><i /> You will be notified the moment certificates launch.</div>
+      ) : (
+        <div className="student-two-col">
+          {certificates.map((cert) => (
+            <div className="student-feature-card" key={cert.id}>
+              <div className="student-feature-card-head">
+                <span className="student-feature-label">
+                  {cert.type === "WINNER" ? "WINNER CERTIFICATE" : "PARTICIPATION CERTIFICATE"}
+                </span>
+                <Award size={16} />
+              </div>
+              <h3>{cert.hackathon_title}</h3>
+              <p>
+                {cert.team_name ? `Team ${cert.team_name} · ` : ""}
+                {cert.type === "WINNER" && cert.place ? `Place ${cert.place} · ` : ""}
+                Issued {formatDate(cert.issued_at)}
+              </p>
+              <p className="student-feature-label">{cert.code}</p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+                <button
+                  className="student-primary-btn"
+                  disabled={downloadingId === cert.id}
+                  onClick={() => download(cert)}
+                >
+                  {downloadingId === cert.id ? "DOWNLOADING…" : "DOWNLOAD PDF ↗"}
+                </button>
+                <button
+                  className="student-outline-btn"
+                  onClick={() => copyVerifyLink(cert)}
+                >
+                  COPY VERIFY LINK
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
     </section>
   );
 }

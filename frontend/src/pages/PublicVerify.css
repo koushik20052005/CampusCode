@@ -1,0 +1,118 @@
+.public-verify-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: #f7f7f4;
+  font-family: Inter, system-ui, sans-serif;
+  color: #111;
+}
+
+.public-verify-card {
+  width: 100%;
+  max-width: 560px;
+  background: #fff;
+  border: 1px solid #e5e5e0;
+  border-radius: 16px;
+  padding: 36px 32px;
+  text-align: center;
+}
+
+.public-verify-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 28px;
+}
+
+.public-verify-brand-mark {
+  display: inline-flex;
+  gap: 3px;
+  background: #090909;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.public-verify-brand-mark i {
+  display: block;
+  width: 5px;
+  height: 18px;
+  transform: skewX(-18deg);
+  border-radius: 2px;
+}
+
+.public-verify-brand-mark i:nth-child(1) { background: #fff; }
+.public-verify-brand-mark i:nth-child(2) { background: #7566ff; }
+.public-verify-brand-mark i:nth-child(3) { background: #8bcf19; }
+
+.public-verify-stamp {
+  display: inline-block;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  padding: 8px 18px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.public-verify-stamp.valid {
+  color: #3f6212;
+  border: 2px solid #82b91a;
+  background: #f7fee7;
+}
+
+.public-verify-stamp.invalid {
+  color: #991b1b;
+  border: 2px solid #ef4444;
+  background: #fef2f2;
+}
+
+.public-verify-card h1 {
+  font-size: 28px;
+  margin: 0 0 10px;
+}
+
+.public-verify-muted {
+  color: #666;
+  line-height: 1.6;
+}
+
+.public-verify-muted.small {
+  font-size: 13px;
+}
+
+.public-verify-details {
+  text-align: left;
+  margin: 28px 0;
+  border-top: 1px solid #eee;
+}
+
+.public-verify-details div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.public-verify-details dt {
+  color: #777;
+  font-size: 13px;
+}
+
+.public-verify-details dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.public-verify-home {
+  display: inline-block;
+  margin-top: 8px;
+  color: #5b21b6;
+  font-weight: 600;
+  text-decoration: none;
+}

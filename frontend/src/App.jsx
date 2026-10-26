@@ -18,6 +18,7 @@ import StudentPanel from "./StudentPanel";
 import OrganizerPanel from "./OrganizerPanel";
 import AdminPanel from "./AdminPanel";
 import PublicDigitalCard from "./pages/PublicDigitalCard";
+import PublicVerify from "./pages/PublicVerify";
 
 
 
@@ -364,6 +365,16 @@ function App() {
         <Route
           path="/u/:campusId"
           element={<PublicDigitalCard />}
+        />
+
+
+        {/* ===================================================
+            PUBLIC CERTIFICATE VERIFICATION
+        =================================================== */}
+
+        <Route
+          path="/verify/:code"
+          element={<PublicVerify />}
         />
 
 

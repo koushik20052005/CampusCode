@@ -61,6 +61,7 @@ import organizerRound1Routes from "./routes/organizerRound1.routes.js";
 import organizerRound2Routes from "./routes/organizerRound2.routes.js";
 import organizerRound3Routes from "./routes/organizerRound3.routes.js";
 import finalRoutes from "./routes/final.routes.js";
+import certificatesRoutes from "./routes/certificates.routes.js";
 
 /* v6.1 — automatic DB migrations on boot */
 import { runMigrations } from "./config/migrate.js";
@@ -551,6 +552,15 @@ app.use(
 app.use(
   "/api/organizer/round3",
   organizerRound3Routes
+);
+
+/* =========================================================
+   CERTIFICATES (Module 8)
+========================================================= */
+
+app.use(
+  "/api/certificates",
+  certificatesRoutes
 );
 
 /* =========================================================

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   AlertCircle,
   ArrowRight,
+  Award,
   Bell,
   Check,
   CheckCircle2,
@@ -138,6 +139,7 @@ const NAV = [
   ["submissions", "Submissions", Send],
   ["rulebot", "RuleBot", Sparkles],
   ["leaderboard", "Leaderboard", Trophy],
+  ["certificates", "Certificates", Award],
   ["result-request", "Result Approval", AlertCircle],
   ["notifications", "Notifications", Bell],
   ["profile", "Profile", UserCircle],
@@ -387,6 +389,15 @@ function OrganizerPanel({
 
               {section === "leaderboard" && (
                 <Leaderboard
+                  hackathons={hackathons}
+                  selectedId={selectedId}
+                  setSelectedId={setSelectedId}
+                />
+              )}
+
+              {section === "certificates" && (
+                <Certificates
+                  hackathon={selected}
                   hackathons={hackathons}
                   selectedId={selectedId}
                   setSelectedId={setSelectedId}
@@ -2968,6 +2979,183 @@ function RuleBot({ hackathons, selectedId, setSelectedId }) {
         )}
       </Panel>
     </div>
+  );
+}
+
+/* =========================================================
+   v6 — CERTIFICATES (Module 8, organizer issue section)
+   Theme picker offers the 3 launch themes now; the other 3
+   v2 designs join the picker when the organizer template is
+   finalized later. Issuing is idempotent — re-running never
+   duplicates a certificate.
+========================================================= */
+
+const CERT_THEMES = [
+  { id: "sidebar", name: "Sidebar Panel", note: "Dark panel + watermark, classic certificate look." },
+  { id: "constellation", name: "Constellation Night", note: "Dark gradient + medallion, premium awards feel." },
+  { id: "blueprint", name: "Blueprint Spec", note: "Grid + spec rows, CampusCode's own visual language." },
+];
+
+function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
+  const [issued, setIssued] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [theme, setTheme] = useState("sidebar");
+  const [winnerPicks, setWinnerPicks] = useState({ 1: "", 2: "", 3: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState("");
+
+  const load = async () => {
+    if (!hackathon) {
+      setIssued([]);
+      setTeams([]);
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const [certData, teamData] = await Promise.all([
+        apiFetch(`/certificates/hackathons/${hackathon.id}`),
+        apiFetch(`/hackathons/${hackathon.id}/teams`),
+      ]);
+      setIssued(Array.isArray(certData?.certificates) ? certData.certificates : []);
+      setTeams(arr(teamData, "teams", "data"));
+    } catch (e) {
+      setError(e.message || "Unable to load certificates.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hackathon?.id]);
+
+  const issueParticipation = async () => {
+    if (!hackathon) return;
+    setBusy("participation");
+    setError("");
+    setMessage("");
+    try {
+      const data = await apiFetch(`/certificates/hackathons/${hackathon.id}/issue-participation`, {
+        method: "POST",
+        body: JSON.stringify({ theme }),
+      });
+      setMessage(`Issued ${data?.issued ?? 0} participation certificates (${data?.already_had ?? 0} already had one).`);
+      load();
+    } catch (e) {
+      setError(e.message || "Failed to issue participation certificates.");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const issueWinners = async () => {
+    if (!hackathon) return;
+    const winners = [1, 2, 3]
+      .filter((place) => winnerPicks[place])
+      .map((place) => ({ team_id: winnerPicks[place], place }));
+    if (winners.length === 0) {
+      setError("Pick at least one winning team first.");
+      return;
+    }
+    setBusy("winners");
+    setError("");
+    setMessage("");
+    try {
+      const data = await apiFetch(`/certificates/hackathons/${hackathon.id}/issue-winners`, {
+        method: "POST",
+        body: JSON.stringify({ theme, winners }),
+      });
+      setMessage(`Issued ${data?.issued ?? 0} winner certificates.`);
+      load();
+    } catch (e) {
+      setError(e.message || "Failed to issue winner certificates.");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const formatDate = (value) => {
+    if (!value) return "—";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value);
+    return new Intl.DateTimeFormat("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(parsed);
+  };
+
+  return (
+    <Panel eyebrow="Certificates" title="Issue certificates" description="Pick a theme, then issue. Participation goes to every member of a team that submitted Round 1. Winners go to the teams you pick below. Re-issuing is safe — nobody gets a duplicate." action={<Picker hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId} />}>
+      {error && <div className="form-error">{error}</div>}
+      {message && <AlertBox type="success" message={message} onClose={() => setMessage("")} />}
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+        {CERT_THEMES.map((t) => (
+          <button
+            key={t.id}
+            className={theme === t.id ? "primary-btn small" : "outline-btn small"}
+            onClick={() => setTheme(t.id)}
+          >
+            {t.name}
+          </button>
+        ))}
+      </div>
+      <p style={{ marginTop: -8, marginBottom: 20 }}>
+        {CERT_THEMES.find((t) => t.id === theme)?.note} The theme is saved on each certificate at issue time.
+      </p>
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+        <button className="primary-btn" disabled={busy !== "" || !hackathon} onClick={issueParticipation}>
+          {busy === "participation" ? "ISSUING…" : "ISSUE PARTICIPATION CERTIFICATES"}
+        </button>
+      </div>
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end", marginBottom: 24 }}>
+        {[1, 2, 3].map((place) => (
+          <label key={place} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span>{place === 1 ? "1st place" : place === 2 ? "2nd place" : "3rd place"}</span>
+            <select
+              className="org-select compact"
+              value={winnerPicks[place]}
+              onChange={(e) => setWinnerPicks((prev) => ({ ...prev, [place]: e.target.value }))}
+            >
+              <option value="">— No team —</option>
+              {teams.map((team) => (
+                <option key={team.id || team.team_id} value={team.id || team.team_id}>
+                  {team.name || team.team_name || "Team"}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+        <button className="outline-btn" disabled={busy !== "" || !hackathon} onClick={issueWinners}>
+          {busy === "winners" ? "ISSUING…" : "ISSUE WINNER CERTIFICATES"}
+        </button>
+      </div>
+
+      {loading ? <Loading /> : issued.length ? (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Holder</th><th>Team</th><th>Type</th><th>Place</th><th>Code</th><th>Issued</th></tr></thead>
+            <tbody>{issued.map((c, i) => (
+              <tr key={c.id || i}>
+                <td><b>{c.holder_name || "—"}</b></td>
+                <td>{c.team_name || "—"}</td>
+                <td>{c.type}</td>
+                <td>{c.place || "—"}</td>
+                <td>{c.code}</td>
+                <td>{formatDate(c.issued_at)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      ) : <Empty text="No certificates issued for this hackathon yet." />}
+    </Panel>
   );
 }
 
