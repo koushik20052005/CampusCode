@@ -4347,18 +4347,41 @@ function StudentQuizPage({ eventId }) {
           </div>
         )}
         <div className="student-panel-card" style={{ marginTop: 16 }}>
-          <ul style={{ lineHeight: 1.8 }}>
-            <li>Single attempt only — you cannot restart or re-attempt this quiz.</li>
-            <li>The timer ({meta?.duration_minutes || "—"} minutes) starts the moment you accept, and the quiz auto-submits at zero or at the window end, whichever comes first.</li>
-            <li>Camera and microphone permission is requested as a presence check only. Nothing is recorded, streamed, uploaded or stored. The browser indicator stays on during the quiz and turns off when you submit.</li>
-            <li>The quiz opens in fullscreen. Leaving fullscreen or switching tabs is counted and visible to the organizer.</li>
-            <li>Answers are autosaved as you pick them. Skipped questions can be revisited from the number grid until you submit.</li>
-          </ul>
+          <div style={{ maxHeight: 340, overflowY: "auto", paddingRight: 8 }}>
+            <ol style={{ lineHeight: 1.8, paddingLeft: 22 }}>
+              <li>Single attempt only — you cannot restart or re-attempt this quiz.</li>
+              <li>The timer ({meta?.duration_minutes || "—"} minutes) starts the moment you accept, and the quiz auto-submits at zero or at the window end, whichever comes first.</li>
+              <li>Your camera must remain ON for the entire quiz. Do not cover, turn off, or move away from the camera.</li>
+              <li>Your microphone must remain ON for the entire quiz. Keep your surroundings quiet and free of disturbance.</li>
+              <li>The quiz must be taken in fullscreen. Do not exit fullscreen at any point during the quiz.</li>
+              <li>Every fullscreen exit is logged and visible to the organizer.</li>
+              <li>Every tab switch or window switch is logged and visible to the organizer.</li>
+              <li>Do not open any other tab, application, or window during the quiz.</li>
+              <li>Do not use AI tools, chatbots, or search engines to answer any question.</li>
+              <li>Do not use a second device — phone, tablet, or another laptop — during the quiz.</li>
+              <li>Do not take help from any other person during the quiz.</li>
+              <li>Do not copy, photograph, screenshot, record, or share any question.</li>
+              <li>Do not refresh or close the browser mid-quiz unless you must resume — the timer keeps running and you return through the resume screen.</li>
+              <li>Answers are autosaved as you pick them. Skipped questions can be revisited from the number grid until you submit.</li>
+              <li>Negative marking applies as configured for this quiz — wrong answers reduce your score, skipped questions score zero.</li>
+              <li>Your total score can never go below zero.</li>
+              <li>Use only your own registered account. Impersonation leads to immediate disqualification.</li>
+              <li>Do not share your login or quiz link with anyone else.</li>
+              <li>Keep a stable internet connection. The timer keeps running through disconnections, and no extra time is given for connectivity loss.</li>
+              <li>The quiz window closes at the scheduled end time — a late start does not extend your time.</li>
+              <li>Any disturbance, malpractice, or rule violation may lead to your removal from the quiz and disqualification by the organizer.</li>
+              <li>The organizer may mark an attempt invalid based on the logged fullscreen exits, tab switches, and permission status.</li>
+              <li>Your score is shown instantly after submit. Correct answers are never shown before you submit.</li>
+              <li>Scores and results once submitted are final. No re-evaluation requests will be entertained.</li>
+              <li>The organizer's decision on disqualification, results, and rankings is final and binding.</li>
+              <li>By accepting below, you agree to all the rules above and to the logging described in them.</li>
+            </ol>
+          </div>
           <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 16, cursor: "pointer" }}>
             <input type="checkbox" checked={termsChecked} onChange={(e) => setTermsChecked(e.target.checked)} style={{ marginTop: 4 }} />
             <span>I have read the rules and I accept them.</span>
           </label>
-          {permWarning && (<div className="student-inline-error" style={{ marginTop: 12 }}>Camera or microphone permission was denied. You can continue without it, but the organizer will see that the presence check was not completed. <button type="button" className="student-outline-btn" style={{ marginLeft: 8 }} onClick={continueWithoutCamera}>CONTINUE WITHOUT CAMERA</button></div>)}
+          {permWarning && (<div className="student-inline-error" style={{ marginTop: 12 }}>Camera or microphone permission was denied. You can continue without it, but the organizer will see that camera/mic permission was not granted. <button type="button" className="student-outline-btn" style={{ marginLeft: 8 }} onClick={continueWithoutCamera}>CONTINUE WITHOUT CAMERA</button></div>)}
           {error && <ErrorState message={error} retry={load} />}
           <div style={{ marginTop: 20, display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="student-primary-btn" disabled={!termsChecked || permBusy || starting} onClick={beginAttempt}>{permBusy ? "WAITING FOR PERMISSION…" : starting ? "STARTING…" : "ACCEPT & START QUIZ ↗"}</button>
