@@ -761,6 +761,38 @@ function Hackathons({
 }) {
   const [busy, setBusy] = useState("");
 
+  /* v6.18 — banner system: per-event banner editor state */
+  const [bannerOpenId, setBannerOpenId] = useState(null);
+  const [bannerWeb, setBannerWeb] = useState("");
+  const [bannerMobile, setBannerMobile] = useState("");
+  const [bannerMsg, setBannerMsg] = useState("");
+
+  const openBannerEditor = (h) => {
+    setBannerOpenId(h.id);
+    setBannerWeb(h.banner_web_url || "");
+    setBannerMobile(h.banner_mobile_url || "");
+    setBannerMsg("");
+  };
+
+  const saveBanner = async (h) => {
+    setBannerMsg("");
+    await action(`banner-${h.id}`, async () => {
+      try {
+        await apiFetch(`/hackathons/${h.id}/banner`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            banner_web_url: bannerWeb.trim(),
+            banner_mobile_url: bannerMobile.trim(),
+          }),
+        });
+        setBannerMsg("Banners saved.");
+        await onRefresh();
+      } catch (e) {
+        setBannerMsg(e.message || "Could not save banners.");
+      }
+    });
+  };
+
   const action = async (key, fn) => {
     setBusy(key);
     try {
@@ -837,6 +869,7 @@ function Hackathons({
                   <div className="hack-title-row">
                     <h3>{h.title}</h3>
                     {h.event_type === "quiz" && <span className="status-pill">QUIZ</span>}
+                    {(h.banner_web_url || h.banner_mobile_url) && <span className="status-pill">BANNER SET</span>}
                     <span className={`status-pill ${statusClass(state)}`}>{state}</span>
                   </div>
                   <p className="hack-meta">{h.track || "No track"} · {h.location || "Online"}</p>
@@ -859,6 +892,10 @@ function Hackathons({
                         <Edit3 size={13}/> Edit
                       </button>
                     )}
+
+                    <button className="outline-btn small" onClick={() => openBannerEditor(h)}>
+                      Banners
+                    </button>
 
                     {approval !== "PENDING" && approval !== "APPROVED" && publication !== "PUBLISHED" && (
                       <button className="green-btn small" disabled={busy === `approval-${h.id}`} onClick={() => action(`approval-${h.id}`, () => submitApproval(h.id))}>
@@ -889,6 +926,39 @@ function Hackathons({
                       </button>
                     )}
                   </div>
+
+                  {String(bannerOpenId) === String(h.id) && (
+                    <div className="hack-banner-editor">
+                      <label>WEB BANNER (DESKTOP) — IMAGE URL</label>
+                      <input
+                        type="url"
+                        value={bannerWeb}
+                        onChange={(e) => setBannerWeb(e.target.value)}
+                        placeholder="https://…/banner-desktop.png"
+                      />
+                      {bannerWeb.trim() && (
+                        <img className="hack-banner-preview" src={bannerWeb.trim()} alt="Web banner preview" loading="lazy" />
+                      )}
+                      <label>MOBILE BANNER — IMAGE URL</label>
+                      <input
+                        type="url"
+                        value={bannerMobile}
+                        onChange={(e) => setBannerMobile(e.target.value)}
+                        placeholder="https://…/banner-mobile.png"
+                      />
+                      {bannerMobile.trim() && (
+                        <img className="hack-banner-preview" src={bannerMobile.trim()} alt="Mobile banner preview" loading="lazy" />
+                      )}
+                      <p className="hack-banner-note">Seen by every role — students, organizers and admins — wherever this event appears. Leave a field empty to clear that banner. Works in any state, even on live events.</p>
+                      {bannerMsg && <p className="hack-banner-msg">{bannerMsg}</p>}
+                      <div className="hack-banner-actions">
+                        <button className="primary-btn small" disabled={busy === `banner-${h.id}`} onClick={() => saveBanner(h)}>
+                          {busy === `banner-${h.id}` ? <LoaderCircle size={13} className="spin"/> : null} Save banners
+                        </button>
+                        <button className="outline-btn small" onClick={() => setBannerOpenId(null)}>Close</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="hack-stats">

@@ -5542,3 +5542,30 @@ html, body, #root {
 @media (prefers-reduced-motion: reduce) {
   .event-hub-panel { animation: none; }
 }
+
+/* v6.18 — event banner (banner system) */
+.event-banner {
+  margin-bottom: 14px;
+}
+.event-banner img {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+  object-fit: cover;
+}
+.event-banner-web,
+.event-banner-single {
+  max-height: 220px;
+}
+.event-banner-mobile {
+  display: none;
+  max-height: 300px;
+}
+@media (max-width: 780px) {
+  .event-banner-web {
+    display: none;
+  }
+  .event-banner-mobile {
+    display: block;
+  }
+}

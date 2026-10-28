@@ -1540,6 +1540,19 @@ function ApprovalsPage() {
                 <span className="status-badge pending">PENDING</span>
               </div>
 
+              {(item.banner_web_url || item.banner_mobile_url) && (
+                <div className="approval-banner">
+                  {item.banner_web_url && (
+                    <img src={item.banner_web_url} alt="Event web banner" loading="lazy" />
+                  )}
+                  <span>
+                    {item.banner_web_url ? "WEB BANNER" : ""}
+                    {item.banner_web_url && item.banner_mobile_url ? " + " : ""}
+                    {item.banner_mobile_url ? "MOBILE BANNER SET" : ""}
+                  </span>
+                </div>
+              )}
+
               <div className="approval-grid">
                 <div>
                   <label>TRACK</label>

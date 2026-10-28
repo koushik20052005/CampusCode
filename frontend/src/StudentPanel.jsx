@@ -163,6 +163,30 @@ function HackathonMark({ title, size = 54 }) {
     </span>
   );
 }
+/* v6.18 — event banner (banner system): the organizer's web banner
+   on desktop and mobile banner on phones. When only one is set it
+   is used on both. When neither is set nothing renders, so old
+   events keep their existing look. */
+function EventBanner({ web, mobile, title }) {
+  const webUrl = String(web || "").trim();
+  const mobileUrl = String(mobile || "").trim();
+  if (!webUrl && !mobileUrl) return null;
+  const alt = title ? `${title} banner` : "Event banner";
+  if (webUrl && mobileUrl) {
+    return (
+      <div className="event-banner">
+        <img className="event-banner-web" src={webUrl} alt={alt} loading="lazy" />
+        <img className="event-banner-mobile" src={mobileUrl} alt={alt} loading="lazy" />
+      </div>
+    );
+  }
+  return (
+    <div className="event-banner">
+      <img className="event-banner-single" src={webUrl || mobileUrl} alt={alt} loading="lazy" />
+    </div>
+  );
+}
+
 /* v6.1 — member avatar: initials circle with stable gradient */
 function MemberAvatar({ name, size = 34 }) {
   const [from, to] = gradientFor(name);
@@ -586,6 +610,7 @@ function HackathonsPage({ onOpen, onJoined }) {
             const isQuiz = item.event_type === "quiz";
             return (
               <article className="hackathon-card" key={item.id}>
+                <EventBanner web={item.banner_web_url} mobile={item.banner_mobile_url} title={value(item.title, item.name, item.hackathon_name)} />
                 <div className="hackathon-card-top"><span>{value(item.code, item.slug, item.id)}</span><b>{value(item.status)}</b></div>
                 <div className="hackathon-card-brand">
                   <HackathonMark title={value(item.title, item.name, item.hackathon_name)} />
@@ -649,6 +674,7 @@ function RegistrationsPage({ onOpen }) {
         <div className="registration-grid">
           {items.map((item, index) => (
             <article className="registration-card" key={item.participant_id || item.registration_id || item.hackathon_id || index}>
+              <EventBanner web={item.hackathon?.banner_web_url || item.banner_web_url} mobile={item.hackathon?.banner_mobile_url || item.banner_mobile_url} title={value(item.hackathon?.title, item.title, item.name, item.hackathon_name)} />
               <div><span>REGISTRATION</span><b>{value(item.participant_id, item.registration_id, "CONFIRMED")}</b></div>
               <div className="hackathon-card-brand">
                 <HackathonMark title={value(item.hackathon?.title, item.title, item.name, item.hackathon_name)} />
@@ -694,6 +720,11 @@ function RegistrationDetail({ registration, onBack, bare }) {
 
   return (
     <section>
+      <EventBanner
+        web={registration.banner_web_url || registration.hackathon?.banner_web_url}
+        mobile={registration.banner_mobile_url || registration.hackathon?.banner_mobile_url}
+        title={value(registration.hackathon?.title, registration.title, registration.name, registration.hackathon_name)}
+      />
       {!bare && (
         <>
           <button className="back-btn" onClick={onBack}>← BACK TO REGISTRATIONS</button>

@@ -14,6 +14,7 @@ import {
   updateHackathon,
   deleteHackathon,
   updateHackathonStatus,
+  updateHackathonBanner,
 
   submitHackathonForApproval,
   reviewHackathonApproval,
@@ -330,6 +331,22 @@ router.patch(
   requireAuth,
   requireRole("ORGANIZER", "ADMIN"),
   updateHackathonStatus
+);
+
+/*
+|--------------------------------------------------------------------------
+| UPDATE EVENT BANNERS (v6.18 — banner system)
+|
+| PATCH /api/hackathons/:id/banner
+| Body: { banner_web_url, banner_mobile_url }
+| Organizer of the event, or ADMIN. Either URL may be "" to clear.
+*/
+
+router.patch(
+  "/:id/banner",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  updateHackathonBanner
 );
 
 /*

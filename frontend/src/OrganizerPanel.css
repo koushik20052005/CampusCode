@@ -3483,3 +3483,47 @@ body,
   flex-shrink: 0;
   filter: drop-shadow(0 2px 6px rgba(99,102,241,.3));
 }
+
+/* v6.18 — event banner editor (banner system) */
+.hack-banner-editor {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px dashed rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+}
+.hack-banner-editor label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+}
+.hack-banner-editor input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.hack-banner-preview {
+  width: 100%;
+  max-height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.hack-banner-note {
+  font-size: 12px;
+  opacity: 0.7;
+  margin: 0;
+}
+.hack-banner-msg {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0;
+}
+.hack-banner-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

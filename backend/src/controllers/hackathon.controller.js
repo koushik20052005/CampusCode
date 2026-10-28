@@ -783,6 +783,118 @@ export async function getHackathons(req, res) {
   }
 }
 
+/* ============================================================
+   UPDATE EVENT BANNERS (v6.18 — banner system)
+   PATCH /api/hackathons/:id/banner
+   Organizer sets two banner image URLs for their own event:
+   banner_web_url (desktop) and banner_mobile_url (mobile).
+   Either may be an empty string to clear it. Omitted fields
+   keep their current value. Display-only: editable in any
+   state (draft, published, live) — banners never affect
+   scoring, registration, or rounds.
+   ============================================================ */
+
+export async function updateHackathonBanner(req, res) {
+  try {
+    const { id } = req.params;
+    const { banner_web_url, banner_mobile_url } = req.body || {};
+
+    const cleanUrl = (value) => {
+      if (value === undefined || value === null) return undefined;
+      const url = String(value).trim();
+      if (url === "") return null;
+      if (url.length > 2048) {
+        throw new Error("Banner URL is too long (max 2048 characters).");
+      }
+      if (!/^https?:\/\//i.test(url)) {
+        throw new Error("Banner URL must start with http:// or https://.");
+      }
+      return url;
+    };
+
+    let nextWeb;
+    let nextMobile;
+    try {
+      nextWeb = cleanUrl(banner_web_url);
+      nextMobile = cleanUrl(banner_mobile_url);
+    } catch (validationError) {
+      return res.status(400).json({
+        success: false,
+        message: validationError.message,
+      });
+    }
+
+    if (nextWeb === undefined && nextMobile === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "Nothing to update. Send banner_web_url and/or banner_mobile_url.",
+      });
+    }
+
+    const existing = await pool.query(
+      `
+      SELECT
+        id,
+        organizer_id,
+        banner_web_url,
+        banner_mobile_url
+      FROM hackathons
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Hackathon not found",
+      });
+    }
+
+    const hackathon = existing.rows[0];
+
+    if (
+      req.user.role !== "ADMIN" &&
+      String(hackathon.organizer_id) !== String(req.user.id)
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Only this event's organizer can change its banners.",
+      });
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE hackathons
+      SET
+        banner_web_url = $1,
+        banner_mobile_url = $2,
+        updated_at = NOW()
+      WHERE id = $3
+      RETURNING id, title, banner_web_url, banner_mobile_url
+      `,
+      [
+        nextWeb === undefined ? hackathon.banner_web_url : nextWeb,
+        nextMobile === undefined ? hackathon.banner_mobile_url : nextMobile,
+        id,
+      ]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Banners saved.",
+      hackathon: result.rows[0],
+    });
+  } catch (error) {
+    console.error("UPDATE HACKATHON BANNER ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Could not save banners.",
+    });
+  }
+}
+
 export async function getHackathonById(req, res) {
   try {
     const { id } = req.params;
@@ -804,6 +916,8 @@ export async function getHackathonById(req, res) {
         h.max_teams,
         h.event_type,
         h.settings,
+        h.banner_web_url,
+        h.banner_mobile_url,
         h.status,
         h.approval_status,
         h.approval_feedback,
@@ -1402,6 +1516,8 @@ export async function getOrganizerHackathons(req, res) {
         h.current_round,
         h.event_type,
         h.settings,
+        h.banner_web_url,
+        h.banner_mobile_url,
         h.created_at,
         h.updated_at,
         (
@@ -1459,6 +1575,8 @@ export async function getPendingHackathonApprovals(req, res) {
         h.max_teams,
         h.event_type,
         h.settings,
+        h.banner_web_url,
+        h.banner_mobile_url,
         h.status,
         h.approval_status,
         h.approval_feedback,

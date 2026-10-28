@@ -43,6 +43,8 @@ export async function getAvailableHackathons(req, res) {
         h.current_round,
         h.event_type,
         h.settings,
+        h.banner_web_url,
+        h.banner_mobile_url,
 
         EXISTS (
           SELECT 1
@@ -346,6 +348,8 @@ export async function getMyHackathons(req, res) {
         h.current_round,
         h.event_type,
         h.settings,
+        h.banner_web_url,
+        h.banner_mobile_url,
 
         team_data.team_id,
         team_data.team_name,
@@ -626,6 +630,12 @@ export async function getMyHackathons(req, res) {
 
           settings:
             row.settings || {},
+
+          banner_web_url:
+            row.banner_web_url || null,
+
+          banner_mobile_url:
+            row.banner_mobile_url || null,
 
           current_round_name:
             roundName,
