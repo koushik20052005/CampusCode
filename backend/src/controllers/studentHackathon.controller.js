@@ -41,6 +41,8 @@ export async function getAvailableHackathons(req, res) {
         h.status,
         h.publication_status,
         h.current_round,
+        h.event_type,
+        h.settings,
 
         EXISTS (
           SELECT 1
@@ -106,7 +108,10 @@ export async function registerForHackathon(req, res) {
         title,
         status,
         publication_status,
-        registration_deadline
+        registration_deadline,
+        event_type,
+        settings,
+        max_teams
       FROM hackathons
       WHERE id = $1
       FOR UPDATE
@@ -202,6 +207,32 @@ export async function registerForHackathon(req, res) {
         registration:
           existingRegistration.rows[0],
       });
+    }
+
+    /* -------------------------------------------------------
+       Quiz participant cap (v6.17). Hackathon registration
+       stays uncapped, exactly as before.
+    ------------------------------------------------------- */
+
+    if (hackathon.event_type === "quiz") {
+      const settings =
+        hackathon.settings && typeof hackathon.settings === "object"
+          ? hackathon.settings
+          : {};
+      const cap =
+        Number(settings.max_participants) || Number(hackathon.max_teams);
+      const countResult = await client.query(
+        `SELECT COUNT(*)::int AS count
+           FROM hackathon_participants WHERE hackathon_id = $1`,
+        [hackathonId]
+      );
+      if (countResult.rows[0].count >= cap) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          success: false,
+          message: "The quiz participant limit has been reached",
+        });
+      }
     }
 
     /* -------------------------------------------------------
@@ -313,6 +344,8 @@ export async function getMyHackathons(req, res) {
         h.status AS hackathon_status,
         h.publication_status,
         h.current_round,
+        h.event_type,
+        h.settings,
 
         team_data.team_id,
         team_data.team_name,
@@ -587,6 +620,12 @@ export async function getMyHackathons(req, res) {
 
           current_round:
             Number(row.current_round || 0),
+
+          event_type:
+            row.event_type || "hackathon",
+
+          settings:
+            row.settings || {},
 
           current_round_name:
             roundName,

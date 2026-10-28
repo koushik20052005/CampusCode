@@ -15,6 +15,30 @@ export async function createHackathon(req, res) {
       max_teams,
     } = req.body;
 
+    // v6.17 — quiz events: same row, event_type = 'quiz'. Quiz-only
+    // settings (duration, negative marking, participant cap) ride
+    // in the settings JSONB column; max_teams doubles as the cap.
+    const isQuiz = req.body?.event_type === "quiz";
+    const rawSettings =
+      req.body?.settings && typeof req.body.settings === "object"
+        ? req.body.settings
+        : {};
+    const quizSettings = {};
+    if (isQuiz) {
+      const duration = Number(rawSettings.duration_minutes);
+      if (Number.isFinite(duration) && duration > 0) {
+        quizSettings.duration_minutes = Math.floor(duration);
+      }
+      const negative = Number(rawSettings.negative_marks);
+      if (Number.isFinite(negative) && negative >= 0) {
+        quizSettings.negative_marks = negative;
+      }
+      const cap = Number(rawSettings.max_participants);
+      if (Number.isFinite(cap) && cap > 0) {
+        quizSettings.max_participants = Math.floor(cap);
+      }
+    }
+
     if (
       !title ||
       !String(title).trim() ||
@@ -22,9 +46,8 @@ export async function createHackathon(req, res) {
       !String(description).trim() ||
       !track ||
       !String(track).trim() ||
-      max_teams === undefined ||
-      max_teams === null ||
-      max_teams === ""
+      (!isQuiz &&
+        (max_teams === undefined || max_teams === null || max_teams === ""))
     ) {
       return res.status(400).json({
         success: false,
@@ -33,7 +56,10 @@ export async function createHackathon(req, res) {
       });
     }
 
-    const maximumTeams = Number(max_teams);
+    const maximumTeams =
+      max_teams === undefined || max_teams === null || max_teams === ""
+        ? quizSettings.max_participants || 100
+        : Number(max_teams);
 
     if (!Number.isFinite(maximumTeams) || maximumTeams < 1) {
       return res.status(400).json({
@@ -60,9 +86,11 @@ export async function createHackathon(req, res) {
         registration_deadline,
         max_teams,
         status,
-        current_round
+        current_round,
+        event_type,
+        settings
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
       RETURNING *
       `,
       [
@@ -79,6 +107,8 @@ export async function createHackathon(req, res) {
         maximumTeams,
         "DRAFT",
         1,
+        isQuiz ? "quiz" : "hackathon",
+        JSON.stringify(quizSettings),
       ]
     );
 
@@ -116,7 +146,9 @@ export async function joinHackathon(req, res) {
         status,
         publication_status,
         registration_deadline,
-        max_teams
+        max_teams,
+        event_type,
+        settings
       FROM hackathons
       WHERE id = $1
       `,
@@ -173,6 +205,29 @@ export async function joinHackathon(req, res) {
         success: false,
         message: "You are already registered for this hackathon",
       });
+    }
+
+    // v6.17 — quiz participant cap (hackathon joins stay uncapped,
+    // exactly as before). Cap lives in settings, falls back to
+    // max_teams which the create endpoint fills from the cap.
+    if (hackathon.event_type === "quiz") {
+      const settings =
+        hackathon.settings && typeof hackathon.settings === "object"
+          ? hackathon.settings
+          : {};
+      const cap =
+        Number(settings.max_participants) || Number(hackathon.max_teams);
+      const countResult = await pool.query(
+        `SELECT COUNT(*)::int AS count
+           FROM hackathon_participants WHERE hackathon_id = $1`,
+        [id]
+      );
+      if (countResult.rows[0].count >= cap) {
+        return res.status(400).json({
+          success: false,
+          message: "The quiz participant limit has been reached",
+        });
+      }
     }
 
     const participant = await pool.query(
@@ -747,6 +802,8 @@ export async function getHackathonById(req, res) {
         h.end_date,
         h.registration_deadline,
         h.max_teams,
+        h.event_type,
+        h.settings,
         h.status,
         h.approval_status,
         h.approval_feedback,
@@ -1343,6 +1400,8 @@ export async function getOrganizerHackathons(req, res) {
         h.published_at,
         h.published_by,
         h.current_round,
+        h.event_type,
+        h.settings,
         h.created_at,
         h.updated_at,
         (
@@ -1398,6 +1457,8 @@ export async function getPendingHackathonApprovals(req, res) {
         h.end_date,
         h.registration_deadline,
         h.max_teams,
+        h.event_type,
+        h.settings,
         h.status,
         h.approval_status,
         h.approval_feedback,

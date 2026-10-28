@@ -133,6 +133,7 @@ const NAV = [
   ["dashboard", "Dashboard", LayoutDashboard],
   ["hackathons", "My Hackathons", Trophy],
   ["create", "Create Hackathon", Plus],
+  ["quiz", "Quiz Builder", CheckCircle2],
   ["rounds", "Rounds & Schedule", Clock3],
   ["participants", "Participants", Users],
   ["teams", "Teams", Users],
@@ -339,6 +340,10 @@ function OrganizerPanel({
                     setMessage("Hackathon created as a draft.");
                   }}
                 />
+              )}
+
+              {section === "quiz" && (
+                <QuizBuilder hackathons={hackathons} />
               )}
 
               {section === "rounds" && (
@@ -831,6 +836,7 @@ function Hackathons({
                 <div className="hack-main">
                   <div className="hack-title-row">
                     <h3>{h.title}</h3>
+                    {h.event_type === "quiz" && <span className="status-pill">QUIZ</span>}
                     <span className={`status-pill ${statusClass(state)}`}>{state}</span>
                   </div>
                   <p className="hack-meta">{h.track || "No track"} · {h.location || "Online"}</p>
@@ -838,7 +844,7 @@ function Hackathons({
 
                   <div className="hack-tags">
                     <span>Expected {dateText(h.expected_date || h.start_date)}</span>
-                    <span>Max teams {h.max_teams ?? "—"}</span>
+                    <span>{h.event_type === "quiz" ? `Max participants ${h.settings?.max_participants ?? h.max_teams ?? "—"}` : `Max teams ${h.max_teams ?? "—"}`}</span>
                     <span>Approval {approval}</span>
                     <span>Publication {publication}</span>
                   </div>
@@ -908,11 +914,17 @@ function CreateHackathon({ onCancel, onCreate }) {
     location: "",
     expected_date: "",
     max_teams: "10",
+    // v6.17 — quiz events
+    event_type: "hackathon",
+    duration_minutes: "30",
+    negative_marks: "0",
+    max_participants: "100",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const update = (key, value) => setForm((x) => ({ ...x, [key]: value }));
+  const isQuiz = form.event_type === "quiz";
 
   const submit = async (e) => {
     e.preventDefault();
@@ -923,22 +935,57 @@ function CreateHackathon({ onCancel, onCreate }) {
       return;
     }
 
-    const maxTeams = Number(form.max_teams);
-    if (!Number.isInteger(maxTeams) || maxTeams < 1) {
-      setError("Maximum teams must be at least 1.");
-      return;
+    if (isQuiz) {
+      const duration = Number(form.duration_minutes);
+      const cap = Number(form.max_participants);
+      const negative = Number(form.negative_marks);
+      if (!Number.isInteger(duration) || duration < 1) {
+        setError("Quiz duration must be at least 1 minute.");
+        return;
+      }
+      if (!Number.isInteger(cap) || cap < 1) {
+        setError("Maximum participants must be at least 1.");
+        return;
+      }
+      if (!Number.isFinite(negative) || negative < 0) {
+        setError("Negative marking cannot be below 0.");
+        return;
+      }
+    } else {
+      const maxTeams = Number(form.max_teams);
+      if (!Number.isInteger(maxTeams) || maxTeams < 1) {
+        setError("Maximum teams must be at least 1.");
+        return;
+      }
     }
 
     setSaving(true);
     try {
-      await onCreate({
-        title: form.title.trim(),
-        description: form.description.trim(),
-        track: form.track.trim(),
-        location: form.location.trim(),
-        expected_date: form.expected_date || null,
-        max_teams: maxTeams,
-      });
+      if (isQuiz) {
+        await onCreate({
+          title: form.title.trim(),
+          description: form.description.trim(),
+          track: form.track.trim(),
+          location: form.location.trim(),
+          expected_date: form.expected_date || null,
+          event_type: "quiz",
+          max_teams: Number(form.max_participants),
+          settings: {
+            duration_minutes: Number(form.duration_minutes),
+            negative_marks: Number(form.negative_marks),
+            max_participants: Number(form.max_participants),
+          },
+        });
+      } else {
+        await onCreate({
+          title: form.title.trim(),
+          description: form.description.trim(),
+          track: form.track.trim(),
+          location: form.location.trim(),
+          expected_date: form.expected_date || null,
+          max_teams: Number(form.max_teams),
+        });
+      }
     } catch (err) {
       setError(err.message || "Failed to create hackathon.");
     } finally {
@@ -949,13 +996,23 @@ function CreateHackathon({ onCancel, onCreate }) {
   return (
     <Panel
       eyebrow="Event operations"
-      title="Create hackathon"
-      description="Create a draft first. The expected date is informational; publication and round activation stay manual."
+      title={isQuiz ? "Create quiz" : "Create hackathon"}
+      description={
+        isQuiz
+          ? "Create a quiz draft first, add questions in Quiz Builder, then submit for admin approval. Questions lock once the quiz is published."
+          : "Create a draft first. The expected date is informational; publication and round activation stay manual."
+      }
       action={<button className="outline-btn" onClick={onCancel}>Back</button>}
     >
       <form className="org-form" onSubmit={submit}>
-        <Field label="Hackathon title" required>
-          <input className="org-input" value={form.title} onChange={(e) => update("title", e.target.value)} placeholder="e.g. Campus Innovation Challenge" />
+        <Field label="Event type" required>
+          <select className="org-input" value={form.event_type} onChange={(e) => update("event_type", e.target.value)}>
+            <option value="hackathon">Hackathon</option>
+            <option value="quiz">Quiz</option>
+          </select>
+        </Field>
+        <Field label={isQuiz ? "Quiz title" : "Hackathon title"} required>
+          <input className="org-input" value={form.title} onChange={(e) => update("title", e.target.value)} placeholder={isQuiz ? "e.g. FirstCommit '26 — Tech Quiz" : "e.g. Campus Innovation Challenge"} />
         </Field>
         <Field label="Location">
           <input className="org-input" value={form.location} onChange={(e) => update("location", e.target.value)} placeholder="Online / Chennai / Campus" />
@@ -972,14 +1029,28 @@ function CreateHackathon({ onCancel, onCreate }) {
             <option>Data Science</option>
           </select>
         </Field>
-        <Field label="Maximum teams" required>
-          <input className="org-input" type="number" min="1" step="1" value={form.max_teams} onChange={(e) => update("max_teams", e.target.value)} />
-        </Field>
-        <Field label="Expected date">
+        {isQuiz ? (
+          <>
+            <Field label="Maximum participants" required>
+              <input className="org-input" type="number" min="1" step="1" value={form.max_participants} onChange={(e) => update("max_participants", e.target.value)} />
+            </Field>
+            <Field label="Duration (minutes)" required>
+              <input className="org-input" type="number" min="1" step="1" value={form.duration_minutes} onChange={(e) => update("duration_minutes", e.target.value)} />
+            </Field>
+            <Field label="Negative marks per wrong answer">
+              <input className="org-input" type="number" min="0" step="0.25" value={form.negative_marks} onChange={(e) => update("negative_marks", e.target.value)} />
+            </Field>
+          </>
+        ) : (
+          <Field label="Maximum teams" required>
+            <input className="org-input" type="number" min="1" step="1" value={form.max_teams} onChange={(e) => update("max_teams", e.target.value)} />
+          </Field>
+        )}
+        <Field label={isQuiz ? "Quiz date" : "Expected date"}>
           <input className="org-input" type="date" value={form.expected_date} onChange={(e) => update("expected_date", e.target.value)} />
         </Field>
         <Field label="Description" required full>
-          <textarea className="org-input textarea" rows={7} value={form.description} onChange={(e) => update("description", e.target.value)} placeholder="Explain the hackathon, challenge, eligibility and what participants should build..." />
+          <textarea className="org-input textarea" rows={7} value={form.description} onChange={(e) => update("description", e.target.value)} placeholder={isQuiz ? "Explain the quiz, syllabus, eligibility and rules..." : "Explain the hackathon, challenge, eligibility and what participants should build..."} />
         </Field>
 
         {error && <div className="form-error">{error}</div>}
@@ -987,10 +1058,10 @@ function CreateHackathon({ onCancel, onCreate }) {
         <div className="form-footer">
           <div>
             <b>Draft workflow</b>
-            <span>Create → Submit approval → Publish → Go LIVE → activate R1/R2/R3 manually.</span>
+            <span>{isQuiz ? "Create → Add questions in Quiz Builder → Submit approval → Publish → Go LIVE." : "Create → Submit approval → Publish → Go LIVE → activate R1/R2/R3 manually."}</span>
           </div>
           <button className="primary-btn" disabled={saving}>
-            {saving ? <><LoaderCircle size={14} className="spin"/> Creating...</> : <><Plus size={14}/> Create draft</>}
+            {saving ? <><LoaderCircle size={14} className="spin" /> Creating...</> : <><Plus size={14} /> Create draft</>}
           </button>
         </div>
       </form>
@@ -1004,6 +1075,226 @@ function Field({ label, required, full, children }) {
       <span>{label}{required && <em>*</em>}</span>
       {children}
     </label>
+  );
+}
+
+/* =========================================================
+   v6.17 — QUIZ BUILDER (organizer question bank)
+   Questions are editable only while the quiz is NOT
+   published — the backend enforces the same lock.
+========================================================= */
+function QuizBuilder({ hackathons }) {
+  const quizzes = (hackathons || []).filter((h) => h.event_type === "quiz");
+  const [quizId, setQuizId] = useState("");
+  const [questions, setQuestions] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [qForm, setQForm] = useState({
+    question_text: "",
+    question_type: "MCQ",
+    options: ["", "", "", ""],
+    correct_index: 0,
+    marks: 1,
+  });
+
+  const selected = quizzes.find((q) => String(q.id) === String(quizId)) || quizzes[0] || null;
+  const effectiveId = selected?.id || "";
+  const locked = selected?.publication_status === "PUBLISHED";
+
+  const load = async (id) => {
+    if (!id) { setQuestions([]); return; }
+    setLoading(true); setError("");
+    try {
+      const data = await apiFetch(`/quizzes/${id}/questions`);
+      setQuestions(Array.isArray(data?.questions) ? data.questions : []);
+    } catch (err) {
+      setError(err.message || "Failed to load questions.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!effectiveId) return;
+    let cancelled = false;
+    apiFetch(`/quizzes/${effectiveId}/questions`)
+      .then((data) => { if (!cancelled) setQuestions(Array.isArray(data?.questions) ? data.questions : []); })
+      .catch((err) => { if (!cancelled) setError(err.message || "Failed to load questions."); });
+    return () => { cancelled = true; };
+  }, [effectiveId]);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setQForm({ question_text: "", question_type: "MCQ", options: ["", "", "", ""], correct_index: 0, marks: 1 });
+  };
+
+  const startEdit = (q) => {
+    setEditingId(q.id);
+    setQForm({
+      question_text: q.question_text || "",
+      question_type: q.question_type || "MCQ",
+      options: q.question_type === "TRUE_FALSE" ? ["True", "False"] : [...(q.options || []), "", "", "", ""].slice(0, 6),
+      correct_index: Number(q.correct_index) || 0,
+      marks: Number(q.marks) || 1,
+    });
+    setMessage("");
+  };
+
+  const submitQuestion = async (e) => {
+    e.preventDefault();
+    setError(""); setMessage("");
+    if (!effectiveId) return;
+    if (!qForm.question_text.trim()) { setError("Question text is required."); return; }
+    const options = qForm.question_type === "TRUE_FALSE"
+      ? ["True", "False"]
+      : qForm.options.map((o) => o.trim()).filter(Boolean);
+    if (qForm.question_type === "MCQ" && options.length < 2) {
+      setError("MCQ questions need at least 2 options.");
+      return;
+    }
+    if (qForm.correct_index < 0 || qForm.correct_index >= options.length) {
+      setError("Pick the correct option.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        question_text: qForm.question_text.trim(),
+        question_type: qForm.question_type,
+        options,
+        correct_index: Number(qForm.correct_index),
+        marks: Number(qForm.marks) || 1,
+      };
+      if (editingId) {
+        await apiFetch(`/quizzes/${effectiveId}/questions/${editingId}`, { method: "PATCH", body: JSON.stringify(payload) });
+        setMessage("Question updated.");
+      } else {
+        await apiFetch(`/quizzes/${effectiveId}/questions`, { method: "POST", body: JSON.stringify(payload) });
+        setMessage("Question added.");
+      }
+      resetForm();
+      await load(effectiveId);
+    } catch (err) {
+      setError(err.message || "Failed to save question.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeQuestion = async (id) => {
+    if (!window.confirm("Delete this question?")) return;
+    setError(""); setMessage("");
+    try {
+      await apiFetch(`/quizzes/${effectiveId}/questions/${id}`, { method: "DELETE" });
+      setMessage("Question deleted.");
+      await load(effectiveId);
+    } catch (err) {
+      setError(err.message || "Failed to delete question.");
+    }
+  };
+
+  const totalMarks = (questions || []).reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
+
+  return (
+    <Panel
+      eyebrow="Event operations"
+      title="Quiz Builder"
+      description="Build the question bank for a quiz event. MCQ single-correct and True/False only — both auto-scored."
+    >
+      {!quizzes.length ? (
+        <Empty text="No quiz events yet. Create an event with type Quiz first." />
+      ) : (
+        <>
+          <Field label="Quiz event">
+            <select className="org-input" value={effectiveId} onChange={(e) => setQuizId(e.target.value)}>
+              {quizzes.map((q) => (
+                <option key={q.id} value={q.id}>{q.title} · {String(q.publication_status || "").toUpperCase()}</option>
+              ))}
+            </select>
+          </Field>
+
+          {locked && (
+            <div className="form-error">Questions are locked — this quiz is already published. Unpublishing is not supported in v1; create a new quiz draft for changes.</div>
+          )}
+          {selected && (
+            <p className="hack-meta">
+              {(questions?.length ?? 0)} questions · {totalMarks} total marks · {Number(selected.settings?.duration_minutes) || 30} minutes
+              {Number(selected.settings?.negative_marks) ? ` · −${selected.settings.negative_marks} per wrong answer` : " · no negative marking"}
+            </p>
+          )}
+
+          {!locked && (
+            <form className="org-form" onSubmit={submitQuestion}>
+              <Field label="Question type" required>
+                <select className="org-input" value={qForm.question_type} onChange={(e) => setQForm((x) => ({ ...x, question_type: e.target.value, correct_index: 0, options: e.target.value === "TRUE_FALSE" ? ["True", "False"] : ["", "", "", ""] }))}>
+                  <option value="MCQ">MCQ (single correct)</option>
+                  <option value="TRUE_FALSE">True / False</option>
+                </select>
+              </Field>
+              <Field label="Question" required full>
+                <textarea className="org-input textarea" rows={3} value={qForm.question_text} onChange={(e) => setQForm((x) => ({ ...x, question_text: e.target.value }))} placeholder="Type the question..." />
+              </Field>
+              {qForm.question_type === "MCQ" && qForm.options.map((opt, i) => (
+                <Field key={i} label={`Option ${i + 1}`}>
+                  <input className="org-input" value={opt} onChange={(e) => setQForm((x) => ({ ...x, options: x.options.map((o, j) => (j === i ? e.target.value : o)) }))} placeholder={`Option ${i + 1}`} />
+                </Field>
+              ))}
+              {qForm.question_type === "MCQ" && (
+                <div className="form-footer">
+                  <button type="button" className="outline-btn small" disabled={qForm.options.length >= 6} onClick={() => setQForm((x) => ({ ...x, options: [...x.options, ""] }))}>+ Add option</button>
+                  <button type="button" className="outline-btn small" disabled={qForm.options.length <= 2} onClick={() => setQForm((x) => ({ ...x, options: x.options.slice(0, -1), correct_index: Math.min(x.correct_index, x.options.length - 2) }))}>− Remove last</button>
+                </div>
+              )}
+              <Field label="Correct option" required>
+                <select className="org-input" value={qForm.correct_index} onChange={(e) => setQForm((x) => ({ ...x, correct_index: Number(e.target.value) }))}>
+                  {(qForm.question_type === "TRUE_FALSE" ? ["True", "False"] : qForm.options.map((o, i) => o.trim() || `Option ${i + 1}`)).map((label, i) => (
+                    <option key={i} value={i}>{label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Marks" required>
+                <input className="org-input" type="number" min="1" step="1" value={qForm.marks} onChange={(e) => setQForm((x) => ({ ...x, marks: e.target.value }))} />
+              </Field>
+              <div className="form-footer">
+                <div><b>{editingId ? "Editing question" : "New question"}</b><span>{editingId ? "Save overwrites the stored question." : "Questions save in order; they appear to students in this order."}</span></div>
+                <span style={{ display: "flex", gap: 8 }}>
+                  {editingId && <button type="button" className="outline-btn" onClick={resetForm}>Cancel edit</button>}
+                  <button className="primary-btn" disabled={saving}>{saving ? "Saving..." : editingId ? "Save question" : "Add question"}</button>
+                </span>
+              </div>
+            </form>
+          )}
+
+          {error && <div className="form-error">{error}</div>}
+          {message && <div className="form-success">{message}</div>}
+          {questions === null && !error && <p className="hack-meta">Loading questions...</p>}
+          {loading && <p className="hack-meta">Loading questions...</p>}
+
+          {(questions || []).map((q, i) => (
+            <article className="hack-card" key={q.id}>
+              <div className="hack-main">
+                <div className="hack-title-row">
+                  <h3>Q{i + 1}. {q.question_text}</h3>
+                  <span className="status-pill">{q.question_type} · {q.marks} mark{q.marks === 1 ? "" : "s"}</span>
+                </div>
+                <p className="hack-meta">
+                  {(q.options || []).map((o, j) => `${j === Number(q.correct_index) ? "✓ " : ""}${o}`).join("  |  ")}
+                </p>
+                {!locked && (
+                  <div className="hack-actions">
+                    <button className="outline-btn small" onClick={() => startEdit(q)}><Edit3 size={13} /> Edit</button>
+                    <button className="outline-btn small" onClick={() => removeQuestion(q.id)}><X size={13} /> Delete</button>
+                  </div>
+                )}
+              </div>
+            </article>
+          ))}
+        </>
+      )}
+    </Panel>
   );
 }
 

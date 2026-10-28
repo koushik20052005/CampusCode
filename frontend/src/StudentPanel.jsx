@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Trophy, Clock3, Users, FolderGit2, Send, Code2,
   Sparkles, Bell, IdCard, UserCircle, Bot, ExternalLink, Link as LinkIcon,
-  LoaderCircle, CheckCircle2, Terminal, Layers, Award, Zap
+  LoaderCircle, CheckCircle2, Terminal, Award, Zap
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import "./StudentPanel.css";
@@ -350,7 +350,7 @@ function OverviewPage({ navigate, studentName }) {
           <h2>{value(current?.title, current?.name, current?.hackathon_name)}</h2>
           <p>{current ? value(current.description, current.short_description) : "No current hackathon is assigned to your account."}</p>
           {current && (
-            <button onClick={() => navigate("Hackathons")} className="student-primary-btn">OPEN HACKATHON <b>↗</b></button>
+            <button onClick={() => navigate("Events")} className="student-primary-btn">OPEN EVENT <b>↗</b></button>
           )}
         </div>
         <div className="student-hero-avatars">
@@ -372,7 +372,7 @@ function OverviewPage({ navigate, studentName }) {
 
       <div className="student-two-col">
         <div className="student-panel-card">
-          <div className="student-panel-title"><span>01 / CURRENT ACTIVITY</span><button onClick={() => navigate("Hackathons")}>VIEW HACKATHONS ↗</button></div>
+          <div className="student-panel-title"><span>01 / CURRENT ACTIVITY</span><button onClick={() => navigate("Events")}>VIEW EVENTS ↗</button></div>
           {current ? (
             <div className="current-event">
               <div className="current-event-code">{value(current.code, current.slug, current.id)}</div>
@@ -441,7 +441,7 @@ function StudentEnrich({ stats, navigate }) {
   return (
     <div className="student-enrich">
       <div className="student-panel-card enrich-card">
-        <div className="student-panel-title"><span>UPCOMING DEADLINES</span><button onClick={() => navigate("My Registrations")}>VIEW ALL ↗</button></div>
+        <div className="student-panel-title"><span>UPCOMING DEADLINES</span><button onClick={() => navigate("My Events")}>VIEW ALL ↗</button></div>
         {dlLoading ? <div className="enrich-loading"><span /></div> : deadlines.length ? (
           <div className="enrich-deadlines">
             {deadlines.map((d, i) => (
@@ -451,7 +451,7 @@ function StudentEnrich({ stats, navigate }) {
               </div>
             ))}
           </div>
-        ) : <div className="enrich-empty"><strong>No deadlines yet.</strong><p>Join a hackathon and your upcoming dates will appear here.</p><button onClick={() => navigate("Hackathons")}>BROWSE HACKATHONS ↗</button></div>}
+        ) : <div className="enrich-empty"><strong>No deadlines yet.</strong><p>Join an event and your upcoming dates will appear here.</p><button onClick={() => navigate("Events")}>BROWSE EVENTS ↗</button></div>}
       </div>
 
       <div className="student-panel-card enrich-card enrich-ai">
@@ -501,7 +501,7 @@ function DashboardDiscover({ navigate }) {
     catch {} finally { setJoining(""); }
   };
   return <div className="student-dashboard-discover">
-    <div className="student-panel-title"><span>03 / DISCOVER HACKATHONS</span><button onClick={() => navigate("Hackathons")}>VIEW ALL ↗</button></div>
+    <div className="student-panel-title"><span>03 / DISCOVER EVENTS</span><button onClick={() => navigate("Events")}>VIEW ALL ↗</button></div>
     {loading ? <div className="student-discover-loading">Loading available hackathons...</div> : items.length ? <div className="student-discover-grid">{items.map((item) => { const id=String(item.id||""); const isJoined=joined.has(id); return <div className="student-discover-card" key={id}><div className="student-discover-head"><HackathonMark title={value(item.title, item.name, item.hackathon_name)} size={40} /><div><span>{value(item.track, item.category, "HACKATHON")}</span><strong>{value(item.title, item.name, item.hackathon_name)}</strong><small>{formatDate(item.start_date || item.startDate)}</small></div></div><button disabled={isJoined || joining===id} onClick={() => join(item)}>{isJoined ? "JOINED" : joining===id ? "JOINING" : "JOIN NOW ↗"}</button></div>; })}</div> : <EmptyState title="NO OPEN HACKATHONS" text="Explore the Hackathons section when organizers publish new events." />}
   </div>;
 }
@@ -513,6 +513,8 @@ function HackathonsPage({ onOpen, onJoined }) {
   const [joining, setJoining] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  // v6.17 — event-type filter (works once the backend returns event_type).
+  const [typeFilter, setTypeFilter] = useState("all");
   const load = async () => {
     setLoading(true); setError("");
     try {
@@ -551,16 +553,37 @@ function HackathonsPage({ onOpen, onJoined }) {
 
   return (
     <section>
-      <PageHeading eyebrow="DISCOVER / BACKEND DATA" title="HACKATHONS." text="Explore CampusCode challenges and join the ones you want to compete in." count={items.length} />
+      <PageHeading eyebrow="DISCOVER / BACKEND DATA" title="EVENTS." text="Explore CampusCode events — hackathons, quizzes, workshops — and join the ones you want." count={items.length} />
       {message && <div className="student-inline-success">{message}</div>}
       {loading && <LoadingState />}
       {!loading && error && <ErrorState message={error} retry={load} />}
       {!loading && !error && !items.length && <EmptyState title="NO HACKATHONS AVAILABLE" text="The backend returned no hackathons for this account right now." />}
       {!loading && !error && items.length > 0 && (
+        <div className="event-hub-tabs" role="tablist" aria-label="Filter events by type">
+          {[
+            ["all", "All events"],
+            ["hackathon", "Hackathons"],
+            ["quiz", "Quizzes"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className={`event-hub-tab ${typeFilter === key ? "active" : ""}`}
+              onClick={() => setTypeFilter(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {!loading && !error && items.length > 0 && (
         <div className="hackathon-grid">
-          {items.map((item) => {
+          {items
+            .filter((item) => typeFilter === "all" || (item.event_type || "hackathon") === typeFilter)
+            .map((item) => {
             const id = String(item.id || "");
             const joined = joinedIds.has(id);
+            const isQuiz = item.event_type === "quiz";
             return (
               <article className="hackathon-card" key={item.id}>
                 <div className="hackathon-card-top"><span>{value(item.code, item.slug, item.id)}</span><b>{value(item.status)}</b></div>
@@ -568,10 +591,11 @@ function HackathonsPage({ onOpen, onJoined }) {
                   <HackathonMark title={value(item.title, item.name, item.hackathon_name)} />
                   <h2>{value(item.title, item.name, item.hackathon_name)}</h2>
                 </div>
+                {isQuiz && <p><strong>QUIZ · SOLO · TIMED</strong></p>}
                 <p>{value(item.description, item.short_description)}</p>
                 <div className="hackathon-data">
                   <span><small>MODE</small>{value(item.mode, item.event_mode)}</span>
-                  <span><small>TEAM SIZE</small>{value(item.team_size, item.teamSize, item.max_team_size)}</span>
+                  <span><small>{isQuiz ? "FORMAT" : "TEAM SIZE"}</small>{isQuiz ? "Solo" : value(item.team_size, item.teamSize, item.max_team_size)}</span>
                   <span><small>START</small>{formatDate(item.start_date || item.startDate)}</span>
                 </div>
                 <div className="hackathon-actions">
@@ -581,7 +605,7 @@ function HackathonsPage({ onOpen, onJoined }) {
                     disabled={joined || joining === id}
                     className={`student-join-btn ${joined ? "joined" : ""}`}
                   >
-                    {joined ? "✓ JOINED" : joining === id ? "JOINING..." : "JOIN HACKATHON ↗"}
+                    {joined ? "✓ JOINED" : joining === id ? "JOINING..." : isQuiz ? "REGISTER FOR QUIZ ↗" : "JOIN HACKATHON ↗"}
                   </button>
                 </div>
               </article>
@@ -617,10 +641,10 @@ function RegistrationsPage({ onOpen }) {
 
   return (
     <section>
-      <PageHeading eyebrow="MY ACTIVITY / BACKEND DATA" title="REGISTRATIONS." text="Your registrations are read from the authenticated student APIs." count={items.length} />
+      <PageHeading eyebrow="MY ACTIVITY / BACKEND DATA" title="MY EVENTS." text="Every event you joined, in one place. Open one to see its rounds, team, results and certificates." count={items.length} />
       {loading && <LoadingState />}
       {!loading && error && <ErrorState message={error} retry={load} />}
-      {!loading && !error && !items.length && <EmptyState title="NO REGISTRATIONS" text="No registration records were returned for your student account." />}
+      {!loading && !error && !items.length && <EmptyState title="NO EVENTS JOINED" text="No joined events were returned for your student account." />}
       {!loading && !error && items.length > 0 && (
         <div className="registration-grid">
           {items.map((item, index) => (
@@ -641,7 +665,7 @@ function RegistrationsPage({ onOpen }) {
   );
 }
 
-function RegistrationDetail({ registration, onBack }) {
+function RegistrationDetail({ registration, onBack, bare }) {
   const id = registration?.hackathon_id || registration?.hackathonId || registration?.id;
   const [rounds, setRounds] = useState([]);
   const [team, setTeam] = useState(null);
@@ -670,8 +694,12 @@ function RegistrationDetail({ registration, onBack }) {
 
   return (
     <section>
-      <button className="back-btn" onClick={onBack}>← BACK TO REGISTRATIONS</button>
-      <PageHeading eyebrow="REGISTRATION / LIVE RECORD" title={value(registration.hackathon?.title, registration.title, registration.name, registration.hackathon_name)} text="Round and team information is fetched from CampusCode APIs." />
+      {!bare && (
+        <>
+          <button className="back-btn" onClick={onBack}>← BACK TO REGISTRATIONS</button>
+          <PageHeading eyebrow="REGISTRATION / LIVE RECORD" title={value(registration.hackathon?.title, registration.title, registration.name, registration.hackathon_name)} text="Round and team information is fetched from CampusCode APIs." />
+        </>
+      )}
       <div className="registration-detail-head">
         <div><span>REGISTRATION ID</span><strong>{value(registration.participant_id, registration.registration_id, registration.registration_code, "CONFIRMED")}</strong></div>
         <div><span>STATUS</span><strong>{value(registration.registration_status, registration.status, "REGISTERED")}</strong></div>
@@ -767,7 +795,7 @@ function DigitalCard() {
 /* =========================================================
    v6 — CERTIFICATES (Module 8: real issued certificates)
 ========================================================= */
-function CertificatesPage() {
+function CertificatesPage({ hackathonId }) {
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -779,7 +807,11 @@ function CertificatesPage() {
     setError("");
     try {
       const data = await apiFetch("/certificates/mine");
-      setCertificates(Array.isArray(data?.certificates) ? data.certificates : []);
+      const all = Array.isArray(data?.certificates) ? data.certificates : [];
+      // Hub use: show only this event's certificates.
+      setCertificates(hackathonId
+        ? all.filter((c) => String(c.hackathon_id) === String(hackathonId))
+        : all);
     } catch (e) {
       setError(e.message || "Unable to load certificates.");
     } finally {
@@ -840,7 +872,7 @@ function CertificatesPage() {
 
   return (
     <section>
-      <PageHeading eyebrow="REWARDS / CERTIFICATES" title="CERTIFICATES." text="Every certificate carries a unique code anyone can verify — share the verify link with recruiters." />
+      <PageHeading eyebrow="REWARDS / CERTIFICATES" title="CERTIFICATES." text={hackathonId ? "Certificates issued for this event — download the PDF or share the verify link." : "Every certificate carries a unique code anyone can verify — share the verify link with recruiters."} />
       {error && <p className="student-inline-error">{error}</p>}
       {message && <p className="student-inline-success">{message}</p>}
       {loading ? (
@@ -2287,7 +2319,7 @@ function RoundLock({ round = 2, reason }) {
   );
 }
 
-function StudentMyTeamPage() {
+function StudentMyTeamPage({ lockedHackathonId }) {
   const storedUser = useMemo(() => {
     try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
   }, []);
@@ -2295,7 +2327,7 @@ function StudentMyTeamPage() {
   const [registrations, setRegistrations] = useState([]);
   const [team, setTeam] = useState(null);
   const [members, setMembers] = useState([]);
-  const [selectedHackathonId, setSelectedHackathonId] = useState("");
+  const [selectedHackathonId, setSelectedHackathonId] = useState(lockedHackathonId ? String(lockedHackathonId) : "");
   const [teamName, setTeamName] = useState("");
   const [loading, setLoading] = useState(true);
   const [teamLoading, setTeamLoading] = useState(false);
@@ -2409,7 +2441,11 @@ function StudentMyTeamPage() {
     setError("");
     try {
       const items = await loadRegistrations();
-      if (!items.length) {
+      // Hub-locked: the event is fixed by the hub, never the first list item.
+      const firstId = lockedHackathonId
+        ? String(lockedHackathonId)
+        : (items.length ? getHackathonId(items[0]) : "");
+      if (!firstId) {
         setSelectedHackathonId("");
         setTeam(null);
         setMembers([]);
@@ -2417,7 +2453,6 @@ function StudentMyTeamPage() {
         return;
       }
 
-      const firstId = getHackathonId(items[0]);
       setSelectedHackathonId((current) => current || firstId);
       await loadTeamForHackathon(firstId, items);
     } catch (err) {
@@ -2540,22 +2575,26 @@ function StudentMyTeamPage() {
           <strong>{selectedRegistration ? getHackathonTitle(selectedRegistration) : "Choose a hackathon"}</strong>
           <small>{hackathonCompleted ? "HACKATHON COMPLETED · READ ONLY" : "TEAM MANAGEMENT CONTEXT"}</small>
         </div>
-        <select
-          className="student-data-select student-team-hackathon-select"
-          value={selectedHackathonId}
-          onChange={(e) => handleHackathonChange(e.target.value)}
-          disabled={teamLoading}
-        >
-          <option value="">Choose a registered hackathon</option>
-          {registrations.map((item) => {
-            const id = getHackathonId(item);
-            return (
-              <option key={id} value={id}>
-                {getHackathonTitle(item)}{isHackathonCompleted(item) ? " · COMPLETED" : ""}
-              </option>
-            );
-          })}
-        </select>
+        {lockedHackathonId ? (
+          <strong>{selectedRegistration ? getHackathonTitle(selectedRegistration) : "This event"}</strong>
+        ) : (
+          <select
+            className="student-data-select student-team-hackathon-select"
+            value={selectedHackathonId}
+            onChange={(e) => handleHackathonChange(e.target.value)}
+            disabled={teamLoading}
+          >
+            <option value="">Choose a registered hackathon</option>
+            {registrations.map((item) => {
+              const id = getHackathonId(item);
+              return (
+                <option key={id} value={id}>
+                  {getHackathonTitle(item)}{isHackathonCompleted(item) ? " · COMPLETED" : ""}
+                </option>
+              );
+            })}
+          </select>
+        )}
       </div>
 
       {error && <ErrorState message={error} retry={() => loadTeamForHackathon(selectedHackathonId, registrations)} />}
@@ -3886,11 +3925,480 @@ function StudentRoundsPage() {
   );
 }
 
+/* =========================================================
+   v6.17 — EVENT HUB
+   One page per event. Rounds, team, results, leaderboard and
+   certificates live here as tabs instead of top-level nav
+   items — the Unstop pattern: the event is the home.
+   Tabs reuse the existing pages; the hub only sets the synced
+   event selection and (for id-only opens) resolves the record.
+========================================================= */
+/* =========================================================
+   v6.17 — QUIZ (student side)
+   QuizOverview: meta + attempt status for the hub Overview tab.
+   StudentQuizPage: start → timed taking → instant result.
+   QuizLeaderboard: submitted attempts, score desc, time asc.
+   Correct answers are only ever rendered AFTER submit.
+========================================================= */
+function QuizOverview({ event, onGoToQuiz }) {
+  const id = String(event?.hackathon_id || event?.hackathon?.id || event?.id || "");
+  const [meta, setMeta] = useState(null);
+  const [attempt, setAttempt] = useState(null);
+  const [loading, setLoading] = useState(Boolean(id));
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!id) return;
+    apiFetch(`/quizzes/${id}/attempts/mine`)
+      .then((data) => { setMeta(data?.meta || null); setAttempt(data?.attempt || null); })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) return <LoadingState label="Loading quiz details..." />;
+  if (error) return <ErrorState message={error} retry={() => window.location.reload()} />;
+  if (!meta) return <EmptyState title="QUIZ NOT FOUND" text="No quiz details were returned for this event." />;
+
+  return (
+    <section>
+      <div className="registration-detail-head">
+        <div><span>QUESTIONS</span><strong>{meta.question_count}</strong></div>
+        <div><span>TOTAL MARKS</span><strong>{meta.total_marks}</strong></div>
+        <div><span>DURATION</span><strong>{meta.duration_minutes} MIN</strong></div>
+        <div><span>NEGATIVE</span><strong>{meta.negative_marks ? `−${meta.negative_marks}` : "NONE"}</strong></div>
+      </div>
+      <div className="student-panel-card" style={{ marginTop: 16 }}>
+        <div className="student-panel-title"><span>HOW THIS QUIZ WORKS</span></div>
+        <p style={{ lineHeight: 1.7, color: "#555" }}>
+          Solo quiz, single attempt. The timer starts when you press Start and
+          auto-submits at zero — answers saved so far are still scored.
+          {meta.negative_marks ? ` Wrong answers cost ${meta.negative_marks} mark${meta.negative_marks === 1 ? "" : "s"} each; skipped questions cost nothing.` : " No negative marking."}
+          {meta.start_date && ` Window opens ${formatDate(meta.start_date)}.`}
+          {meta.end_date && ` Window closes ${formatDate(meta.end_date)}.`}
+        </p>
+        {attempt?.status === "SUBMITTED" && (
+          <p style={{ marginTop: 12 }}><strong>Your score: {attempt.score} / {attempt.total_marks}</strong> — open the Quiz tab for the full review.</p>
+        )}
+        {attempt?.status === "IN_PROGRESS" && (
+          <p style={{ marginTop: 12 }}><strong>Your attempt is in progress</strong> — open the Quiz tab to resume before the timer ends.</p>
+        )}
+        <div style={{ marginTop: 16 }}>
+          <button className="student-primary-btn" onClick={onGoToQuiz}>
+            {attempt?.status === "SUBMITTED" ? "VIEW RESULT ↗" : attempt?.status === "IN_PROGRESS" ? "RESUME QUIZ ↗" : "OPEN QUIZ ↗"}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function QuizLeaderboard({ eventId }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const storedUser = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
+  }, []);
+  const myId = String(storedUser?.id || storedUser?.user_id || "");
+
+  useEffect(() => {
+    apiFetch(`/quizzes/${eventId}/leaderboard`)
+      .then((data) => setRows(Array.isArray(data?.leaderboard) ? data.leaderboard : []))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [eventId]);
+
+  if (loading) return <LoadingState label="Loading leaderboard..." />;
+  if (error) return <ErrorState message={error} retry={() => window.location.reload()} />;
+  if (!rows.length) return <EmptyState title="NO RESULTS YET" text="Nobody has submitted this quiz yet. The leaderboard fills up as submissions come in." />;
+
+  return (
+    <section>
+      <PageHeading eyebrow="RESULTS / LEADERBOARD" title="LEADERBOARD." text="Highest score first; ties break by earliest submission." />
+      <div className="student-panel-card">
+        {rows.map((row, i) => (
+          <div className="round-row" key={row.user_id} style={String(row.user_id) === myId ? { background: "rgba(168,230,46,.12)" } : undefined}>
+            <div className="round-number">{i + 1}</div>
+            <div><strong>{row.user_name || "Student"}</strong><span>{row.correct_count}/{row.question_count} correct</span></div>
+            <b>{row.score} / {row.total_marks}</b>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function StudentQuizPage({ eventId }) {
+  const [phase, setPhase] = useState("loading");
+  const [meta, setMeta] = useState(null);
+  const [attempt, setAttempt] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [detail, setDetail] = useState([]);
+  const [answers, setAnswers] = useState({});
+  const [current, setCurrent] = useState(0);
+  const [remaining, setRemaining] = useState(null);
+  const [error, setError] = useState("");
+  const [starting, setStarting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const answersRef = useRef({});
+
+  const applyLoaded = (data) => {
+    setMeta(data?.meta || null);
+    setAttempt(data?.attempt || null);
+    if (data?.attempt?.status === "SUBMITTED") {
+      setQuestions(Array.isArray(data?.questions) ? data.questions : []);
+      setDetail(Array.isArray(data?.detail) ? data.detail : []);
+      setPhase("submitted");
+    } else if (data?.attempt?.status === "IN_PROGRESS") {
+      setQuestions(Array.isArray(data?.questions) ? data.questions : []);
+      setAnswers(data?.attempt?.answers || {});
+      answersRef.current = data?.attempt?.answers || {};
+      setRemaining(typeof data?.remaining_seconds === "number" ? data.remaining_seconds : null);
+      setPhase("taking");
+    } else {
+      setPhase("ready");
+    }
+  };
+
+  const load = async () => {
+    setPhase("loading"); setError("");
+    try {
+      const data = await apiFetch(`/quizzes/${eventId}/attempts/mine`);
+      applyLoaded(data);
+    } catch (err) {
+      setError(err.message);
+      setPhase("error");
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch(`/quizzes/${eventId}/attempts/mine`)
+      .then((data) => { if (!cancelled) applyLoaded(data); })
+      .catch((err) => { if (!cancelled) { setError(err.message); setPhase("error"); } });
+    return () => { cancelled = true; };
+  }, [eventId]);
+
+  const submit = async (finalAnswers) => {
+    if (submitting) return;
+    setSubmitting(true); setError("");
+    try {
+      const data = await apiFetch(`/quizzes/${eventId}/attempts/${attempt.id}/submit`, {
+        method: "POST",
+        body: JSON.stringify({ answers: finalAnswers }),
+      });
+      setAttempt(data?.attempt || null);
+      setDetail(Array.isArray(data?.detail) ? data.detail : []);
+      setQuestions(Array.isArray(data?.questions) ? data.questions : []);
+      setPhase("submitted");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Countdown: server-anchored start, client tick, auto-submit at zero.
+  useEffect(() => {
+    if (phase !== "taking" || remaining === null) return;
+    if (remaining <= 0) { submit(answersRef.current); return; }
+    const timer = setInterval(() => {
+      setRemaining((r) => {
+        if (r === null) return r;
+        if (r <= 1) {
+          clearInterval(timer);
+          submit(answersRef.current);
+          return 0;
+        }
+        return r - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, attempt?.id]);
+
+  const start = async () => {
+    setStarting(true); setError("");
+    try {
+      const data = await apiFetch(`/quizzes/${eventId}/attempts`, { method: "POST" });
+      setAttempt(data?.attempt || null);
+      setQuestions(Array.isArray(data?.questions) ? data.questions : []);
+      setRemaining(typeof data?.remaining_seconds === "number" ? data.remaining_seconds : null);
+      setCurrent(0);
+      setPhase("taking");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const pick = (questionId, index) => {
+    const next = { ...answers, [questionId]: index };
+    setAnswers(next);
+    answersRef.current = next;
+    if (attempt?.id) {
+      apiFetch(`/quizzes/${eventId}/attempts/${attempt.id}/answers`, {
+        method: "PUT",
+        body: JSON.stringify({ answers: next }),
+      }).catch(() => {});
+    }
+  };
+
+  const fmtTime = (seconds) => {
+    const s = Math.max(0, Number(seconds) || 0);
+    return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  };
+
+  if (phase === "loading") return <LoadingState label="Loading quiz..." />;
+  if (phase === "error") return <ErrorState message={error} retry={load} />;
+
+  if (phase === "ready") {
+    return (
+      <section>
+        <PageHeading eyebrow="QUIZ / READY" title="READY WHEN YOU ARE." text="Single attempt. The timer starts the moment you press Start." />
+        {meta && (
+          <div className="registration-detail-head">
+            <div><span>QUESTIONS</span><strong>{meta.question_count}</strong></div>
+            <div><span>DURATION</span><strong>{meta.duration_minutes} MIN</strong></div>
+            <div><span>TOTAL MARKS</span><strong>{meta.total_marks}</strong></div>
+            <div><span>NEGATIVE</span><strong>{meta.negative_marks ? `−${meta.negative_marks}` : "NONE"}</strong></div>
+          </div>
+        )}
+        {error && <ErrorState message={error} retry={load} />}
+        <div style={{ marginTop: 20 }}>
+          <button className="student-primary-btn" disabled={starting} onClick={start}>
+            {starting ? "STARTING..." : "START QUIZ ↗"}
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (phase === "submitted") {
+    return (
+      <section>
+        <PageHeading eyebrow="QUIZ / RESULT" title="YOUR RESULT." text="Correct answers are shown for review. Scores are final." />
+        {attempt && (
+          <div className="registration-detail-head">
+            <div><span>SCORE</span><strong>{attempt.score} / {attempt.total_marks}</strong></div>
+            <div><span>CORRECT</span><strong>{attempt.correct_count} / {attempt.question_count}</strong></div>
+          </div>
+        )}
+        <div className="student-panel-card" style={{ marginTop: 16 }}>
+          {questions.map((q, i) => {
+            const d = detail.find((x) => String(x.question_id) === String(q.id));
+            const mine = d?.selected_index;
+            return (
+              <div key={q.id} style={{ padding: "14px 0", borderBottom: "1px solid #eee" }}>
+                <p><strong>Q{i + 1}. {q.question_text}</strong> <span style={{ color: d?.is_correct ? "#3f6212" : "#991b1b" }}>{d?.is_correct ? " ✓ Correct" : " ✗ Wrong"}</span></p>
+                <p style={{ color: "#555", marginTop: 6 }}>
+                  Your answer: {mine === null || mine === undefined ? "Skipped" : q.options?.[mine] ?? "—"}
+                  {"  ·  "}Correct answer: {q.options?.[Number(q.correct_index)] ?? "—"}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
+
+  // taking
+  const q = questions[current];
+  const answeredCount = questions.filter((item) => answers[item.id] !== undefined && answers[item.id] !== null).length;
+  return (
+    <section>
+      <div className="registration-detail-head">
+        <div><span>TIME LEFT</span><strong style={{ color: remaining !== null && remaining < 60 ? "#991b1b" : undefined }}>{fmtTime(remaining)}</strong></div>
+        <div><span>QUESTION</span><strong>{questions.length ? `${current + 1} / ${questions.length}` : "—"}</strong></div>
+        <div><span>ANSWERED</span><strong>{answeredCount} / {questions.length}</strong></div>
+      </div>
+      {error && <ErrorState message={error} retry={load} />}
+      {!q ? (
+        <EmptyState title="NO QUESTIONS" text="This quiz has no questions yet." />
+      ) : (
+        <div className="student-panel-card" style={{ marginTop: 16 }}>
+          <div className="student-panel-title"><span>QUESTION {current + 1}</span><span>{q.marks} MARK{q.marks === 1 ? "" : "S"}</span></div>
+          <h3 style={{ fontSize: 18, lineHeight: 1.5 }}>{q.question_text}</h3>
+          <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
+            {(q.options || []).map((opt, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => pick(q.id, i)}
+                style={{
+                  textAlign: "left", padding: "12px 16px", borderRadius: 10, cursor: "pointer",
+                  border: answers[q.id] === i ? "2px solid #111" : "1px solid #ddd",
+                  background: answers[q.id] === i ? "#f7fee7" : "#fff",
+                  font: "inherit",
+                }}
+              >
+                <strong>{String.fromCharCode(65 + i)}.</strong> {opt}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
+            <button className="student-outline-btn" disabled={current === 0} onClick={() => setCurrent(current - 1)}>← PREVIOUS</button>
+            <button className="student-outline-btn" disabled={current >= questions.length - 1} onClick={() => setCurrent(current + 1)}>NEXT →</button>
+            <button
+              className="student-primary-btn"
+              disabled={submitting}
+              onClick={() => {
+                if (window.confirm("Submit the quiz? You cannot change answers after this.")) submit(answersRef.current);
+              }}
+            >
+              {submitting ? "SUBMITTING..." : "SUBMIT QUIZ"}
+            </button>
+          </div>
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
+        {questions.map((item, i) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setCurrent(i)}
+            style={{
+              width: 36, height: 36, borderRadius: 8, cursor: "pointer", font: "inherit", fontWeight: 700,
+              border: i === current ? "2px solid #111" : "1px solid #ddd",
+              background: answers[item.id] !== undefined && answers[item.id] !== null ? "#a8e62e" : "#fff",
+            }}
+          >
+            {i + 1}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EventHub({ event, tab, setTab, onBack }) {
+  const [resolved, setResolved] = useState(event);
+  // Id-only opens start in resolving state; no sync setState in the effect.
+  const [resolving, setResolving] = useState(
+    () =>
+      Boolean(
+        event?.hackathon_id || event?.hackathon?.id || event?.id
+      ) &&
+      !event?.title &&
+      !event?.hackathon?.title &&
+      !event?.name
+  );
+
+  const id = String(
+    event?.hackathon_id || event?.hackathon?.id || event?.id || ""
+  );
+  const rawTitle =
+    resolved?.hackathon?.title ||
+    resolved?.title ||
+    resolved?.name ||
+    resolved?.hackathon_name ||
+    "Event";
+  const title = String(rawTitle);
+
+  // v6.17 — quiz events get quiz tabs, not rounds/team tabs.
+  const eventType = resolved?.event_type || resolved?.hackathon?.event_type || "hackathon";
+  const isQuiz = eventType === "quiz";
+
+  useEffect(() => {
+    // Id-only opens (e.g. HackMate's "open my team") resolve the record.
+    if (!id || resolved?.title || resolved?.hackathon?.title || resolved?.name) return;
+    let cancelled = false;
+    apiFetch("/student/hackathons/my-hackathons")
+      .then((result) => {
+        if (cancelled) return;
+        const list = dedupeHackathons(
+          unwrapList(result, ["hackathons", "registrations", "events", "items", "data"])
+        );
+        const found = list.find(
+          (item) => String(item.hackathon_id || item.hackathon?.id || item.id || "") === id
+        );
+        if (found) setResolved(found);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setResolving(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, resolved]);
+
+  const tabs = isQuiz
+    ? [
+        ["overview", "Overview"],
+        ["quiz", "Quiz"],
+        ["leaderboard", "Leaderboard"],
+        ["certificates", "Certificates"],
+        ["announcements", "Announcements"],
+      ]
+    : [
+        ["overview", "Overview"],
+        ["rounds", "Rounds"],
+        ["team", "My Team"],
+        ["results", "Results"],
+        ["leaderboard", "Leaderboard"],
+        ["certificates", "Certificates"],
+        ["announcements", "Announcements"],
+      ];
+
+  return (
+    <section>
+      <button className="back-btn" onClick={onBack}>← ALL MY EVENTS</button>
+      <PageHeading
+        eyebrow="EVENT / LIVE HUB"
+        title={`${title.toUpperCase()}.`}
+        text={
+          isQuiz
+            ? "Everything for this quiz lives here — the timed quiz, leaderboard and certificates."
+            : "Everything for this event lives here — rounds, team, results, leaderboard and certificates."
+        }
+      />
+      <div className="event-hub-tabs" role="tablist" aria-label="Event sections">
+        {tabs.map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            className={`event-hub-tab ${tab === key ? "active" : ""}`}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {resolving && <LoadingState label="Loading event..." />}
+      {!resolving && (
+        <div key={tab} className="event-hub-panel">
+          {tab === "overview" && (
+            isQuiz
+              ? <QuizOverview event={resolved} onGoToQuiz={() => setTab("quiz")} />
+              : <RegistrationDetail registration={resolved} onBack={onBack} bare />
+          )}
+          {tab === "rounds" && <StudentRoundsPage />}
+          {tab === "team" && <StudentMyTeamPage lockedHackathonId={id} />}
+          {tab === "results" && <StudentResultsPage />}
+          {tab === "quiz" && <StudentQuizPage eventId={id} />}
+          {tab === "leaderboard" && (
+            isQuiz ? <QuizLeaderboard eventId={id} /> : <StudentLeaderboardPage />
+          )}
+          {tab === "certificates" && <CertificatesPage hackathonId={id} />}
+          {tab === "announcements" && <OfficialCommunicationPage />}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function StudentPanel() {
   const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState("Overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedHackathon, setSelectedHackathon] = useState(null);
+  const [hubTab, setHubTab] = useState("overview");
+  const [syncedId, setSyncedId] = useSyncedHackathon();
   const [project, setProject] = useState(null);
   const [milestone, setMilestone] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -3905,39 +4413,47 @@ function StudentPanel() {
 
   const navItems = [
     ["Overview", <LayoutDashboard size={16} strokeWidth={1.8} />],
-    ["Hackathons", <Trophy size={16} strokeWidth={1.8} />],
-    ["My Registrations", <Clock3 size={16} strokeWidth={1.8} />],
+    ["Events", <Trophy size={16} strokeWidth={1.8} />],
+    ["My Events", <Clock3 size={16} strokeWidth={1.8} />],
     ["HackMate AI", <Sparkles size={16} strokeWidth={1.8} />],
     ["IdeaCheck AI", <Sparkles size={16} strokeWidth={1.8} />],
-    ["My Team", <Users size={16} strokeWidth={1.8} />],
-    ["Rounds", <Layers size={16} strokeWidth={1.8} />],
-    ["Results", <Trophy size={16} strokeWidth={1.8} />],
-    ["Leaderboard", <Trophy size={16} strokeWidth={1.8} />],
+    ["Certificates", <Award size={16} strokeWidth={1.8} />],
+    ["Digital Card", <IdCard size={16} strokeWidth={1.8} />],
     ["RuleBot AI", <Bot size={16} strokeWidth={1.8} />],
     ["Student Guide", <Bot size={16} strokeWidth={1.8} />],
     ["Official Communication", <Bell size={16} strokeWidth={1.8} />],
     ["Notifications", <Bell size={16} strokeWidth={1.8} />],
     ["Help & Support", <Bot size={16} strokeWidth={1.8} />],
-    ["Digital Card", <IdCard size={16} strokeWidth={1.8} />],
-    ["Certificates", <Award size={16} strokeWidth={1.8} />],
     ["Profile", <UserCircle size={16} strokeWidth={1.8} />],
   ];
   const handleNav = (label) => { setActiveNav(label); setSelectedHackathon(null); setSidebarOpen(false); requestAnimationFrame(() => { const main = document.querySelector(".student-main"); if (main) main.scrollTo({ top: 0, behavior: "smooth" }); }); };
+  // Open an event's hub. Per-event pages (rounds, team, results,
+  // leaderboard) are hub tabs now, not top-level nav items.
+  const openHub = (item, tab = "overview") => {
+    setSelectedHackathon(item);
+    setHubTab(tab);
+    const id = String(item?.hackathon_id || item?.hackathon?.id || item?.id || "");
+    if (id) setSyncedId(id);
+    setActiveNav("EventHub");
+    setSidebarOpen(false);
+    requestAnimationFrame(() => { const main = document.querySelector(".student-main"); if (main) main.scrollTo({ top: 0, behavior: "smooth" }); });
+  };
+  const openHubTeam = () => {
+    if (syncedId) openHub({ id: syncedId }, "team");
+    else handleNav("My Events");
+  };
+  const closeHub = () => { setSelectedHackathon(null); handleNav("My Events"); };
   const logout = () => { localStorage.removeItem("token"); localStorage.removeItem("user"); localStorage.removeItem("role"); navigate("/login", { replace: true }); };
   const refreshStudentPage = async () => {
     setRefreshKey((current) => current + 1);
   };
 
   let content = <OverviewPage navigate={handleNav} studentName={displayName} />;
-  if (activeNav === "Hackathons") content = <HackathonsPage onOpen={(item) => { setSelectedHackathon(item); setActiveNav("My Registrations"); }} onJoined={(payload) => showMilestone("registered", payload)} />;
-  if (activeNav === "My Registrations") content = selectedHackathon ? <RegistrationDetail registration={selectedHackathon} onBack={() => setSelectedHackathon(null)} /> : <RegistrationsPage onOpen={setSelectedHackathon} />;
-  if (activeNav === "HackMate AI") content = <HackMatePage onGoToMyTeam={() => handleNav("My Team")} />;
+  if (activeNav === "Events") content = <HackathonsPage onOpen={(item) => openHub(item)} onJoined={(payload) => showMilestone("registered", payload)} />;
+  if (activeNav === "My Events") content = <RegistrationsPage onOpen={(item) => openHub(item)} />;
+  if (activeNav === "EventHub") content = selectedHackathon ? <EventHub event={selectedHackathon} tab={hubTab} setTab={setHubTab} onBack={closeHub} /> : <RegistrationsPage onOpen={(item) => openHub(item)} />;
+  if (activeNav === "HackMate AI") content = <HackMatePage onGoToMyTeam={openHubTeam} />;
   if (activeNav === "IdeaCheck AI") content = <IdeaCheckAIPage />;
-  if (activeNav === "My Team") content = <StudentMyTeamPage />;
-  if (activeNav === "Rounds") content = <StudentRoundsPage />;
-
-  if (activeNav === "Results") content = <StudentResultsPage />;
-  if (activeNav === "Leaderboard") content = <StudentLeaderboardPage />;
   if (activeNav === "RuleBot AI") content = <RuleBotPage />;
   if (activeNav === "Student Guide") content = <StudentGuidePage />;
   if (activeNav === "Official Communication") content = <OfficialCommunicationPage />;
@@ -3965,13 +4481,13 @@ function StudentPanel() {
               key={label}
               type="button"
               className={`student-nav-item ${
-                activeNav === label ? "active" : ""
+                activeNav === label || (activeNav === "EventHub" && label === "My Events") ? "active" : ""
               } ${label === "RuleBot AI" ? "rulebot-nav-item" : ""}`}
               onClick={() => handleNav(label)}
             >
               <span className="student-nav-icon">{icon}</span>
               <span>{label}</span>
-              {activeNav === label && <b>→</b>}
+              {(activeNav === label || (activeNav === "EventHub" && label === "My Events")) && <b>→</b>}
             </button>
           ))}
         </nav>

@@ -5493,3 +5493,52 @@ html, body, #root {
   line-height: 1.7;
   color: #4a3d00;
 }
+
+/* =========================================================
+   v6.17 — EVENT HUB TABS
+   In-event tab bar. Same visual language: cream page, black
+   active pill with lime text, grey inactive tabs.
+========================================================= */
+.event-hub-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 18px 0 24px;
+  border-bottom: 1px solid #e5e5e0;
+  padding-bottom: 14px;
+}
+
+.event-hub-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #777770;
+  padding: 9px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.event-hub-tab.active {
+  background: #111111;
+  color: #a8e62e;
+}
+
+/* =========================================================
+   v6.17 — EVENT HUB TAB TRANSITION
+   Mirrors the rounds tab fade: each hub tab switch replays
+   a short rise-and-fade (key={tab} remounts the panel).
+========================================================= */
+.event-hub-panel {
+  animation: eventHubPanelIn .35s cubic-bezier(.22, 1, .36, 1);
+}
+
+@keyframes eventHubPanelIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-hub-panel { animation: none; }
+}

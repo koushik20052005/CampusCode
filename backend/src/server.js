@@ -62,6 +62,7 @@ import organizerRound2Routes from "./routes/organizerRound2.routes.js";
 import organizerRound3Routes from "./routes/organizerRound3.routes.js";
 import finalRoutes from "./routes/final.routes.js";
 import certificatesRoutes from "./routes/certificates.routes.js";
+import quizRoutes from "./routes/quiz.routes.js";
 
 /* v6.1 — automatic DB migrations on boot */
 import { runMigrations } from "./config/migrate.js";
@@ -561,6 +562,15 @@ app.use(
 app.use(
   "/api/certificates",
   certificatesRoutes
+);
+
+/* =========================================================
+   QUIZ (v1 — Nov 1 quiz)
+========================================================= */
+
+app.use(
+  "/api/quizzes",
+  quizRoutes
 );
 
 /* =========================================================
