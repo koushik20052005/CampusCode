@@ -15,6 +15,14 @@ function Login() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // v6.19 — L1 ride + L3 slow-server wait: ride drives while the
+  // login request is in flight; after 1.5s it waits at the barrier.
+  const [slowServer, setSlowServer] = useState(false);
+  React.useEffect(() => {
+    if (!loading) { setSlowServer(false); return; }
+    const t = setTimeout(() => setSlowServer(true), 1500);
+    return () => clearTimeout(t);
+  }, [loading]);
   const [error, setError] = useState("");
   // v6.10 — login OTP step (free via Resend)
   const [step, setStep] = useState("credentials"); // "credentials" | "otp" | "tfa" | "forgot" | "reset"
@@ -507,6 +515,18 @@ function Login() {
                   <p>{error}</p>
                 </div>
               )}
+
+              <div className={`login-ride-stage ${loading ? (slowServer ? "waiting" : "drive") : ""}`} aria-hidden="true">
+                {!loading && <span className="login-ride-zzz">Zzz</span>}
+                <span className="login-ride">
+                  <span className="login-ride-body"><i /><i /><i /></span>
+                  <span className="login-ride-wheel left" />
+                  <span className="login-ride-wheel right" />
+                </span>
+                <span className="login-ride-barrier" />
+                <span className="login-ride-status">{loading ? (slowServer ? "CONNECTING…" : "RIDING…") : "READY"}</span>
+                <span className="login-ride-traffic">● ● ●</span>
+              </div>
 
               <button
                 type="submit"

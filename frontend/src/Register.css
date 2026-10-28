@@ -1503,3 +1503,20 @@
 .register-captcha-img svg {
   display: block;
 }
+
+/* =========================================================
+   v6.19 — L4 mini ride inside the Register button.
+   White chip (the button itself is black) with the
+   three-slash mark; it bounces while the button is busy.
+========================================================= */
+.register-submit { position: relative; }
+.mini-ride { display: inline-flex; gap: 2px; background: #fff; border-radius: 6px; padding: 5px 7px; margin-right: 10px; vertical-align: middle; flex-shrink: 0; }
+.mini-ride i { display: block; width: 9px; height: 11px; transform: skewX(-18deg); border-radius: 1px; }
+.mini-ride i:nth-child(1) { background: #111; }
+.mini-ride i:nth-child(2) { background: #7665ff; }
+.mini-ride i:nth-child(3) { background: #8bcf19; }
+.register-submit:disabled .mini-ride { animation: miniBounce 0.5s ease-in-out infinite; }
+@keyframes miniBounce { 50% { transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) {
+  .register-submit:disabled .mini-ride { animation: none !important; }
+}

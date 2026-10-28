@@ -5569,3 +5569,74 @@ html, body, #root {
     display: block;
   }
 }
+
+/* =========================================================
+   v6.19 — picked celebration animations
+   J1 join confetti + stamp · R2 R1 paper-plane send-off ·
+   T1 team avatar pop · M1 quiz score count-up + check ·
+   M2 certificate reveal · M4 announcement toast
+   All motion is disabled under prefers-reduced-motion.
+========================================================= */
+
+/* J1 — join celebration (card + result header share the pieces) */
+.join-celebrate { position: relative; }
+.join-confetti { position: absolute; inset: 0; pointer-events: none; z-index: 5; overflow: visible; }
+.join-confetti i { position: absolute; left: 50%; top: 42%; width: 8px; height: 12px; border-radius: 2px; opacity: 0; animation: joinBurst 0.9s ease-out forwards; }
+.join-confetti i:nth-child(1) { --dx: -72px; --dy: -64px; background: #a8e62e; }
+.join-confetti i:nth-child(2) { --dx: 66px; --dy: -58px; background: #7665ff; animation-delay: 0.05s; }
+.join-confetti i:nth-child(3) { --dx: -40px; --dy: 52px; background: #111; animation-delay: 0.08s; }
+.join-confetti i:nth-child(4) { --dx: 78px; --dy: 34px; background: #82b91a; animation-delay: 0.03s; }
+.join-confetti i:nth-child(5) { --dx: -88px; --dy: -10px; background: #7665ff; animation-delay: 0.1s; }
+.join-confetti i:nth-child(6) { --dx: 44px; --dy: -84px; background: #a8e62e; animation-delay: 0.06s; }
+.join-confetti i:nth-child(7) { --dx: -16px; --dy: 78px; background: #111; animation-delay: 0.12s; }
+.join-confetti i:nth-child(8) { --dx: 92px; --dy: -22px; background: #a8e62e; animation-delay: 0.09s; }
+@keyframes joinBurst {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(240deg); }
+}
+.join-stamp { position: absolute; right: 12px; top: 12px; z-index: 6; background: #111; color: #a8e62e; font-weight: 900; letter-spacing: 0.08em; font-size: 12px; padding: 6px 10px; border-radius: 999px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); transform: rotate(6deg) scale(1.6); animation: stampIn 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) forwards; }
+@keyframes stampIn { to { transform: rotate(6deg) scale(1); } }
+
+/* R2 — R1 paper-plane send-off strip */
+.r1-plane-strip { position: relative; height: 64px; overflow: hidden; border: 1px dashed #82b91a; border-radius: 12px; background: linear-gradient(90deg, #f7fee7, #fff); margin: 12px 0; }
+.r1-plane-trail { position: absolute; top: 32px; left: 0; height: 3px; background: #a8e62e; width: 0; animation: trailGrow 1.5s ease-in forwards; }
+.r1-plane { position: absolute; top: 16px; left: -50px; animation: planeFly 1.5s ease-in forwards; }
+.r1-plane-sent { position: absolute; right: 12px; top: 22px; font-weight: 800; font-size: 12px; letter-spacing: 0.08em; color: #3f6212; }
+@keyframes planeFly { to { left: calc(100% + 10px); } }
+@keyframes trailGrow { to { width: 100%; } }
+
+/* T1 — team member avatar pop on create */
+.team-just-created .student-member-row { animation: memberPop 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.team-just-created .student-member-row:nth-child(2) { animation-delay: 0.12s; }
+.team-just-created .student-member-row:nth-child(3) { animation-delay: 0.24s; }
+.team-just-created .student-member-row:nth-child(4) { animation-delay: 0.36s; }
+.team-just-created .student-member-row:nth-child(5) { animation-delay: 0.48s; }
+@keyframes memberPop { from { opacity: 0; transform: scale(0.6) translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* M1 — quiz result: count-up + drawn check + confetti */
+.quiz-result-celebrate { position: relative; display: flex; gap: 10px; align-items: center; }
+.quiz-score-check svg circle, .quiz-score-check svg path { stroke-dasharray: 90; stroke-dashoffset: 90; animation: drawCheck 0.6s ease forwards 0.2s; }
+@keyframes drawCheck { to { stroke-dashoffset: 0; } }
+
+/* M2 — certificate reveal: slide-up + seal pop + shine sweep */
+.cert-reveal { position: relative; overflow: hidden; animation: certUp 0.55s ease both; animation-delay: var(--delay, 0ms); }
+@keyframes certUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+.cert-reveal::after { content: ""; position: absolute; top: 0; left: -80%; width: 50%; height: 100%; background: linear-gradient(100deg, transparent, rgba(168, 230, 46, 0.35), transparent); transform: skewX(-20deg); animation: certShine 1s ease 0.4s forwards; pointer-events: none; }
+@keyframes certShine { to { left: 130%; } }
+.cert-seal { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: #a8e62e; color: #111; align-items: center; justify-content: center; font-weight: 900; font-size: 14px; animation: sealPop 0.5s cubic-bezier(0.2, 1.8, 0.4, 1) both 0.3s; }
+@keyframes sealPop { from { transform: scale(0); } to { transform: scale(1); } }
+
+/* M4 — announcement toast */
+.announce-toast { display: flex; gap: 12px; align-items: flex-start; background: #111; color: #f7f7f4; border-left: 4px solid #a8e62e; border-radius: 12px; padding: 14px 16px; margin: 12px 0; animation: toastDown 0.5s ease both; }
+.announce-toast p { margin: 4px 0 0; color: #d4d4d4; font-size: 14px; }
+.announce-toast .bell { flex-shrink: 0; animation: bellWiggle 1s ease 0.3s; }
+.announce-toast button { background: none; border: 0; color: #a8e62e; cursor: pointer; font-size: 16px; margin-left: auto; flex-shrink: 0; }
+@keyframes toastDown { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+@keyframes bellWiggle { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(8deg); } 80% { transform: rotate(-6deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .join-confetti i, .r1-plane, .r1-plane-trail, .team-just-created .student-member-row,
+  .cert-reveal, .cert-reveal::after, .cert-seal, .announce-toast,
+  .quiz-score-check svg circle, .quiz-score-check svg path { animation: none !important; }
+  .join-stamp { transform: rotate(6deg) scale(1); }
+}

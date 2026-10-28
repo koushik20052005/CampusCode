@@ -836,6 +836,8 @@ function Register() {
                 disabled={busy}
               >
 
+                <span className="mini-ride" aria-hidden="true"><i /><i /><i /></span>
+
                 <span>
                   {otpBusy
                     ? "SENDING CODE..."
@@ -856,6 +858,8 @@ function Register() {
                 className="register-submit"
                 disabled={busy}
               >
+
+                <span className="mini-ride" aria-hidden="true"><i /><i /><i /></span>
 
                 <span>
                   {busy

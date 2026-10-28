@@ -14,6 +14,7 @@ import {
   deleteQuestion,
   startAttempt,
   saveAnswers,
+  reportProctor,
   getMyAttempt,
   submitAttempt,
   getLeaderboard,
@@ -36,6 +37,7 @@ router.delete("/:id/questions/:questionId", requireAuth, requireRole("ORGANIZER"
 router.post("/:id/attempts", requireAuth, requireRole("STUDENT"), startAttempt);
 router.get("/:id/attempts/mine", requireAuth, requireRole("STUDENT"), getMyAttempt);
 router.put("/:id/attempts/:attemptId/answers", requireAuth, requireRole("STUDENT"), saveAnswers);
+router.put("/:id/attempts/:attemptId/proctor", requireAuth, requireRole("STUDENT"), reportProctor);
 router.post("/:id/attempts/:attemptId/submit", requireAuth, requireRole("STUDENT"), submitAttempt);
 
 // Quiz leaderboard (registered students, organizer, admin).

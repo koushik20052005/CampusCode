@@ -286,9 +286,15 @@ function windowError(event) {
   return null;
 }
 
-function attemptTiming(attempt, durationMinutes) {
+function attemptTiming(attempt, durationMinutes, event) {
   const started = new Date(attempt.started_at).getTime();
-  const expiresAt = started + durationMinutes * 60 * 1000;
+  let expiresAt = started + durationMinutes * 60 * 1000;
+  // v6.19 — proctored quiz: the attempt also ends at the event
+  // window end, so a 6:55 PM start never runs past a 7 PM close.
+  if (event?.end_date) {
+    const windowEnd = new Date(event.end_date).getTime();
+    if (Number.isFinite(windowEnd)) expiresAt = Math.min(expiresAt, windowEnd);
+  }
   return { expiresAt, remainingSeconds: Math.max(0, Math.floor((expiresAt - Date.now()) / 1000)) };
 }
 
@@ -305,6 +311,11 @@ export async function startAttempt(req, res) {
     }
     const winError = windowError(event);
     if (winError) return fail(res, 400, winError);
+    // v6.19 — proctored quiz: the student must accept the test
+    // rules (camera/mic presence check, fullscreen) before start.
+    if (req.body?.terms_accepted !== true) {
+      return fail(res, 400, "Accept the quiz rules to start");
+    }
     const existing = await pool.query(
       `SELECT * FROM quiz_attempts WHERE hackathon_id = $1 AND user_id = $2`,
       [event.id, req.user.id]
@@ -318,11 +329,11 @@ export async function startAttempt(req, res) {
     }
     const settings = quizSettings(event);
     const attempt = await pool.query(
-      `INSERT INTO quiz_attempts (hackathon_id, user_id, question_count)
-       VALUES ($1, $2, $3) RETURNING *`,
+      `INSERT INTO quiz_attempts (hackathon_id, user_id, question_count, terms_accepted_at)
+       VALUES ($1, $2, $3, NOW()) RETURNING *`,
       [event.id, req.user.id, questions.length]
     );
-    const timing = attemptTiming(attempt.rows[0], settings.durationMinutes);
+    const timing = attemptTiming(attempt.rows[0], settings.durationMinutes, event);
     return res.status(201).json({
       success: true,
       attempt: attempt.rows[0],
@@ -406,7 +417,7 @@ export async function getMyAttempt(req, res) {
       });
     }
     // In progress: expire server-side if the timer ran out.
-    const timing = attemptTiming(attempt, settings.durationMinutes);
+    const timing = attemptTiming(attempt, settings.durationMinutes, event);
     if (timing.remainingSeconds <= 0) {
       const client = await pool.connect();
       try {
@@ -448,6 +459,35 @@ export async function getMyAttempt(req, res) {
   } catch (error) {
     console.error("QUIZ GET ATTEMPT ERROR:", error);
     return fail(res, 500, "Unable to load your attempt");
+  }
+}
+
+/* v6.19 — proctored quiz: fullscreen-exit / tab-switch flags.
+   Counts only — no video, no audio, nothing recorded. The
+   client tracks the counts and reports them best-effort. */
+export async function reportProctor(req, res) {
+  try {
+    const event = await getEvent(req.params.id);
+    if (!event) return fail(res, 404, "Event not found");
+    if (event.event_type !== "quiz") return fail(res, 400, "Event is not a quiz");
+    const attempt = await pool.query(
+      `SELECT * FROM quiz_attempts WHERE id = $1 AND hackathon_id = $2 AND user_id = $3`,
+      [req.params.attemptId, event.id, req.user.id]
+    );
+    if (attempt.rows.length === 0) return fail(res, 404, "Attempt not found");
+    if (attempt.rows[0].status !== "IN_PROGRESS") {
+      return res.json({ success: true, attempt: attempt.rows[0] });
+    }
+    const fsExits = Math.max(0, Math.floor(Number(req.body?.fullscreen_exits) || 0));
+    const tabSwitches = Math.max(0, Math.floor(Number(req.body?.tab_switches) || 0));
+    const result = await pool.query(
+      `UPDATE quiz_attempts SET fullscreen_exits = $2, tab_switches = $3 WHERE id = $1 RETURNING *`,
+      [attempt.rows[0].id, fsExits, tabSwitches]
+    );
+    return res.json({ success: true, attempt: result.rows[0] });
+  } catch (error) {
+    console.error("QUIZ PROCTOR ERROR:", error);
+    return fail(res, 500, "Unable to save proctor flags");
   }
 }
 

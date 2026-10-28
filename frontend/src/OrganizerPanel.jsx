@@ -766,6 +766,7 @@ function Hackathons({
   const [bannerWeb, setBannerWeb] = useState("");
   const [bannerMobile, setBannerMobile] = useState("");
   const [bannerMsg, setBannerMsg] = useState("");
+  const [justPublished, setJustPublished] = useState("");
 
   const openBannerEditor = (h) => {
     setBannerOpenId(h.id);
@@ -808,11 +809,14 @@ function Hackathons({
       "Hackathon submitted to Admin for approval."
     );
 
-  const publish = (id) =>
-    onRun(
+  const publish = (id) => {
+    setJustPublished(String(id));
+    setTimeout(() => setJustPublished(""), 3000);
+    return onRun(
       () => apiFetch(`/hackathons/${id}/publish`, { method: "POST" }),
       "Hackathon published. Registration is now open."
     );
+  };
 
   const status = (id, value) => {
     const target = hackathons.find((h) => String(h.id) === String(id));
@@ -863,7 +867,8 @@ function Hackathons({
             const publication = String(h.publication_status || "UNPUBLISHED").toUpperCase();
             const state = String(h.status || "DRAFT").toUpperCase();
             return (
-              <article className={`hack-card ${String(selectedId) === String(h.id) ? "selected" : ""}`} key={h.id} style={{ "--delay": `${index * 55}ms` }}>
+              <article className={`hack-card ${String(selectedId) === String(h.id) ? "selected" : ""} ${justPublished === String(h.id) ? "publish-celebrate" : ""}`} key={h.id} style={{ "--delay": `${index * 55}ms` }}>
+                {justPublished === String(h.id) && (<><span className="publish-rings"><i /><i /><i /></span><span className="publish-live-chip">● OPEN FOR REGISTRATION</span></>)}
                 <div className="hack-accent" />
                 <div className="hack-main">
                   <div className="hack-title-row">

@@ -510,6 +510,7 @@ function DashboardDiscover({ navigate }) {
   const [items, setItems] = useState([]);
   const [joined, setJoined] = useState(new Set());
   const [joining, setJoining] = useState("");
+  const [justJoined, setJustJoined] = useState("");
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     Promise.allSettled([apiFetch("/hackathons"), apiFetch("/student/hackathons/my-hackathons")]).then(([all, mine]) => {
@@ -521,12 +522,12 @@ function DashboardDiscover({ navigate }) {
     const id = String(item.id || "");
     if (!id || joined.has(id)) return;
     setJoining(id);
-    try { await apiFetch(`/hackathons/${encodeURIComponent(id)}/join`, { method: "POST" }); setJoined((current) => new Set([...current, id])); }
+    try { await apiFetch(`/hackathons/${encodeURIComponent(id)}/join`, { method: "POST" }); setJoined((current) => new Set([...current, id])); setJustJoined(id); setTimeout(() => setJustJoined(""), 3000); }
     catch {} finally { setJoining(""); }
   };
   return <div className="student-dashboard-discover">
     <div className="student-panel-title"><span>03 / DISCOVER EVENTS</span><button onClick={() => navigate("Events")}>VIEW ALL ↗</button></div>
-    {loading ? <div className="student-discover-loading">Loading available hackathons...</div> : items.length ? <div className="student-discover-grid">{items.map((item) => { const id=String(item.id||""); const isJoined=joined.has(id); return <div className="student-discover-card" key={id}><div className="student-discover-head"><HackathonMark title={value(item.title, item.name, item.hackathon_name)} size={40} /><div><span>{value(item.track, item.category, "HACKATHON")}</span><strong>{value(item.title, item.name, item.hackathon_name)}</strong><small>{formatDate(item.start_date || item.startDate)}</small></div></div><button disabled={isJoined || joining===id} onClick={() => join(item)}>{isJoined ? "JOINED" : joining===id ? "JOINING" : "JOIN NOW ↗"}</button></div>; })}</div> : <EmptyState title="NO OPEN HACKATHONS" text="Explore the Hackathons section when organizers publish new events." />}
+    {loading ? <div className="student-discover-loading">Loading available hackathons...</div> : items.length ? <div className="student-discover-grid">{items.map((item) => { const id=String(item.id||""); const isJoined=joined.has(id); return <div className={`student-discover-card ${justJoined === id ? "join-celebrate" : ""}`} key={id}>{justJoined === id && (<><span className="join-confetti"><i /><i /><i /><i /><i /><i /><i /><i /></span><span className="join-stamp">YOU'RE IN ✓</span></>)}<div className="student-discover-head"><HackathonMark title={value(item.title, item.name, item.hackathon_name)} size={40} /><div><span>{value(item.track, item.category, "HACKATHON")}</span><strong>{value(item.title, item.name, item.hackathon_name)}</strong><small>{formatDate(item.start_date || item.startDate)}</small></div></div><button disabled={isJoined || joining===id} onClick={() => join(item)}>{isJoined ? "JOINED" : joining===id ? "JOINING" : "JOIN NOW ↗"}</button></div>; })}</div> : <EmptyState title="NO OPEN HACKATHONS" text="Explore the Hackathons section when organizers publish new events." />}
   </div>;
 }
 
@@ -537,6 +538,7 @@ function HackathonsPage({ onOpen, onJoined }) {
   const [joining, setJoining] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [justJoinedId, setJustJoinedId] = useState("");
   // v6.17 — event-type filter (works once the backend returns event_type).
   const [typeFilter, setTypeFilter] = useState("all");
   const load = async () => {
@@ -569,6 +571,7 @@ function HackathonsPage({ onOpen, onJoined }) {
       const result = await apiFetch(`/hackathons/${encodeURIComponent(id)}/join`, { method: "POST" });
       setJoinedIds((current) => new Set([...current, String(id)]));
       setMessage(result?.message || "Hackathon joined successfully.");
+      setJustJoinedId(String(id)); setTimeout(() => setJustJoinedId(""), 3000);
       onJoined?.({ hackathon: value(item.title, item.name, item.hackathon_name) });
     } catch (err) {
       setError(err.message);
@@ -609,7 +612,8 @@ function HackathonsPage({ onOpen, onJoined }) {
             const joined = joinedIds.has(id);
             const isQuiz = item.event_type === "quiz";
             return (
-              <article className="hackathon-card" key={item.id}>
+              <article className={`hackathon-card ${justJoinedId === id ? "join-celebrate" : ""}`} key={item.id}>
+                {justJoinedId === id && (<><span className="join-confetti"><i /><i /><i /><i /><i /><i /><i /><i /></span><span className="join-stamp">YOU'RE IN ✓</span></>)}
                 <EventBanner web={item.banner_web_url} mobile={item.banner_mobile_url} title={value(item.title, item.name, item.hackathon_name)} />
                 <div className="hackathon-card-top"><span>{value(item.code, item.slug, item.id)}</span><b>{value(item.status)}</b></div>
                 <div className="hackathon-card-brand">
@@ -915,13 +919,14 @@ function CertificatesPage({ hackathonId }) {
         </div>
       ) : (
         <div className="student-two-col">
-          {certificates.map((cert) => (
-            <div className="student-feature-card" key={cert.id}>
+          {certificates.map((cert, index) => (
+            <div className="student-feature-card cert-reveal" style={{ "--delay": `${index * 90}ms` }} key={cert.id}>
               <div className="student-feature-card-head">
                 <span className="student-feature-label">
                   {cert.type === "WINNER" ? "WINNER CERTIFICATE" : "PARTICIPATION CERTIFICATE"}
                 </span>
                 <Award size={16} />
+                <span className="cert-seal">✓</span>
               </div>
               <h3>{cert.hackathon_title}</h3>
               <p>
@@ -2363,6 +2368,7 @@ function StudentMyTeamPage({ lockedHackathonId }) {
   const [loading, setLoading] = useState(true);
   const [teamLoading, setTeamLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [justCreated, setJustCreated] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -2520,6 +2526,7 @@ function StudentMyTeamPage({ lockedHackathonId }) {
       });
       const created = result?.team || result?.data?.team || null;
       setMessage(result?.message || "Your team was created successfully.");
+      setJustCreated(true); setTimeout(() => setJustCreated(false), 2500);
       if (created) {
         setTeam(created);
         setMembers(Array.isArray(created.members) ? created.members : []);
@@ -2712,7 +2719,7 @@ function StudentMyTeamPage({ lockedHackathonId }) {
               <div><span>PROJECT</span><strong>{value(team.project_title, team.project?.title, "No project yet")}</strong></div>
             </div>
 
-            <div className="student-team-members">
+            <div className={`student-team-members ${justCreated ? "team-just-created" : ""}`}>
               <span className="student-feature-label">TEAM MEMBERS</span>
               {members.length ? members.map((member, index) => {
                 const memberId = String(member.user_id || member.id || "");
@@ -2980,6 +2987,7 @@ function StudentRoundOnePage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [showAgreement, setShowAgreement] = useState(false);
+  const [justSent, setJustSent] = useState(false);
   const [agreementAction, setAgreementAction] = useState("submit");
   const [leaderNote, setLeaderNote] = useState("");
 
@@ -3032,6 +3040,7 @@ function StudentRoundOnePage() {
     try {
       const result = await apiFetch(`/student/round1/hackathons/${selected}/submit`, { method: "POST", body: JSON.stringify({ problem_statement: clean }) });
       setMessage(result?.message || (isLeader ? "Round 1 idea submitted successfully." : "Round 1 idea sent to your team leader for approval."));
+      setJustSent(true); setTimeout(() => setJustSent(false), 1800);
       await loadStatus(selected);
     } catch (err) { setError(err.message || "Failed to submit Round 1 idea"); }
     finally { setSaving(false); }
@@ -3052,6 +3061,7 @@ function StudentRoundOnePage() {
     try {
       await apiFetch(`/student/round1/hackathons/${selected}/approve`, { method: "POST", body: JSON.stringify({ problem_statement: clean }) });
       setMessage("Round 1 idea approved and submitted.");
+      setJustSent(true); setTimeout(() => setJustSent(false), 1800);
       await loadStatus(selected);
     } catch (err) { setError(err.message || "Failed to approve Round 1 proposal"); }
     finally { setSaving(false); }
@@ -3073,6 +3083,7 @@ function StudentRoundOnePage() {
   return (
     <section>
       <PageHeading eyebrow="BUILD / ROUND 01" title="PROBLEM STATEMENT." text="Submit your team's problem statement when Round 1 is live." />
+      {justSent && (<div className="r1-plane-strip" aria-hidden="true"><span className="r1-plane-trail" /><span className="r1-plane"><svg width="30" height="30" viewBox="0 0 24 24" fill="#111"><path d="M2 12L22 2l-8 20-2.5-8.5z" /></svg></span><span className="r1-plane-sent">SENT ↗</span></div>)}
       {error && <div className="student-inline-error">{error}</div>}
       {message && <div className="student-inline-success">{message}</div>}
       <div className={`student-feature-grid student-round-workspace ${roundCompleted || hackathonCompleted ? "student-round-completed-workspace" : ""}`}>
@@ -3907,7 +3918,12 @@ function StudentGuidePage() {
 
 function OfficialCommunicationPage() {
   const channel = "https://whatsapp.com/channel/0029Vb8gR7TEVccLc1pW4O2d";
-  return <section><PageHeading eyebrow="COMMUNICATION / OFFICIAL" title="OFFICIAL COMMUNICATION." text="Use the official CampusCode channel for important announcements and communication." /><div className="student-communication-hero"><div className="student-communication-icon">◉</div><div><span className="student-feature-label">CAMPUSCODE OFFICIAL CHANNEL</span><h2>Stay connected.</h2><p>Follow the official WhatsApp channel for hackathon updates, announcements, deadlines and important communication.</p><a href={channel} target="_blank" rel="noreferrer" className="student-primary-btn">OPEN WHATSAPP CHANNEL ↗</a></div></div><div className="student-two-col"><div className="student-feature-card"><span className="student-feature-label">IMPORTANT</span><h3>Check official updates first.</h3><p>When a deadline, round instruction or organizer decision changes, rely on the official communication shared by CampusCode and your hackathon organizer.</p></div><div className="student-feature-card"><span className="student-feature-label">QUICK ACCESS</span><h3>Keep this channel easy to find.</h3><p>Save or follow the channel so you can quickly return to official announcements when you are working on a submission.</p></div></div></section>;
+  const [showToast, setShowToast] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setShowToast(false), 8000);
+    return () => clearTimeout(t);
+  }, []);
+  return <section><PageHeading eyebrow="COMMUNICATION / OFFICIAL" title="OFFICIAL COMMUNICATION." text="Use the official CampusCode channel for important announcements and communication." />{showToast && (<div className="announce-toast" role="status"><span className="bell"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a8e62e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg></span><div><strong>New announcement</strong><p>Follow the official CampusCode WhatsApp channel for hackathon updates, announcements and deadlines.</p></div><button type="button" onClick={() => setShowToast(false)} aria-label="Dismiss announcement">✕</button></div>)}<div className="student-communication-hero"><div className="student-communication-icon">◉</div><div><span className="student-feature-label">CAMPUSCODE OFFICIAL CHANNEL</span><h2>Stay connected.</h2><p>Follow the official WhatsApp channel for hackathon updates, announcements, deadlines and important communication.</p><a href={channel} target="_blank" rel="noreferrer" className="student-primary-btn">OPEN WHATSAPP CHANNEL ↗</a></div></div><div className="student-two-col"><div className="student-feature-card"><span className="student-feature-label">IMPORTANT</span><h3>Check official updates first.</h3><p>When a deadline, round instruction or organizer decision changes, rely on the official communication shared by CampusCode and your hackathon organizer.</p></div><div className="student-feature-card"><span className="student-feature-label">QUICK ACCESS</span><h3>Keep this channel easy to find.</h3><p>Save or follow the channel so you can quickly return to official announcements when you are working on a submission.</p></div></div></section>;
 }
 
 
@@ -4059,6 +4075,25 @@ function QuizLeaderboard({ eventId }) {
   );
 }
 
+/* v6.19 — M1 quiz score count-up (0 → final score, ease-out) */
+function QuizScoreCount({ score }) {
+  const target = Number(score) || 0;
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const t0 = performance.now();
+    const dur = 900;
+    const tick = (t) => {
+      const p = Math.min(1, (t - t0) / dur);
+      setShown(target * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return <>{Number.isInteger(shown) ? Math.round(shown) : shown.toFixed(1)}</>;
+}
+
 function StudentQuizPage({ eventId }) {
   const [phase, setPhase] = useState("loading");
   const [meta, setMeta] = useState(null);
@@ -4072,6 +4107,18 @@ function StudentQuizPage({ eventId }) {
   const [starting, setStarting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const answersRef = useRef({});
+  // v6.19 — proctored quiz: terms gate, camera/mic presence check
+  // (permission only — nothing recorded, streamed or stored),
+  // fullscreen + exit/tab-switch flags, visited-question palette.
+  const [termsChecked, setTermsChecked] = useState(false);
+  const [permWarning, setPermWarning] = useState(false);
+  const [permBusy, setPermBusy] = useState(false);
+  const [showFsOverlay, setShowFsOverlay] = useState(false);
+  const [visited, setVisited] = useState(() => new Set([0]));
+  const mediaRef = useRef(null);
+  const fsExitsRef = useRef(0);
+  const tabSwitchesRef = useRef(0);
+  const intentionalFsExitRef = useRef(false);
 
   const applyLoaded = (data) => {
     setMeta(data?.meta || null);
@@ -4081,11 +4128,16 @@ function StudentQuizPage({ eventId }) {
       setDetail(Array.isArray(data?.detail) ? data.detail : []);
       setPhase("submitted");
     } else if (data?.attempt?.status === "IN_PROGRESS") {
-      setQuestions(Array.isArray(data?.questions) ? data.questions : []);
-      setAnswers(data?.attempt?.answers || {});
-      answersRef.current = data?.attempt?.answers || {};
+      const qs = Array.isArray(data?.questions) ? data.questions : [];
+      const ans = data?.attempt?.answers || {};
+      setQuestions(qs);
+      setAnswers(ans);
+      answersRef.current = ans;
       setRemaining(typeof data?.remaining_seconds === "number" ? data.remaining_seconds : null);
-      setPhase("taking");
+      // Refresh lands on a resume gate (media + fullscreen again),
+      // never straight back into the quiz.
+      setVisited(new Set([0, ...qs.map((q, i) => (ans[q.id] !== undefined && ans[q.id] !== null ? i : -1)).filter((i) => i >= 0)]));
+      setPhase("resume");
     } else {
       setPhase("ready");
     }
@@ -4122,6 +4174,10 @@ function StudentQuizPage({ eventId }) {
       setDetail(Array.isArray(data?.detail) ? data.detail : []);
       setQuestions(Array.isArray(data?.questions) ? data.questions : []);
       setPhase("submitted");
+      // Quiz over: camera/mic indicator off, leave fullscreen.
+      try { (mediaRef.current || []).forEach((t) => t.stop()); } catch {}
+      mediaRef.current = null;
+      try { if (document.fullscreenElement) { intentionalFsExitRef.current = true; await document.exitFullscreen(); } } catch {}
     } catch (err) {
       setError(err.message);
     } finally {
@@ -4148,14 +4204,80 @@ function StudentQuizPage({ eventId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, attempt?.id]);
 
+  // v6.19 — proctored quiz: stop camera/mic tracks on unmount.
+  useEffect(() => () => {
+    try { (mediaRef.current || []).forEach((t) => t.stop()); } catch {}
+    mediaRef.current = null;
+  }, []);
+
+  // v6.19 — proctored quiz: fullscreen exits + tab switches are
+  // counted (not auto-submit) and reported best-effort.
+  const sendProctor = () => {
+    if (!attempt?.id) return;
+    apiFetch(`/quizzes/${eventId}/attempts/${attempt.id}/proctor`, {
+      method: "PUT",
+      body: JSON.stringify({ fullscreen_exits: fsExitsRef.current, tab_switches: tabSwitchesRef.current }),
+    }).catch(() => {});
+  };
+  useEffect(() => {
+    if (phase !== "taking") return;
+    const onFsChange = () => {
+      if (document.fullscreenElement) return;
+      if (intentionalFsExitRef.current) { intentionalFsExitRef.current = false; return; }
+      fsExitsRef.current += 1;
+      setShowFsOverlay(true);
+      sendProctor();
+    };
+    const onVis = () => {
+      if (document.hidden) { tabSwitchesRef.current += 1; sendProctor(); }
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, attempt?.id]);
+
+  const requestFullscreen = async () => {
+    try { await document.documentElement.requestFullscreen(); } catch {}
+  };
+
+  // Camera + mic presence check only: permission is requested,
+  // the browser indicator stays on during the quiz, tracks stop
+  // at submit. Nothing is recorded, streamed, uploaded or stored.
+  const beginAttempt = async () => {
+    setPermBusy(true); setPermWarning(false);
+    let denied = false;
+    try {
+      if (navigator.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        mediaRef.current = stream.getTracks();
+      } else denied = true;
+    } catch { denied = true; }
+    setPermBusy(false);
+    // Warn-and-allow: a denial shows a warning and waits for the
+    // student to press Continue, instead of locking them out.
+    if (denied) { setPermWarning(true); return; }
+    await requestFullscreen();
+    await start();
+  };
+  const continueWithoutCamera = async () => {
+    setPermWarning(false);
+    await requestFullscreen();
+    await start();
+  };
+
   const start = async () => {
     setStarting(true); setError("");
     try {
-      const data = await apiFetch(`/quizzes/${eventId}/attempts`, { method: "POST" });
+      const data = await apiFetch(`/quizzes/${eventId}/attempts`, { method: "POST", body: JSON.stringify({ terms_accepted: true }) });
       setAttempt(data?.attempt || null);
       setQuestions(Array.isArray(data?.questions) ? data.questions : []);
       setRemaining(typeof data?.remaining_seconds === "number" ? data.remaining_seconds : null);
       setCurrent(0);
+      setVisited(new Set([0]));
       setPhase("taking");
     } catch (err) {
       setError(err.message);
@@ -4168,12 +4290,18 @@ function StudentQuizPage({ eventId }) {
     const next = { ...answers, [questionId]: index };
     setAnswers(next);
     answersRef.current = next;
+    setVisited((prev) => { const n = new Set(prev); n.add(current); return n; });
     if (attempt?.id) {
       apiFetch(`/quizzes/${eventId}/attempts/${attempt.id}/answers`, {
         method: "PUT",
         body: JSON.stringify({ answers: next }),
       }).catch(() => {});
     }
+  };
+
+  const goTo = (i) => {
+    setVisited((prev) => { const n = new Set(prev); n.add(i); return n; });
+    setCurrent(i);
   };
 
   const fmtTime = (seconds) => {
@@ -4187,7 +4315,7 @@ function StudentQuizPage({ eventId }) {
   if (phase === "ready") {
     return (
       <section>
-        <PageHeading eyebrow="QUIZ / READY" title="READY WHEN YOU ARE." text="Single attempt. The timer starts the moment you press Start." />
+        <PageHeading eyebrow="QUIZ / READY" title="READY WHEN YOU ARE." text="Single attempt. Review the rules and turn on camera & mic first — the timer starts after you accept." />
         {meta && (
           <div className="registration-detail-head">
             <div><span>QUESTIONS</span><strong>{meta.question_count}</strong></div>
@@ -4198,9 +4326,56 @@ function StudentQuizPage({ eventId }) {
         )}
         {error && <ErrorState message={error} retry={load} />}
         <div style={{ marginTop: 20 }}>
-          <button className="student-primary-btn" disabled={starting} onClick={start}>
-            {starting ? "STARTING..." : "START QUIZ ↗"}
+          <button className="student-primary-btn" disabled={starting} onClick={() => setPhase("terms")}>
+            START QUIZ ↗
           </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (phase === "terms") {
+    return (
+      <section>
+        <PageHeading eyebrow="QUIZ / RULES" title="READ BEFORE YOU START." text="Accept the rules to begin. The timer starts after you accept." />
+        {meta && (
+          <div className="registration-detail-head">
+            <div><span>QUESTIONS</span><strong>{meta.question_count}</strong></div>
+            <div><span>DURATION</span><strong>{meta.duration_minutes} MIN</strong></div>
+            <div><span>TOTAL MARKS</span><strong>{meta.total_marks}</strong></div>
+            {meta.end_date && (<div><span>WINDOW ENDS</span><strong>{formatDate(meta.end_date)}</strong></div>)}
+          </div>
+        )}
+        <div className="student-panel-card" style={{ marginTop: 16 }}>
+          <ul style={{ lineHeight: 1.8 }}>
+            <li>Single attempt only — you cannot restart or re-attempt this quiz.</li>
+            <li>The timer ({meta?.duration_minutes || "—"} minutes) starts the moment you accept, and the quiz auto-submits at zero or at the window end, whichever comes first.</li>
+            <li>Camera and microphone permission is requested as a presence check only. Nothing is recorded, streamed, uploaded or stored. The browser indicator stays on during the quiz and turns off when you submit.</li>
+            <li>The quiz opens in fullscreen. Leaving fullscreen or switching tabs is counted and visible to the organizer.</li>
+            <li>Answers are autosaved as you pick them. Skipped questions can be revisited from the number grid until you submit.</li>
+          </ul>
+          <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 16, cursor: "pointer" }}>
+            <input type="checkbox" checked={termsChecked} onChange={(e) => setTermsChecked(e.target.checked)} style={{ marginTop: 4 }} />
+            <span>I have read the rules and I accept them.</span>
+          </label>
+          {permWarning && (<div className="student-inline-error" style={{ marginTop: 12 }}>Camera or microphone permission was denied. You can continue without it, but the organizer will see that the presence check was not completed. <button type="button" className="student-outline-btn" style={{ marginLeft: 8 }} onClick={continueWithoutCamera}>CONTINUE WITHOUT CAMERA</button></div>)}
+          {error && <ErrorState message={error} retry={load} />}
+          <div style={{ marginTop: 20, display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button className="student-primary-btn" disabled={!termsChecked || permBusy || starting} onClick={beginAttempt}>{permBusy ? "WAITING FOR PERMISSION…" : starting ? "STARTING…" : "ACCEPT & START QUIZ ↗"}</button>
+            <button className="student-outline-btn" onClick={() => setPhase("ready")}>← BACK</button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (phase === "resume") {
+    return (
+      <section>
+        <PageHeading eyebrow="QUIZ / RESUME" title="PICK UP WHERE YOU LEFT OFF." text="Your answers were autosaved. The timer kept running — resume in fullscreen to continue." />
+        {attempt && (<div className="registration-detail-head"><div><span>TIME LEFT</span><strong style={{ color: remaining !== null && remaining < 60 ? "#991b1b" : undefined }}>{fmtTime(remaining)}</strong></div><div><span>ANSWERED</span><strong>{Object.keys(answers).length} / {questions.length}</strong></div></div>)}
+        <div style={{ marginTop: 20 }}>
+          <button className="student-primary-btn" disabled={permBusy} onClick={async () => { setPermBusy(true); try { if (navigator.mediaDevices?.getUserMedia) { const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); mediaRef.current = s.getTracks(); } } catch {} finally { setPermBusy(false); } await requestFullscreen(); setPhase("taking"); }}>{permBusy ? "WAITING FOR PERMISSION…" : "RESUME QUIZ ↗"}</button>
         </div>
       </section>
     );
@@ -4212,7 +4387,7 @@ function StudentQuizPage({ eventId }) {
         <PageHeading eyebrow="QUIZ / RESULT" title="YOUR RESULT." text="Correct answers are shown for review. Scores are final." />
         {attempt && (
           <div className="registration-detail-head">
-            <div><span>SCORE</span><strong>{attempt.score} / {attempt.total_marks}</strong></div>
+            <div className="quiz-result-celebrate"><span className="join-confetti"><i /><i /><i /><i /><i /><i /><i /><i /></span><span className="quiz-score-check"><svg width="30" height="30" viewBox="0 0 30 30" fill="none"><circle cx="15" cy="15" r="13" stroke="#82b91a" strokeWidth="2.5" /><path d="M9 15.5l4 4 8-9" stroke="#82b91a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg></span><div><span>SCORE</span><strong><QuizScoreCount score={attempt.score} /> / {attempt.total_marks}</strong></div></div>
             <div><span>CORRECT</span><strong>{attempt.correct_count} / {attempt.question_count}</strong></div>
           </div>
         )}
@@ -4238,12 +4413,15 @@ function StudentQuizPage({ eventId }) {
   // taking
   const q = questions[current];
   const answeredCount = questions.filter((item) => answers[item.id] !== undefined && answers[item.id] !== null).length;
+  const skippedCount = Math.max(0, visited.size - answeredCount);
   return (
     <section>
       <div className="registration-detail-head">
         <div><span>TIME LEFT</span><strong style={{ color: remaining !== null && remaining < 60 ? "#991b1b" : undefined }}>{fmtTime(remaining)}</strong></div>
         <div><span>QUESTION</span><strong>{questions.length ? `${current + 1} / ${questions.length}` : "—"}</strong></div>
         <div><span>ANSWERED</span><strong>{answeredCount} / {questions.length}</strong></div>
+        <div><span>SKIPPED</span><strong>{skippedCount}</strong></div>
+        <div><span>LEFT</span><strong>{questions.length - visited.size}</strong></div>
       </div>
       {error && <ErrorState message={error} retry={load} />}
       {!q ? (
@@ -4270,8 +4448,8 @@ function StudentQuizPage({ eventId }) {
             ))}
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
-            <button className="student-outline-btn" disabled={current === 0} onClick={() => setCurrent(current - 1)}>← PREVIOUS</button>
-            <button className="student-outline-btn" disabled={current >= questions.length - 1} onClick={() => setCurrent(current + 1)}>NEXT →</button>
+            <button className="student-outline-btn" disabled={current === 0} onClick={() => goTo(current - 1)}>← PREVIOUS</button>
+            <button className="student-outline-btn" disabled={current >= questions.length - 1} onClick={() => goTo(current + 1)}>NEXT →</button>
             <button
               className="student-primary-btn"
               disabled={submitting}
@@ -4289,17 +4467,26 @@ function StudentQuizPage({ eventId }) {
           <button
             key={item.id}
             type="button"
-            onClick={() => setCurrent(i)}
+            onClick={() => goTo(i)}
             style={{
               width: 36, height: 36, borderRadius: 8, cursor: "pointer", font: "inherit", fontWeight: 700,
-              border: i === current ? "2px solid #111" : "1px solid #ddd",
-              background: answers[item.id] !== undefined && answers[item.id] !== null ? "#a8e62e" : "#fff",
+              border: i === current ? "2px solid #111" : visited.has(i) ? "1px solid #e11d48" : "1px solid #ddd",
+              background: answers[item.id] !== undefined && answers[item.id] !== null ? "#a8e62e" : visited.has(i) ? "#fee2e2" : "#fff",
             }}
           >
             {i + 1}
           </button>
         ))}
       </div>
+      {showFsOverlay && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 12, padding: 24, maxWidth: 420, textAlign: "center" }}>
+            <h3>You left fullscreen</h3>
+            <p style={{ marginTop: 8 }}>This exit has been counted. Return to fullscreen to continue the quiz.</p>
+            <button className="student-primary-btn" style={{ marginTop: 16 }} onClick={async () => { await requestFullscreen(); setShowFsOverlay(false); }}>RETURN TO FULLSCREEN ↗</button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -3527,3 +3527,18 @@ body,
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* =========================================================
+   v6.19 — M3 publish celebration: broadcast rings + LIVE pulse
+========================================================= */
+.publish-celebrate { position: relative; }
+.publish-rings { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.publish-rings i { position: absolute; left: 50%; top: 50%; width: 20px; height: 20px; margin: -10px 0 0 -10px; border: 2px solid #a8e62e; border-radius: 50%; opacity: 0; animation: ringOut 1.2s ease-out forwards; }
+.publish-rings i:nth-child(2) { animation-delay: 0.25s; }
+.publish-rings i:nth-child(3) { animation-delay: 0.5s; }
+@keyframes ringOut { 0% { opacity: 0.9; transform: scale(0.5); } 100% { opacity: 0; transform: scale(6); } }
+.publish-live-chip { display: inline-block; background: #a8e62e; color: #111; font-weight: 800; font-size: 11px; letter-spacing: 0.06em; padding: 5px 10px; border-radius: 999px; margin-bottom: 8px; animation: livePulse 1.2s ease-in-out infinite; }
+@keyframes livePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@media (prefers-reduced-motion: reduce) {
+  .publish-rings i, .publish-live-chip { animation: none !important; }
+}
