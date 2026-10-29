@@ -1524,5 +1524,15 @@
 /* =========================================================
    18+ age declaration checkbox (DPDP compliance).
 ========================================================= */
-.register-age-check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 13px; line-height: 1.5; color: #333; }
-.register-age-check input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; accent-color: #7665ff; cursor: pointer; }
+/* =========================================================
+   18+ age declaration checkbox (DPDP compliance).
+   Styled as a form field to match the other inputs: same
+   border, background and purple focus treatment. The extra
+   specificity beats .register-field label (DM Mono 8px).
+========================================================= */
+.register-field label.register-age-check { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 0; padding: 13px 14px; border: 1px solid #d8d8d2; background: #fafaf8; cursor: pointer; color: #111; font-family: "Inter", sans-serif; font-size: 13px; letter-spacing: 0; line-height: 1.5; transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease; }
+.register-field label.register-age-check:hover { border-color: var(--register-purple); }
+.register-field label.register-age-check:has(input:checked) { border-color: var(--register-purple); background: #ffffff; box-shadow: 0 0 0 3px rgba(118, 101, 255, 0.08); }
+.register-field label.register-age-check input[type="checkbox"] { width: 20px; height: 20px; margin: 1px 0 0; flex-shrink: 0; accent-color: #7665ff; cursor: pointer; }
+.register-field label.register-age-check span { color: #111; }
+.register-field label.register-age-check span b { color: #7665ff; }

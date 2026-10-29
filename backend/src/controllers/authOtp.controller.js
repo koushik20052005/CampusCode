@@ -4,7 +4,9 @@
    POST /api/auth/send-otp    { email, purpose }  → sends 6-digit OTP
    POST /api/auth/verify-otp  { email, otp, purpose } → verifies
 
-   Purposes: "register" | "login" | anything custom.
+   Purpose: "register" only — login OTP was removed, and forgot
+   password uses its own endpoints, so these two endpoints no
+   longer accept any other purpose.
    Rate-limited at the router level.
    ========================================================= */
 
@@ -17,7 +19,7 @@ import {
 } from "../services/mail.service.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PURPOSES = new Set(["register", "login", "reset"]);
+const PURPOSES = new Set(["register"]);
 
 export async function sendOtp(req, res) {
   try {
@@ -26,6 +28,11 @@ export async function sendOtp(req, res) {
 
     if (!EMAIL_RE.test(clean)) {
       return res.status(400).json({ success: false, message: "Enter a valid email address." });
+    }
+    // OTP is registration-only now — reject anything else outright
+    // instead of silently mapping it to "register".
+    if (!PURPOSES.has(purpose)) {
+      return res.status(400).json({ success: false, message: "OTP is only available for registration." });
     }
     // v6.11 — captcha blocks bots from burning OTP quota
     const captchaOk = await verifyCaptcha(captchaId, captchaText);
@@ -73,7 +80,11 @@ export async function verifyOtpHandler(req, res) {
     if (!EMAIL_RE.test(clean) || !String(otp || "").trim()) {
       return res.status(400).json({ success: false, message: "Email and OTP are required." });
     }
-    const use = PURPOSES.has(purpose) ? purpose : "register";
+    // OTP is registration-only now (see sendOtp above).
+    if (!PURPOSES.has(purpose)) {
+      return res.status(400).json({ success: false, message: "OTP is only available for registration." });
+    }
+    const use = "register";
 
     const result = await verifyOtp(clean, otp, use);
     if (!result.ok) {

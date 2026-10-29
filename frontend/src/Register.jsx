@@ -769,7 +769,7 @@ function Register() {
                     disabled={busy}
                   />
 
-                  <span>I confirm that I am 18 years of age or older.</span>
+                  <span>I confirm that I am <b>18 years of age or older</b>.</span>
 
                 </label>
 

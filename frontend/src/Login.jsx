@@ -24,13 +24,11 @@ function Login() {
     return () => clearTimeout(t);
   }, [loading]);
   const [error, setError] = useState("");
-  // v6.10 — login OTP step (free via Resend)
-  const [step, setStep] = useState("credentials"); // "credentials" | "otp" | "tfa" | "forgot" | "reset"
-  const [otp, setOtp] = useState("");
+  // Login OTP removed — login is password + captcha only (staff 2FA kept)
+  const [step, setStep] = useState("credentials"); // "credentials" | "tfa" | "forgot" | "reset"
   // v6.13 — staff 2FA (8-digit key set by admin)
   const [tfaKey, setTfaKey] = useState("");
   const [otpBusy, setOtpBusy] = useState(false);
-  const [resendIn, setResendIn] = useState(0);
   const [devOtp, setDevOtp] = useState(null);
   // v6.11 — captcha (free, server-side)
   const [captchaId, setCaptchaId] = useState("");
@@ -65,7 +63,7 @@ function Login() {
     setError("");
   };
 
-  // v6.11.3 — shared login completion (direct admin/organizer login + post-OTP student login)
+  // Shared login completion (direct login for all roles; staff pass tfaKey)
   // v6.13 — tfaKey passed for staff 2FA
   const completeLogin = async (email, tfaKeyValue) => {
     const response = await fetch(`${API_URL}/auth/login`, {
@@ -86,7 +84,7 @@ function Login() {
     navigate("/initializing", { replace: true, state: { role: data.user.role } });
   };
 
-  // STEP 1 — check credentials, then send OTP
+  // STEP 1 — check credentials, then log in
   const handleCredentials = async (e) => {
     e.preventDefault();
     setError("");
@@ -112,97 +110,20 @@ function Login() {
         throw new Error(preData.message || "Invalid email or password.");
       }
 
-      // v6.11.3 — admin/organizer skip email OTP (their emails aren't real inboxes);
-      // students go through the OTP step.
-      // v6.13 — staff with a 2FA key go through the 2FA step instead.
-      if (!preData.requiresOtp) {
-        if (preData.requiresTfa) {
-          setTfaKey("");
-          setStep("tfa");
-          return;
-        }
-        await completeLogin(email);
+      // Login OTP removed — students log in with password + captcha only
+      // (captcha is verified at pre-login for all roles). Staff with a
+      // 2FA key still go through the 2FA step.
+      if (preData.requiresTfa) {
+        setTfaKey("");
+        setStep("tfa");
         return;
       }
-
-      // credentials OK — send OTP (v6.11.1: captcha goes here, single-use)
-      const res = await fetch(`${API_URL}/auth/send-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, purpose: "login", captchaId, captchaText }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (data.captchaFailed) loadCaptcha();
-        throw new Error(data.message || "Could not send OTP.");
-      }
-      // v6.10.1 — don't advance if the email wasn't actually delivered
-      if (!data.delivered && !data.dev_otp) {
-        throw new Error(data.message || "Could not send the code. Try a master code or try again later.");
-      }
-      setDevOtp(data.dev_otp || null);
-      setStep("otp");
-      setResendIn(300);
+      await completeLogin(email);
+      return;
     } catch (err) {
       setError(err.message || "Unable to continue. Please try again.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  // STEP 2 — verify OTP, then complete login
-  const handleOtp = async (e) => {
-    e.preventDefault();
-    setError("");
-    const email = form.email.trim().toLowerCase();
-    const code = String(otp || "").replace(/[^\d]/g, "").slice(0, 8);
-    if (code.length < 6) {
-      setError("Enter the 6-digit code from your email.");
-      return;
-    }
-    try {
-      setOtpBusy(true);
-      const vres = await fetch(`${API_URL}/auth/verify-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp: code, purpose: "login" }),
-      });
-      const vdata = await vres.json().catch(() => ({}));
-      if (!vres.ok) throw new Error(vdata.message || "Incorrect code.");
-
-      // OTP verified — now log in
-      await completeLogin(email);
-    } catch (err) {
-      setError(err.message || "Unable to login. Please try again.");
-    } finally {
-      setOtpBusy(false);
-    }
-  };
-
-  const resendOtp = async () => {
-    if (resendIn > 0 || otpBusy) return;
-    setError("");
-    try {
-      setOtpBusy(true);
-      const res = await fetch(`${API_URL}/auth/send-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email.trim().toLowerCase(), purpose: "login", captchaId, captchaText }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (data.captchaFailed) { loadCaptcha(); setStep("credentials"); }
-        throw new Error(data.message || "Could not resend code.");
-      }
-      if (!data.delivered && !data.dev_otp) {
-        throw new Error(data.message || "Could not resend the code. Try again later.");
-      }
-      setDevOtp(data.dev_otp || null);
-      setResendIn(300);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setOtpBusy(false);
     }
   };
 
@@ -269,13 +190,6 @@ function Login() {
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   };
-
-  // resend countdown
-  React.useEffect(() => {
-    if (resendIn <= 0) return;
-    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [resendIn]);
 
   return (
     <div className="campus-login">
@@ -664,78 +578,7 @@ function Login() {
                   onClick={() => { setStep("credentials"); setError(""); setTfaKey(""); loadCaptcha(); }} disabled={busy}>← BACK</button>
               </div>
             </form>
-            ) : (
-            <form onSubmit={handleOtp}>
-              <p className="login-otp-sent">
-                CODE SENT TO <strong>{form.email.trim().toLowerCase()}</strong>
-              </p>
-
-              <div className="login-field">
-                <label htmlFor="login-otp">6-DIGIT CODE</label>
-                <div className="login-input-wrap">
-                  <span className="login-input-icon">#</span>
-                  <input
-                    id="login-otp"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    value={otp}
-                    onChange={(e) => {
-                      setOtp(e.target.value.replace(/[^\d]/g, "").slice(0, 8));
-                      setError("");
-                    }}
-                    placeholder="••••••"
-                    maxLength={8}
-                    disabled={busy}
-                    autoFocus
-                  />
-                </div>
-                <p className="login-otp-hint">
-                  Check your inbox (and spam folder). The code expires
-                  in 5 minutes. If the mail system is down, a master
-                  code also works.
-                </p>
-              </div>
-
-              {devOtp && (
-                <div className="login-message" role="status">
-                  <span>i</span>
-                  <p>TEST MODE — your code is <strong>{devOtp}</strong></p>
-                </div>
-              )}
-
-              {error && (
-                <div className="login-message login-error" role="alert">
-                  <span>!</span>
-                  <p>{error}</p>
-                </div>
-              )}
-
-              <button type="submit" className="login-submit" disabled={busy}>
-                <span>{otpBusy ? "VERIFYING..." : "VERIFY & ENTER"}</span>
-                <b className={otpBusy ? "is-loading" : ""}>{otpBusy ? "↻" : "↗"}</b>
-              </button>
-
-              <div className="login-otp-row">
-                <button
-                  type="button"
-                  className="login-password-toggle"
-                  onClick={resendOtp}
-                  disabled={resendIn > 0 || busy}
-                >
-                  {resendIn > 0 ? `RESEND IN ${Math.floor(resendIn / 60)}:${String(resendIn % 60).padStart(2, "0")}` : "RESEND CODE"}
-                </button>
-                <button
-                  type="button"
-                  className="login-password-toggle"
-                  onClick={() => { setStep("credentials"); setOtp(""); setError(""); setDevOtp(null); }}
-                  disabled={busy}
-                >
-                  ← BACK
-                </button>
-              </div>
-            </form>
-            )}
+            ) : null}
 
             <div className="login-register">
               <span>DON&apos;T HAVE AN ACCOUNT?</span>

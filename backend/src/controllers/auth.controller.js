@@ -346,20 +346,11 @@ export const login = async (req, res) => {
     }
 
     /*
-      v6.11.3 — students must complete OTP verification before login.
-      Admin/organizer accounts use internal emails (no real inbox),
-      so they log in with password + captcha only. This backend guard
-      stops anyone bypassing the frontend OTP step via direct API call.
+      Login OTP removed — students log in with password + captcha only
+      (captcha is verified at pre-login for all roles). The old
+      hasVerified("login") guard is gone, so a fresh registration no
+      longer blocks the first login behind the 5-minute OTP window.
     */
-    if (user.role === "STUDENT") {
-      const otpOk = await hasVerified(normalizedEmail, "login", 30);
-      if (!otpOk) {
-        return res.status(403).json({
-          success: false,
-          message: "Please verify the login code sent to your email.",
-        });
-      }
-    }
 
     /*
       v6.13 — staff 2FA: 8-digit key set by admin. Verified here so a
@@ -449,8 +440,7 @@ export const preLogin = async (req, res) => {
     if (lock.locked) {
       return res.status(429).json({ success: false, message: lockoutMessage(lock.retryAfterSec) });
     }
-    // v6.11.1 — captcha lives on send-otp (the actual email-sending step),
-    // not here: pre-login is rate-limited and needs the correct password anyway.
+    // pre-login is rate-limited and needs the correct password anyway.
     const normalizedEmail = String(email).trim().toLowerCase();
     const result = await pool.query(
       `SELECT id, password_hash, is_active, role, tfa_key_hash FROM users WHERE email = $1`,
@@ -474,24 +464,22 @@ export const preLogin = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
     /*
-      v6.13.1 — CAPTCHA for staff, verified here (single-use).
-      Students skip this: their captcha is verified at send-otp.
-      Without this, staff login had NO captcha check at all.
+      CAPTCHA verified here (single-use) for ALL roles. Login OTP is
+      removed, so students no longer get a captcha check at send-otp —
+      without this, student login would have no bot guard at all.
     */
-    if (user.role !== "STUDENT") {
-      const captchaOk = await verifyCaptcha(req.body?.captchaId, req.body?.captchaText);
-      if (!captchaOk) {
-        return res.status(400).json({
-          success: false,
-          message: "Captcha did not match. Try again.",
-          captchaFailed: true,
-        });
-      }
+    const captchaOk = await verifyCaptcha(req.body?.captchaId, req.body?.captchaText);
+    if (!captchaOk) {
+      return res.status(400).json({
+        success: false,
+        message: "Captcha did not match. Try again.",
+        captchaFailed: true,
+      });
     }
-    // v6.11.3 — OTP only for students (admin/organizer emails aren't real inboxes)
-    // v6.13 — staff use 8-digit 2FA key instead (admin-managed)
-    const requiresOtp = user.role === "STUDENT";
-    const requiresTfa = !requiresOtp && Boolean(user.tfa_key_hash);
+    // Login OTP removed — nobody needs an email OTP to log in.
+    // Staff with a 2FA key still go through the 2FA step.
+    const requiresOtp = false;
+    const requiresTfa = Boolean(user.tfa_key_hash);
     return res.status(200).json({ success: true, message: "Credentials valid.", requiresOtp, requiresTfa, role: user.role });
   } catch (err) {
     console.error("[auth] pre-login error:", err.message);
