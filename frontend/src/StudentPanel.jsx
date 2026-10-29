@@ -4057,7 +4057,7 @@ function QuizLeaderboard({ eventId }) {
 
   if (loading) return <LoadingState label="Loading leaderboard..." />;
   if (error) return <ErrorState message={error} retry={() => window.location.reload()} />;
-  if (!rows.length) return <EmptyState title="NO RESULTS YET" text="Nobody has submitted this quiz yet. The leaderboard fills up as submissions come in." />;
+  if (!rows.length) return <EmptyState title="NO RESULTS YET" text="Results haven't been posted yet. The leaderboard fills up as the organizer posts results." />;
 
   return (
     <section>
@@ -4100,6 +4100,7 @@ function StudentQuizPage({ eventId }) {
   const [attempt, setAttempt] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [detail, setDetail] = useState([]);
+  const [result, setResult] = useState(null);
   const [answers, setAnswers] = useState({});
   const [current, setCurrent] = useState(0);
   const [remaining, setRemaining] = useState(null);
@@ -4124,8 +4125,11 @@ function StudentQuizPage({ eventId }) {
     setMeta(data?.meta || null);
     setAttempt(data?.attempt || null);
     if (data?.attempt?.status === "SUBMITTED") {
-      setQuestions(Array.isArray(data?.questions) ? data.questions : []);
-      setDetail(Array.isArray(data?.detail) ? data.detail : []);
+      // Held results: the server sends only the posted score (or
+      // nothing) — never the review or the correct answers.
+      setQuestions([]);
+      setDetail([]);
+      setResult(data?.result || null);
       setPhase("submitted");
     } else if (data?.attempt?.status === "IN_PROGRESS") {
       const qs = Array.isArray(data?.questions) ? data.questions : [];
@@ -4171,8 +4175,9 @@ function StudentQuizPage({ eventId }) {
         body: JSON.stringify({ answers: finalAnswers }),
       });
       setAttempt(data?.attempt || null);
-      setDetail(Array.isArray(data?.detail) ? data.detail : []);
-      setQuestions(Array.isArray(data?.questions) ? data.questions : []);
+      setDetail([]);
+      setQuestions([]);
+      setResult(data?.result || null);
       setPhase("submitted");
       // Quiz over: camera/mic indicator off, leave fullscreen.
       try { (mediaRef.current || []).forEach((t) => t.stop()); } catch {}
@@ -4325,11 +4330,26 @@ function StudentQuizPage({ eventId }) {
           </div>
         )}
         {error && <ErrorState message={error} retry={load} />}
-        <div style={{ marginTop: 20 }}>
-          <button className="student-primary-btn" disabled={starting} onClick={() => setPhase("terms")}>
-            START QUIZ ↗
-          </button>
-        </div>
+        {meta?.status === "OPEN" ? (
+          <div className="student-panel-card" style={{ marginTop: 20 }}>
+            <p>Registration is open — the organizer hasn't started the quiz yet. Come back when it goes live.</p>
+            {meta.start_date && <p style={{ marginTop: 8 }}>Window: {formatDate(meta.start_date)}{meta.end_date ? ` → ${formatDate(meta.end_date)}` : ""}</p>}
+          </div>
+        ) : meta?.status === "LIVE" ? (
+          <div style={{ marginTop: 20 }}>
+            <button className="student-primary-btn" disabled={starting} onClick={() => setPhase("terms")}>
+              START QUIZ ↗
+            </button>
+          </div>
+        ) : meta?.status === "COMPLETED" ? (
+          <div className="student-panel-card" style={{ marginTop: 20 }}>
+            <p>This quiz has ended.</p>
+          </div>
+        ) : (
+          <div className="student-panel-card" style={{ marginTop: 20 }}>
+            <p>The quiz is not live right now.</p>
+          </div>
+        )}
       </section>
     );
   }
@@ -4371,7 +4391,7 @@ function StudentQuizPage({ eventId }) {
               <li>The quiz window closes at the scheduled end time — a late start does not extend your time.</li>
               <li>Any disturbance, malpractice, or rule violation may lead to your removal from the quiz and disqualification by the organizer.</li>
               <li>The organizer may mark an attempt invalid based on the logged fullscreen exits, tab switches, and permission status.</li>
-              <li>Your score is shown instantly after submit. Correct answers are never shown before you submit.</li>
+              <li>Your score is shown only after the organizer posts the results. Correct answers are never shown.</li>
               <li>Scores and results once submitted are final. No re-evaluation requests will be entertained.</li>
               <li>The organizer's decision on disqualification, results, and rankings is final and binding.</li>
               <li>By accepting below, you agree to all the rules above and to the logging described in them.</li>
@@ -4405,30 +4425,19 @@ function StudentQuizPage({ eventId }) {
   }
 
   if (phase === "submitted") {
+    const posted = Boolean(attempt?.result_posted && result);
     return (
       <section>
-        <PageHeading eyebrow="QUIZ / RESULT" title="YOUR RESULT." text="Correct answers are shown for review. Scores are final." />
-        {attempt && (
+        <PageHeading eyebrow="QUIZ / RESULT" title={posted ? "YOUR RESULT." : "SUBMITTED."} text={posted ? "Your score, as posted by the organizer." : "Your answers are submitted. Results will be announced by the organizer."} />
+        {posted ? (
           <div className="registration-detail-head">
-            <div className="quiz-result-celebrate"><span className="join-confetti"><i /><i /><i /><i /><i /><i /><i /><i /></span><span className="quiz-score-check"><svg width="30" height="30" viewBox="0 0 30 30" fill="none"><circle cx="15" cy="15" r="13" stroke="#82b91a" strokeWidth="2.5" /><path d="M9 15.5l4 4 8-9" stroke="#82b91a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg></span><div><span>SCORE</span><strong><QuizScoreCount score={attempt.score} /> / {attempt.total_marks}</strong></div></div>
-            <div><span>CORRECT</span><strong>{attempt.correct_count} / {attempt.question_count}</strong></div>
+            <div className="quiz-result-celebrate"><span className="join-confetti"><i /><i /><i /><i /><i /><i /><i /><i /></span><span className="quiz-score-check"><svg width="30" height="30" viewBox="0 0 30 30" fill="none"><circle cx="15" cy="15" r="13" stroke="#82b91a" strokeWidth="2.5" /><path d="M9 15.5l4 4 8-9" stroke="#82b91a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg></span><div><span>SCORE</span><strong><QuizScoreCount score={result.score} /> / {result.total_marks}</strong></div></div>
+          </div>
+        ) : (
+          <div className="student-panel-card" style={{ marginTop: 16 }}>
+            <p>Submitted successfully. You will see your score here once the organizer posts the results — only your score is shown, never which answers were right or wrong.</p>
           </div>
         )}
-        <div className="student-panel-card" style={{ marginTop: 16 }}>
-          {questions.map((q, i) => {
-            const d = detail.find((x) => String(x.question_id) === String(q.id));
-            const mine = d?.selected_index;
-            return (
-              <div key={q.id} style={{ padding: "14px 0", borderBottom: "1px solid #eee" }}>
-                <p><strong>Q{i + 1}. {q.question_text}</strong> <span style={{ color: d?.is_correct ? "#3f6212" : "#991b1b" }}>{d?.is_correct ? " ✓ Correct" : " ✗ Wrong"}</span></p>
-                <p style={{ color: "#555", marginTop: 6 }}>
-                  Your answer: {mine === null || mine === undefined ? "Skipped" : q.options?.[mine] ?? "—"}
-                  {"  ·  "}Correct answer: {q.options?.[Number(q.correct_index)] ?? "—"}
-                </p>
-              </div>
-            );
-          })}
-        </div>
       </section>
     );
   }

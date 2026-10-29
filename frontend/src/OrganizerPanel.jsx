@@ -8,6 +8,7 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
+  ClipboardCheck,
   Clock3,
   Code2,
   Edit3,
@@ -134,6 +135,7 @@ const NAV = [
   ["hackathons", "My Hackathons", Trophy],
   ["create", "Create Hackathon", Plus],
   ["quiz", "Quiz Builder", CheckCircle2],
+  ["quiz-manager", "Quiz Manager", ClipboardCheck],
   ["rounds", "Rounds & Schedule", Clock3],
   ["participants", "Participants", Users],
   ["teams", "Teams", Users],
@@ -225,6 +227,15 @@ function OrganizerPanel({
     null;
 
   const stats = dashboard?.stats || {};
+
+  // Quiz Manager (v6.22): a selected quiz has no rounds, teams or
+  // round submissions — bounce the organizer to Quiz Manager
+  // instead of leaving them on a dead hackathon section.
+  useEffect(() => {
+    if (selected?.event_type === "quiz" && ["rounds", "teams", "submissions"].includes(section)) {
+      navigate("quiz-manager");
+    }
+  }, [selected?.event_type, section]);
 
   const run = async (fn, success) => {
     setError("");
@@ -346,7 +357,11 @@ function OrganizerPanel({
                 <QuizBuilder hackathons={hackathons} />
               )}
 
-              {section === "rounds" && (
+              {section === "quiz-manager" && (
+                <QuizManager hackathons={hackathons} onRefresh={load} />
+              )}
+
+              {section === "rounds" && selected?.event_type !== "quiz" && (
                 <Rounds
                   hackathon={selected}
                   hackathons={hackathons}
@@ -366,7 +381,7 @@ function OrganizerPanel({
                 />
               )}
 
-              {section === "teams" && (
+              {section === "teams" && selected?.event_type !== "quiz" && (
                 <Teams
                   hackathon={selected}
                   hackathons={hackathons}
@@ -375,7 +390,7 @@ function OrganizerPanel({
                 />
               )}
 
-              {section === "submissions" && (
+              {section === "submissions" && selected?.event_type !== "quiz" && (
                 <OrganizerSubmissions
                   hackathon={selected}
                   hackathons={hackathons}
@@ -471,7 +486,12 @@ function OrganizerSidebar({ section, navigate, open, user, onLogout }) {
 
       <div className="org-nav-scroll">
         <p className="org-nav-label">Workspace</p>
-        {NAV.map(([key, label, Icon]) => (
+        {NAV.filter(([key]) => {
+          // A selected quiz has no hackathon flows: hide Rounds,
+          // Teams and round Submissions; Quiz Manager covers quizzes.
+          if (selected?.event_type !== "quiz") return true;
+          return !["rounds", "teams", "submissions"].includes(key);
+        }).map(([key, label, Icon]) => (
           <button
             key={key}
             onClick={() => navigate(key)}
@@ -700,8 +720,8 @@ function Dashboard({ user, stats, current, hackathons, onRefresh, onNavigate }) 
           description={current ? "Your selected event is ready for operations." : "Create your first hackathon to begin."}
           action={
             current && (
-              <button className="outline-btn" onClick={() => onNavigate("rounds")}>
-                Manage rounds <ArrowRight size={13} />
+              <button className="outline-btn" onClick={() => onNavigate(current?.event_type === "quiz" ? "quiz-manager" : "rounds")}>
+                {current?.event_type === "quiz" ? "Manage quiz" : "Manage rounds"} <ArrowRight size={13} />
               </button>
             )
           }
@@ -1259,7 +1279,7 @@ function Field({ label, required, full, children }) {
    Questions are editable only while the quiz is NOT
    published — the backend enforces the same lock.
 ========================================================= */
-function QuizBuilder({ hackathons }) {
+function QuizBuilder({ hackathons, forceQuizId }) {
   const quizzes = (hackathons || []).filter((h) => h.event_type === "quiz");
   const [quizId, setQuizId] = useState("");
   const [questions, setQuestions] = useState(null);
@@ -1276,7 +1296,9 @@ function QuizBuilder({ hackathons }) {
     marks: 1,
   });
 
-  const selected = quizzes.find((q) => String(q.id) === String(quizId)) || quizzes[0] || null;
+  const selected = forceQuizId
+    ? quizzes.find((q) => String(q.id) === String(forceQuizId)) || quizzes[0] || null
+    : quizzes.find((q) => String(q.id) === String(quizId)) || quizzes[0] || null;
   const effectiveId = selected?.id || "";
   const locked = selected?.publication_status === "PUBLISHED";
 
@@ -1384,13 +1406,15 @@ function QuizBuilder({ hackathons }) {
         <Empty text="No quiz events yet. Create an event with type Quiz first." />
       ) : (
         <>
-          <Field label="Quiz event">
-            <select className="org-input" value={effectiveId} onChange={(e) => setQuizId(e.target.value)}>
-              {quizzes.map((q) => (
-                <option key={q.id} value={q.id}>{q.title} · {String(q.publication_status || "").toUpperCase()}</option>
-              ))}
-            </select>
-          </Field>
+          {!forceQuizId && (
+            <Field label="Quiz event">
+              <select className="org-input" value={effectiveId} onChange={(e) => setQuizId(e.target.value)}>
+                {quizzes.map((q) => (
+                  <option key={q.id} value={q.id}>{q.title} · {String(q.publication_status || "").toUpperCase()}</option>
+                ))}
+              </select>
+            </Field>
+          )}
 
           {locked && (
             <div className="form-error">Questions are locked — this quiz is already published. Unpublishing is not supported in v1; create a new quiz draft for changes.</div>
@@ -1468,6 +1492,231 @@ function QuizBuilder({ hackathons }) {
               </div>
             </article>
           ))}
+        </>
+      )}
+    </Panel>
+  );
+}
+
+function QuizManager({ hackathons, onRefresh }) {
+  const quizzes = (hackathons || []).filter((h) => h.event_type === "quiz");
+  const [quizId, setQuizId] = useState("");
+  const [tab, setTab] = useState("controls");
+  const [subs, setSubs] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [showCount, setShowCount] = useState(10);
+  const [checked, setChecked] = useState({});
+
+  const selected = quizzes.find((q) => String(q.id) === String(quizId)) || quizzes[0] || null;
+  const effectiveId = selected?.id || "";
+  const published = selected?.publication_status === "PUBLISHED";
+  const approval = selected?.approval_status;
+  const status = selected?.status;
+
+  const loadSubs = async (id) => {
+    if (!id) { setSubs([]); return; }
+    setLoading(true); setError("");
+    try {
+      const data = await apiFetch(`/quizzes/${id}/submissions`);
+      setSubs(Array.isArray(data?.submissions) ? data.submissions : []);
+    } catch (err) {
+      setError(err.message || "Failed to load submissions.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { setChecked({}); }, [effectiveId]);
+  useEffect(() => {
+    if (tab === "submissions" && effectiveId) loadSubs(effectiveId);
+  }, [tab, effectiveId]);
+
+  const runAction = async (label, fn, confirmText) => {
+    if (confirmText && !window.confirm(confirmText)) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await fn();
+      setMessage(`${label} done.`);
+      onRefresh?.();
+    } catch (err) {
+      setError(err.message || `${label} failed.`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitApproval = () => runAction("Submitted for approval", () =>
+    apiFetch(`/hackathons/${effectiveId}/submit-approval`, { method: "POST" }));
+  const publish = () => runAction("Published for registration", () =>
+    apiFetch(`/hackathons/${effectiveId}/publish`, { method: "POST" }));
+  const start = () => runAction("Quiz started", () =>
+    apiFetch(`/hackathons/${effectiveId}/status`, { method: "PATCH", body: JSON.stringify({ status: "LIVE" }) }),
+    "Start the quiz? Students will be able to begin their attempt.");
+  const stop = () => runAction("Quiz stopped", () =>
+    apiFetch(`/quizzes/${effectiveId}/stop`, { method: "POST" }),
+    "Stop the quiz? All open attempts will be auto-scored and no new attempts can start.");
+
+  const postSelected = async () => {
+    const ids = Object.keys(checked).filter((id) => checked[id]);
+    if (!ids.length) { setError("Select at least one student first."); return; }
+    if (!window.confirm(`Post results for ${ids.length} student(s)? They will see their score right away.`)) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const data = await apiFetch(`/quizzes/${effectiveId}/post-results`, { method: "POST", body: JSON.stringify({ attemptIds: ids }) });
+      setMessage(`Results posted for ${data?.posted_count ?? ids.length} student(s).`);
+      setChecked({});
+      await loadSubs(effectiveId);
+    } catch (err) {
+      setError(err.message || "Failed to post results.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const all = subs || [];
+  const shown = showCount === "all" ? all : all.slice(0, Number(showCount));
+  const selectedCount = Object.keys(checked).filter((id) => checked[id]).length;
+  const allShownChecked = shown.length > 0 && shown.every((s) => checked[s.id]);
+  const toggleAllShown = () => {
+    const next = { ...checked };
+    if (allShownChecked) shown.forEach((s) => delete next[s.id]);
+    else shown.forEach((s) => { next[s.id] = true; });
+    setChecked(next);
+  };
+  const fmtWhen = (d) => {
+    if (!d) return "—";
+    try { return new Date(d).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }); } catch { return String(d); }
+  };
+  const phaseText = !published
+    ? approval === "PENDING" ? "Waiting for admin approval." : approval === "APPROVED" ? "Approved — ready to publish for registration." : "Draft — submit for approval first."
+    : status === "OPEN" ? "Open for registration — students can register but cannot start yet."
+    : status === "LIVE" ? "Live — students are attempting now."
+    : status === "COMPLETED" ? "Stopped — post results from Submissions & Results."
+    : `Status: ${status || "—"}.`;
+
+  return (
+    <Panel
+      eyebrow="Event operations"
+      title="Quiz Manager"
+      description="One place for a quiz: questions, lifecycle, submissions and results. No rounds — quizzes are solo, timed attempts."
+    >
+      {!quizzes.length ? (
+        <Empty text="No quiz events yet. Create an event with type Quiz first." />
+      ) : (
+        <>
+          <Field label="Quiz event">
+            <select className="org-input" value={effectiveId} onChange={(e) => setQuizId(e.target.value)}>
+              {quizzes.map((q) => (
+                <option key={q.id} value={q.id}>{q.title} · {String(q.publication_status || "").toUpperCase()} · {String(q.status || "").toUpperCase()}</option>
+              ))}
+            </select>
+          </Field>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+            <button className={tab === "controls" ? "primary-btn small" : "outline-btn small"} onClick={() => setTab("controls")}>Controls</button>
+            <button className={tab === "questions" ? "primary-btn small" : "outline-btn small"} onClick={() => setTab("questions")}>Questions</button>
+            <button className={tab === "submissions" ? "primary-btn small" : "outline-btn small"} onClick={() => setTab("submissions")}>Submissions & Results</button>
+          </div>
+
+          {error && <div className="form-error">{error}</div>}
+          {message && <p className="hack-meta" style={{ color: "#3f6212" }}>{message}</p>}
+
+          {tab === "controls" && selected && (
+            <div>
+              <p className="hack-meta">
+                {phaseText}
+                {selected.start_date && <> · Window: {fmtWhen(selected.start_date)}{selected.end_date ? ` → ${fmtWhen(selected.end_date)}` : ""}</>}
+                {Number(selected.participant_count) > 0 && <> · {selected.participant_count} registered</>}
+              </p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+                {!published && approval !== "PENDING" && approval !== "APPROVED" && (
+                  <button className="primary-btn" disabled={busy} onClick={submitApproval}>Submit for approval</button>
+                )}
+                {!published && approval === "APPROVED" && (
+                  <button className="primary-btn" disabled={busy} onClick={publish}>Publish for registration</button>
+                )}
+                {published && status === "OPEN" && (
+                  <button className="primary-btn" disabled={busy} onClick={start}>Start quiz</button>
+                )}
+                {published && status === "LIVE" && (
+                  <button className="danger-btn small" disabled={busy} onClick={stop}>Stop quiz</button>
+                )}
+                {published && status === "COMPLETED" && (
+                  <span className="hack-meta">Quiz stopped. Open Submissions & Results to post scores.</span>
+                )}
+              </div>
+              <p className="hack-meta" style={{ marginTop: 12 }}>
+                Publish opens registration only — students cannot attempt until you hit Start quiz.
+                Results stay hidden until you post them, and a student sees only their score, never
+                which answers were right or wrong.
+              </p>
+            </div>
+          )}
+
+          {tab === "questions" && (
+            <QuizBuilder hackathons={hackathons} forceQuizId={effectiveId} />
+          )}
+
+          {tab === "submissions" && (
+            <div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+                <Field label="Show">
+                  <select className="org-input" value={showCount} onChange={(e) => setShowCount(e.target.value === "all" ? "all" : Number(e.target.value))}>
+                    <option value={5}>Top 5</option>
+                    <option value={10}>Top 10</option>
+                    <option value={50}>Top 50</option>
+                    <option value="all">All</option>
+                  </select>
+                </Field>
+                <span className="hack-meta">
+                  {all.filter((s) => s.status === "SUBMITTED").length} submitted · {all.filter((s) => s.result_posted).length} results posted
+                </span>
+                <button className="outline-btn small" disabled={loading} onClick={() => loadSubs(effectiveId)}>Refresh</button>
+              </div>
+              {loading ? (
+                <p className="hack-meta">Loading submissions…</p>
+              ) : !all.length ? (
+                <Empty text="No attempts yet. Students appear here once they start the quiz." />
+              ) : (
+                <>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 0", borderBottom: "1px solid #e5e5e0" }}>
+                    <input type="checkbox" checked={allShownChecked} onChange={toggleAllShown} />
+                    <strong style={{ fontSize: 13 }}>Select all shown ({shown.length})</strong>
+                  </div>
+                  {shown.map((s) => (
+                    <div key={s.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 0", borderBottom: "1px solid #eee" }}>
+                      <input type="checkbox" style={{ marginTop: 4 }} checked={Boolean(checked[s.id])} disabled={s.status !== "SUBMITTED" || Boolean(s.result_posted)} onChange={(e) => setChecked((x) => ({ ...x, [s.id]: e.target.checked }))} />
+                      <div style={{ flex: 1 }}>
+                        <strong style={{ fontSize: 14 }}>{s.user_name}</strong>
+                        <span className="hack-meta" style={{ display: "block" }}>{s.user_email} · {s.status === "SUBMITTED" ? `Submitted ${fmtWhen(s.submitted_at)}` : "Attempt in progress"}</span>
+                        {(Number(s.fullscreen_exits) > 0 || Number(s.tab_switches) > 0) && (
+                          <span className="hack-meta" style={{ display: "block", color: "#991b1b" }}>
+                            Flags — fullscreen exits: {s.fullscreen_exits} · tab switches: {s.tab_switches}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <strong style={{ fontSize: 14 }}>{s.score === null || s.score === undefined ? "—" : `${s.score} / ${s.total_marks}`}</strong>
+                        <span className="hack-meta" style={{ display: "block" }}>{s.correct_count ?? "—"} / {s.question_count ?? "—"} correct</span>
+                        {s.result_posted && <span className="hack-meta" style={{ display: "block", color: "#3f6212" }}>POSTED</span>}
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 16 }}>
+                    <button className="primary-btn" disabled={busy || selectedCount === 0 || status !== "COMPLETED"} onClick={postSelected}>
+                      Post results for selected ({selectedCount})
+                    </button>
+                    {status !== "COMPLETED" && (
+                      <span className="hack-meta">Stop the quiz first — results can only be posted after it ends.</span>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </>
       )}
     </Panel>

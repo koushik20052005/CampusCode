@@ -7,12 +7,19 @@
    Rules, frozen for v1:
    - Solo, single attempt. One quiz_attempts row per (event, user).
    - MCQ single-correct + True/False only (both auto-scorable).
-   - Correct answers NEVER leave the server until after submit.
+   - Correct answers NEVER leave the server. A student sees
+     only their total score — never which answers were right
+     or wrong — and only after the organizer posts it for them.
    - Questions editable only while the event is NOT published.
    - Score: +marks per correct, -negative_marks per wrong
      (settings.negative_marks, default 0), total floored at 0.
    - Timer is server-anchored: started_at + duration. An
      expired in-progress attempt is auto-scored on next read.
+   - Lifecycle (Quiz Manager): publish → OPEN is registration
+     ONLY (no attempts) → organizer starts → LIVE (attempts)
+     → organizer stops → COMPLETED (open attempts auto-score).
+     Results are posted per student by the organizer, only
+     after the quiz is stopped (quiz_attempts.result_posted).
 ========================================================= */
 
 import pool from "../config/db.js";
@@ -306,7 +313,12 @@ export async function startAttempt(req, res) {
     if (!(await isRegistered(event.id, req.user.id))) {
       return fail(res, 403, "Register for the quiz first");
     }
-    if (event.publication_status !== "PUBLISHED" || !["OPEN", "LIVE"].includes(event.status)) {
+    // Quiz Manager lifecycle: OPEN is registration only — attempts
+    // open only once the organizer starts the quiz (LIVE).
+    if (event.publication_status !== "PUBLISHED" || event.status !== "LIVE") {
+      if (event.publication_status === "PUBLISHED" && event.status === "OPEN") {
+        return fail(res, 400, "Registration is open — the quiz hasn't started yet");
+      }
       return fail(res, 400, "The quiz is not open yet");
     }
     const winError = windowError(event);
@@ -406,19 +418,27 @@ export async function getMyAttempt(req, res) {
     }
     const attempt = attemptResult.rows[0];
     if (attempt.status === "SUBMITTED") {
-      const full = await loadQuestions(event.id, true);
-      const { detail } = scoreAttempt(full, attempt.answers, settings.negativeMarks);
+      // Held results: until the organizer posts this student's
+      // result, the student sees only "submitted" — never the
+      // score, never which answers were right or wrong.
       return res.json({
         success: true,
         meta,
-        attempt,
-        detail,
-        questions: full.map((q) => ({ ...publicQuestion(q), correct_index: Number(q.correct_index) })),
+        attempt: {
+          id: attempt.id,
+          status: attempt.status,
+          submitted_at: attempt.submitted_at,
+          result_posted: Boolean(attempt.result_posted),
+        },
+        result: attempt.result_posted
+          ? { score: attempt.score, total_marks: attempt.total_marks }
+          : null,
       });
     }
-    // In progress: expire server-side if the timer ran out.
+    // In progress: expire server-side if the timer ran out, or if
+    // the organizer stopped the quiz (COMPLETED ends open attempts).
     const timing = attemptTiming(attempt, settings.durationMinutes, event);
-    if (timing.remainingSeconds <= 0) {
+    if (timing.remainingSeconds <= 0 || event.status === "COMPLETED") {
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
@@ -429,17 +449,33 @@ export async function getMyAttempt(req, res) {
         if (locked.rows[0].status === "IN_PROGRESS") {
           const scored = await submitAttemptRow(client, locked.rows[0], event);
           await client.query("COMMIT");
-          return res.json({ success: true, meta, attempt: scored.attempt, detail: scored.detail, questions: scored.questions.map((q) => ({ ...publicQuestion(q), correct_index: Number(q.correct_index) })) });
+          // Freshly auto-scored: never posted yet, so no result.
+          return res.json({
+            success: true,
+            meta,
+            attempt: {
+              id: scored.attempt.id,
+              status: scored.attempt.status,
+              submitted_at: scored.attempt.submitted_at,
+              result_posted: false,
+            },
+            result: null,
+          });
         }
         await client.query("ROLLBACK");
-        const full = await loadQuestions(event.id, true);
-        const { detail } = scoreAttempt(full, locked.rows[0].answers, settings.negativeMarks);
+        const row = locked.rows[0];
         return res.json({
           success: true,
           meta,
-          attempt: locked.rows[0],
-          detail,
-          questions: full.map((q) => ({ ...publicQuestion(q), correct_index: Number(q.correct_index) })),
+          attempt: {
+            id: row.id,
+            status: row.status,
+            submitted_at: row.submitted_at,
+            result_posted: Boolean(row.result_posted),
+          },
+          result: row.result_posted
+            ? { score: row.score, total_marks: row.total_marks }
+            : null,
         });
       } catch (error) {
         await client.query("ROLLBACK");
@@ -526,11 +562,16 @@ export async function submitAttempt(req, res) {
       }
       const scored = await submitAttemptRow(client, locked.rows[0], event);
       await client.query("COMMIT");
+      // Score and review are NOT returned here: the student sees
+      // only "submitted" until the organizer posts their result.
       return res.json({
         success: true,
-        attempt: scored.attempt,
-        detail: scored.detail,
-        questions: scored.questions.map((q) => ({ ...publicQuestion(q), correct_index: Number(q.correct_index) })),
+        attempt: {
+          id: scored.attempt.id,
+          status: scored.attempt.status,
+          submitted_at: scored.attempt.submitted_at,
+          result_posted: false,
+        },
       });
     } catch (error) {
       await client.query("ROLLBACK");
@@ -554,6 +595,8 @@ export async function getLeaderboard(req, res) {
       event.organizer_id === req.user.id ||
       (await isRegistered(event.id, req.user.id));
     if (!allowed) return fail(res, 403, "Register for the quiz first");
+    // Only results the organizer has posted are visible — the
+    // leaderboard never leaks unposted scores.
     const result = await pool.query(
       `SELECT a.user_id, a.score, a.total_marks, a.correct_count,
               a.question_count, a.submitted_at,
@@ -561,6 +604,7 @@ export async function getLeaderboard(req, res) {
          FROM quiz_attempts a
          JOIN users u ON u.id = a.user_id
         WHERE a.hackathon_id = $1 AND a.status = 'SUBMITTED'
+          AND a.result_posted = TRUE
         ORDER BY a.score DESC, a.submitted_at ASC NULLS LAST
         LIMIT 100`,
       [event.id]
@@ -569,5 +613,108 @@ export async function getLeaderboard(req, res) {
   } catch (error) {
     console.error("QUIZ LEADERBOARD ERROR:", error);
     return fail(res, 500, "Unable to load the leaderboard");
+  }
+}
+
+/* ---------------- Quiz Manager: submissions & results ----------------
+   The organizer sees every attempt with marks + proctor flags, picks
+   students individually (or the top N), and posts results only after
+   the quiz is stopped. Students never see this endpoint. */
+
+export async function listSubmissions(req, res) {
+  try {
+    const event = await getEvent(req.params.id);
+    if (!event) return fail(res, 404, "Event not found");
+    if (event.event_type !== "quiz") return fail(res, 400, "Event is not a quiz");
+    if (!canManageQuiz(req, event)) return fail(res, 403, "Not your event");
+    const result = await pool.query(
+      `SELECT a.id, a.user_id, u.name AS user_name, u.email AS user_email,
+              a.status, a.score, a.total_marks, a.correct_count,
+              a.question_count, a.started_at, a.submitted_at,
+              a.result_posted, a.fullscreen_exits, a.tab_switches
+         FROM quiz_attempts a
+         JOIN users u ON u.id = a.user_id
+        WHERE a.hackathon_id = $1
+        ORDER BY a.score DESC NULLS LAST, a.submitted_at ASC NULLS LAST`,
+      [event.id]
+    );
+    return res.json({ success: true, submissions: result.rows, count: result.rows.length });
+  } catch (error) {
+    console.error("QUIZ LIST SUBMISSIONS ERROR:", error);
+    return fail(res, 500, "Unable to load submissions");
+  }
+}
+
+export async function stopQuiz(req, res) {
+  try {
+    const event = await getEvent(req.params.id);
+    if (!event) return fail(res, 404, "Event not found");
+    if (event.event_type !== "quiz") return fail(res, 400, "Event is not a quiz");
+    if (!canManageQuiz(req, event)) return fail(res, 403, "Not your event");
+    if (event.status === "COMPLETED") {
+      return fail(res, 400, "This quiz is already stopped");
+    }
+    if (!["OPEN", "LIVE"].includes(event.status)) {
+      return fail(res, 400, "Only a published quiz can be stopped");
+    }
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      // Auto-score every still-open attempt, then close the quiz.
+      const open = await client.query(
+        `SELECT * FROM quiz_attempts WHERE hackathon_id = $1 AND status = 'IN_PROGRESS' FOR UPDATE`,
+        [event.id]
+      );
+      for (const row of open.rows) {
+        await submitAttemptRow(client, row, event);
+      }
+      await client.query(
+        `UPDATE hackathons SET status = 'COMPLETED' WHERE id = $1`,
+        [event.id]
+      );
+      await client.query("COMMIT");
+      return res.json({ success: true, stopped: true, scored_count: open.rows.length });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error("QUIZ STOP ERROR:", error);
+    return fail(res, 500, "Unable to stop the quiz");
+  }
+}
+
+export async function postResults(req, res) {
+  try {
+    const event = await getEvent(req.params.id);
+    if (!event) return fail(res, 404, "Event not found");
+    if (event.event_type !== "quiz") return fail(res, 400, "Event is not a quiz");
+    if (!canManageQuiz(req, event)) return fail(res, 403, "Not your event");
+    // Results are announced only after the quiz is stopped, so no
+    // student sees a score while others are still attempting.
+    if (event.status !== "COMPLETED") {
+      return fail(res, 400, "Stop the quiz before posting results");
+    }
+    const ids = Array.isArray(req.body?.attemptIds) ? req.body.attemptIds : [];
+    if (ids.length === 0) {
+      return fail(res, 400, "Select at least one student to post results for");
+    }
+    const result = await pool.query(
+      `UPDATE quiz_attempts
+          SET result_posted = TRUE
+        WHERE hackathon_id = $1 AND id = ANY($2::uuid[]) AND status = 'SUBMITTED'
+        RETURNING id`,
+      [event.id, ids]
+    );
+    return res.json({
+      success: true,
+      posted_count: result.rows.length,
+      posted_ids: result.rows.map((r) => r.id),
+    });
+  } catch (error) {
+    console.error("QUIZ POST RESULTS ERROR:", error);
+    return fail(res, 500, "Unable to post results");
   }
 }

@@ -18,6 +18,9 @@ import {
   getMyAttempt,
   submitAttempt,
   getLeaderboard,
+  listSubmissions,
+  stopQuiz,
+  postResults,
 } from "../controllers/quiz.controller.js";
 
 import {
@@ -33,7 +36,14 @@ router.post("/:id/questions", requireAuth, requireRole("ORGANIZER", "ADMIN"), cr
 router.patch("/:id/questions/:questionId", requireAuth, requireRole("ORGANIZER", "ADMIN"), updateQuestion);
 router.delete("/:id/questions/:questionId", requireAuth, requireRole("ORGANIZER", "ADMIN"), deleteQuestion);
 
-// Student: attempts (correct answers never sent before submit).
+// Quiz Manager (organizer/admin): submissions with marks + proctor
+// flags, stop, and per-student result posting.
+router.get("/:id/submissions", requireAuth, requireRole("ORGANIZER", "ADMIN"), listSubmissions);
+router.post("/:id/stop", requireAuth, requireRole("ORGANIZER", "ADMIN"), stopQuiz);
+router.post("/:id/post-results", requireAuth, requireRole("ORGANIZER", "ADMIN"), postResults);
+
+// Student: attempts (correct answers never sent; score only after
+// the organizer posts that student's result).
 router.post("/:id/attempts", requireAuth, requireRole("STUDENT"), startAttempt);
 router.get("/:id/attempts/mine", requireAuth, requireRole("STUDENT"), getMyAttempt);
 router.put("/:id/attempts/:attemptId/answers", requireAuth, requireRole("STUDENT"), saveAnswers);
