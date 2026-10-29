@@ -271,6 +271,7 @@ function OrganizerPanel({
         open={sidebarOpen}
         user={user}
         onLogout={onLogout}
+        selectedEventType={selected?.event_type}
       />
 
       <div className="organizer-main">
@@ -444,7 +445,7 @@ function OrganizerPanel({
   );
 }
 
-function OrganizerSidebar({ section, navigate, open, user, onLogout }) {
+function OrganizerSidebar({ section, navigate, open, user, onLogout, selectedEventType }) {
   return (
     <aside className={`org-sidebar ${open ? "is-open" : ""}`}>
       <div className="org-brand-row">
@@ -489,7 +490,7 @@ function OrganizerSidebar({ section, navigate, open, user, onLogout }) {
         {NAV.filter(([key]) => {
           // A selected quiz has no hackathon flows: hide Rounds,
           // Teams and round Submissions; Quiz Manager covers quizzes.
-          if (selected?.event_type !== "quiz") return true;
+          if (selectedEventType !== "quiz") return true;
           return !["rounds", "teams", "submissions"].includes(key);
         }).map(([key, label, Icon]) => (
           <button
