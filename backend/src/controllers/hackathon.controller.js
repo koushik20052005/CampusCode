@@ -794,6 +794,122 @@ export async function getHackathons(req, res) {
    scoring, registration, or rounds.
    ============================================================ */
 
+/* v6.21 — organizer date editor: change start/end on an existing
+   event without recreating it. Organizer of the event, or ADMIN.
+   Body: { start_date, end_date } — ISO strings; "" clears a date.
+   Undefined = keep. Blocked while LIVE (mid-event window changes
+   would corrupt running attempts). */
+export async function updateHackathonDates(req, res) {
+  try {
+    const { id } = req.params;
+    const { start_date, end_date } = req.body || {};
+
+    const cleanDate = (value, label) => {
+      if (value === undefined || value === null) return undefined;
+      const text = String(value).trim();
+      if (text === "") return null;
+      const parsed = new Date(text);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new Error(`${label} is not a valid date/time.`);
+      }
+      return text;
+    };
+
+    let nextStart;
+    let nextEnd;
+    try {
+      nextStart = cleanDate(start_date, "Start time");
+      nextEnd = cleanDate(end_date, "End time");
+    } catch (validationError) {
+      return res.status(400).json({
+        success: false,
+        message: validationError.message,
+      });
+    }
+
+    if (nextStart === undefined && nextEnd === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "Nothing to update. Send start_date and/or end_date.",
+      });
+    }
+
+    const existing = await pool.query(
+      `
+      SELECT
+        id,
+        organizer_id,
+        status,
+        start_date,
+        end_date
+      FROM hackathons
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Hackathon not found",
+      });
+    }
+
+    const hackathon = existing.rows[0];
+
+    if (
+      req.user.role !== "ADMIN" &&
+      String(hackathon.organizer_id) !== String(req.user.id)
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Only this event's organizer can change its dates.",
+      });
+    }
+
+    if (String(hackathon.status || "").toUpperCase() === "LIVE") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot change dates while the event is live.",
+      });
+    }
+
+    const finalStart = nextStart === undefined ? hackathon.start_date : nextStart;
+    const finalEnd = nextEnd === undefined ? hackathon.end_date : nextEnd;
+
+    if (finalStart && finalEnd && new Date(finalEnd) <= new Date(finalStart)) {
+      return res.status(400).json({
+        success: false,
+        message: "End time must be after the start time.",
+      });
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE hackathons
+      SET
+        start_date = $1,
+        end_date = $2,
+        updated_at = NOW()
+      WHERE id = $3
+      RETURNING id, title, start_date, end_date
+      `,
+      [finalStart, finalEnd, id]
+    );
+
+    return res.json({
+      success: true,
+      hackathon: result.rows[0],
+    });
+  } catch (error) {
+    console.error("UPDATE HACKATHON DATES ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update dates",
+    });
+  }
+}
+
 export async function updateHackathonBanner(req, res) {
   try {
     const { id } = req.params;

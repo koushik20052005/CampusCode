@@ -15,6 +15,7 @@ import {
   deleteHackathon,
   updateHackathonStatus,
   updateHackathonBanner,
+  updateHackathonDates,
 
   submitHackathonForApproval,
   reviewHackathonApproval,
@@ -331,6 +332,22 @@ router.patch(
   requireAuth,
   requireRole("ORGANIZER", "ADMIN"),
   updateHackathonStatus
+);
+
+/*
+|--------------------------------------------------------------------------
+| UPDATE EVENT DATES (v6.21 — organizer date editor)
+|
+| PATCH /api/hackathons/:id/dates
+| Body: { start_date, end_date } — ISO strings; "" clears a date.
+| Organizer of the event, or ADMIN. Blocked while LIVE.
+*/
+
+router.patch(
+  "/:id/dates",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  updateHackathonDates
 );
 
 /*

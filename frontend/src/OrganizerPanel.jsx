@@ -766,6 +766,11 @@ function Hackathons({
   const [bannerWeb, setBannerWeb] = useState("");
   const [bannerMobile, setBannerMobile] = useState("");
   const [bannerMsg, setBannerMsg] = useState("");
+  /* v6.21 — date editor: change start/end on an existing event */
+  const [datesOpenId, setDatesOpenId] = useState(null);
+  const [dateStart, setDateStart] = useState("");
+  const [dateEnd, setDateEnd] = useState("");
+  const [datesMsg, setDatesMsg] = useState("");
   const [justPublished, setJustPublished] = useState("");
 
   const openBannerEditor = (h) => {
@@ -790,6 +795,48 @@ function Hackathons({
         await onRefresh();
       } catch (e) {
         setBannerMsg(e.message || "Could not save banners.");
+      }
+    });
+  };
+
+  /* v6.21 — stored ISO -> input value (IST wall-clock for quizzes). */
+  const toDateInput = (value, isQuizEvent) => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    if (!isQuizEvent) return d.toISOString().slice(0, 10);
+    const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+    return ist.toISOString().slice(0, 16);
+  };
+  const toISTStamp = (v) => {
+    if (!v) return null;
+    return v.length === 16 ? `${v}:00+05:30` : `${v}+05:30`;
+  };
+
+  const openDatesEditor = (h) => {
+    const isQuizEvent = h.event_type === "quiz";
+    setDatesOpenId(h.id);
+    setDateStart(toDateInput(h.start_date || h.expected_date, isQuizEvent));
+    setDateEnd(toDateInput(h.end_date, isQuizEvent));
+    setDatesMsg("");
+  };
+
+  const saveDates = async (h) => {
+    setDatesMsg("");
+    await action(`dates-${h.id}`, async () => {
+      try {
+        const isQuizEvent = h.event_type === "quiz";
+        await apiFetch(`/hackathons/${h.id}/dates`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            start_date: isQuizEvent ? toISTStamp(dateStart) : (dateStart || null),
+            end_date: isQuizEvent ? toISTStamp(dateEnd) : (dateEnd || null),
+          }),
+        });
+        setDatesMsg("Dates saved.");
+        await onRefresh();
+      } catch (e) {
+        setDatesMsg(e.message || "Could not save dates.");
       }
     });
   };
@@ -902,6 +949,10 @@ function Hackathons({
                       Banners
                     </button>
 
+                    <button className="outline-btn small" onClick={() => openDatesEditor(h)}>
+                      Dates
+                    </button>
+
                     {approval !== "PENDING" && approval !== "APPROVED" && publication !== "PUBLISHED" && (
                       <button className="green-btn small" disabled={busy === `approval-${h.id}`} onClick={() => action(`approval-${h.id}`, () => submitApproval(h.id))}>
                         {busy === `approval-${h.id}` ? <LoaderCircle size={13} className="spin"/> : <Send size={13}/>} Submit approval
@@ -961,6 +1012,31 @@ function Hackathons({
                           {busy === `banner-${h.id}` ? <LoaderCircle size={13} className="spin"/> : null} Save banners
                         </button>
                         <button className="outline-btn small" onClick={() => setBannerOpenId(null)}>Close</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {String(datesOpenId) === String(h.id) && (
+                    <div className="hack-banner-editor">
+                      <label>{h.event_type === "quiz" ? "QUIZ START (IST)" : "START DATE"}</label>
+                      <input
+                        type={h.event_type === "quiz" ? "datetime-local" : "date"}
+                        value={dateStart}
+                        onChange={(e) => setDateStart(e.target.value)}
+                      />
+                      <label>{h.event_type === "quiz" ? "QUIZ END (IST)" : "END DATE"}</label>
+                      <input
+                        type={h.event_type === "quiz" ? "datetime-local" : "date"}
+                        value={dateEnd}
+                        onChange={(e) => setDateEnd(e.target.value)}
+                      />
+                      <p className="hack-banner-note">Changes the quiz window (or event dates) without recreating the event. Blocked while the event is live. Leave a field empty to clear that date.</p>
+                      {datesMsg && <p className="hack-banner-msg">{datesMsg}</p>}
+                      <div className="hack-banner-actions">
+                        <button className="primary-btn small" disabled={busy === `dates-${h.id}`} onClick={() => saveDates(h)}>
+                          {busy === `dates-${h.id}` ? <LoaderCircle size={13} className="spin"/> : null} Save dates
+                        </button>
+                        <button className="outline-btn small" onClick={() => setDatesOpenId(null)}>Close</button>
                       </div>
                     </div>
                   )}
