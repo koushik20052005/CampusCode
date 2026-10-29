@@ -28,6 +28,8 @@ function Register() {
   const [otp, setOtp] = useState("");
   const [otpBusy, setOtpBusy] = useState(false);
   const [resendIn, setResendIn] = useState(0);
+  // 18+ age declaration (DPDP compliance)
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [devOtp, setDevOtp] = useState(null);
   // v6.11 — captcha (free, server-side) + password strength
   const [captchaId, setCaptchaId] = useState("");
@@ -45,7 +47,7 @@ function Register() {
       }
     } catch { /* retry on submit */ }
   };
-  React.useEffect(() => { loadCaptcha(); }, []);
+  useEffect(() => { loadCaptcha(); }, []);
 
   const pwScore = (pw) => {
     let s = 0;
@@ -104,6 +106,14 @@ function Register() {
       form.confirmPassword
     ) {
       setError("Passwords do not match.");
+      return;
+    }
+
+    // 18+ age declaration (DPDP compliance) — gates the OTP step
+    if (!ageConfirmed) {
+      setError(
+        "Please confirm that you are 18 years of age or older to create an account."
+      );
       return;
     }
 
@@ -252,6 +262,7 @@ function Register() {
             name,
             email,
             password: form.password,
+            age_confirmed: ageConfirmed, // 18+ declaration (DPDP compliance)
             role: "STUDENT", // v6.6 — student-only registration
           }),
         }
@@ -743,6 +754,24 @@ function Register() {
                     maxLength={5}
                   />
                 </div>
+
+              </div>
+
+              {/* 18+ age declaration (DPDP compliance) */}
+              <div className="register-field">
+
+                <label className="register-age-check">
+
+                  <input
+                    type="checkbox"
+                    checked={ageConfirmed}
+                    onChange={(e) => { setAgeConfirmed(e.target.checked); setError(""); }}
+                    disabled={busy}
+                  />
+
+                  <span>I confirm that I am 18 years of age or older.</span>
+
+                </label>
 
               </div>
 

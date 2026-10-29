@@ -1520,3 +1520,9 @@
 @media (prefers-reduced-motion: reduce) {
   .register-submit:disabled .mini-ride { animation: none !important; }
 }
+
+/* =========================================================
+   18+ age declaration checkbox (DPDP compliance).
+========================================================= */
+.register-age-check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 13px; line-height: 1.5; color: #333; }
+.register-age-check input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; accent-color: #7665ff; cursor: pointer; }

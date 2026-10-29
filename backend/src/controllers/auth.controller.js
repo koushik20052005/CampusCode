@@ -61,6 +61,7 @@ export const register = async (req, res) => {
       email,
       password,
       role = "STUDENT",
+      age_confirmed,
     } = req.body;
 
     if (!name || !email || !password) {
@@ -105,6 +106,20 @@ export const register = async (req, res) => {
       });
     }
 
+    /*
+      18+ age declaration (DPDP compliance) — public registration
+      requires the student to confirm they are 18 or older. The
+      frontend checkbox gates the OTP step; this guard stops anyone
+      skipping the UI and posting here directly.
+    */
+    if (role === "STUDENT" && age_confirmed !== true) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Please confirm that you are 18 years of age or older to create an account.",
+      });
+    }
+
     const existingUser = await pool.query(
       "SELECT id FROM users WHERE email = $1",
       [normalizedEmail]
@@ -138,8 +153,8 @@ export const register = async (req, res) => {
     const result = await pool.query(
       `
       INSERT INTO users
-      (name, email, password_hash, role, campus_code_id)
-      VALUES ($1, $2, $3, $4, $5)
+      (name, email, password_hash, role, campus_code_id, age_confirmed, age_confirmed_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING
         id,
         name,
@@ -155,6 +170,8 @@ export const register = async (req, res) => {
         passwordHash,
         role,
         generateCampusCodeId(),
+        true,
+        new Date(),
       ]
     );
 
