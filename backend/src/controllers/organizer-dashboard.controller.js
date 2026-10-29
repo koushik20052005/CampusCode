@@ -77,6 +77,9 @@ export async function getOrganizerDashboard(req, res) {
 
         h.max_teams,
 
+        h.event_type,
+        h.settings,
+
         h.status,
 
         h.approval_status,
@@ -139,6 +142,9 @@ export async function getOrganizerDashboard(req, res) {
         h.registration_deadline,
 
         h.max_teams,
+
+        h.event_type,
+        h.settings,
 
         h.status,
 
