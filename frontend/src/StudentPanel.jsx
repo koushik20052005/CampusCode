@@ -4566,6 +4566,11 @@ function EventHub({ event, tab, setTab, onBack }) {
     };
   }, [id, resolved]);
 
+  // v6.20 — quizzes are solo: never land on the team tab for a quiz.
+  useEffect(() => {
+    if (isQuiz && tab === "team") setTab("overview");
+  }, [isQuiz, tab, setTab]);
+
   const tabs = isQuiz
     ? [
         ["overview", "Overview"],
@@ -4619,7 +4624,7 @@ function EventHub({ event, tab, setTab, onBack }) {
               : <RegistrationDetail registration={resolved} onBack={onBack} bare />
           )}
           {tab === "rounds" && <StudentRoundsPage />}
-          {tab === "team" && <StudentMyTeamPage lockedHackathonId={id} />}
+          {tab === "team" && !isQuiz && <StudentMyTeamPage lockedHackathonId={id} />}
           {tab === "results" && <StudentResultsPage />}
           {tab === "quiz" && <StudentQuizPage eventId={id} />}
           {tab === "leaderboard" && (

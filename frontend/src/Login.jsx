@@ -142,7 +142,7 @@ function Login() {
       }
       setDevOtp(data.dev_otp || null);
       setStep("otp");
-      setResendIn(60);
+      setResendIn(300);
     } catch (err) {
       setError(err.message || "Unable to continue. Please try again.");
     } finally {
@@ -198,7 +198,7 @@ function Login() {
         throw new Error(data.message || "Could not resend the code. Try again later.");
       }
       setDevOtp(data.dev_otp || null);
-      setResendIn(60);
+      setResendIn(300);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -723,7 +723,7 @@ function Login() {
                   onClick={resendOtp}
                   disabled={resendIn > 0 || busy}
                 >
-                  {resendIn > 0 ? `RESEND IN ${resendIn}s` : "RESEND CODE"}
+                  {resendIn > 0 ? `RESEND IN ${Math.floor(resendIn / 60)}:${String(resendIn % 60).padStart(2, "0")}` : "RESEND CODE"}
                 </button>
                 <button
                   type="button"

@@ -994,12 +994,21 @@ function CreateHackathon({ onCancel, onCreate }) {
     duration_minutes: "30",
     negative_marks: "0",
     max_participants: "100",
+    quiz_start: "",
+    quiz_end: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const update = (key, value) => setForm((x) => ({ ...x, [key]: value }));
   const isQuiz = form.event_type === "quiz";
+
+  // v6.20 — datetime-local values are wall-clock IST: attach the
+  // +05:30 offset so Postgres stores the exact IST window.
+  const toIST = (v) => {
+    if (!v) return null;
+    return v.length === 16 ? `${v}:00+05:30` : `${v}+05:30`;
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -1026,6 +1035,10 @@ function CreateHackathon({ onCancel, onCreate }) {
         setError("Negative marking cannot be below 0.");
         return;
       }
+      if (form.quiz_start && form.quiz_end && form.quiz_end <= form.quiz_start) {
+        setError("Quiz end time must be after the quiz start time.");
+        return;
+      }
     } else {
       const maxTeams = Number(form.max_teams);
       if (!Number.isInteger(maxTeams) || maxTeams < 1) {
@@ -1042,7 +1055,8 @@ function CreateHackathon({ onCancel, onCreate }) {
           description: form.description.trim(),
           track: form.track.trim(),
           location: form.location.trim(),
-          expected_date: form.expected_date || null,
+          expected_date: toIST(form.quiz_start) || form.expected_date || null,
+          end_date: toIST(form.quiz_end),
           event_type: "quiz",
           max_teams: Number(form.max_participants),
           settings: {
@@ -1074,7 +1088,7 @@ function CreateHackathon({ onCancel, onCreate }) {
       title={isQuiz ? "Create quiz" : "Create hackathon"}
       description={
         isQuiz
-          ? "Create a quiz draft first, add questions in Quiz Builder, then submit for admin approval. Questions lock once the quiz is published."
+          ? "Create a quiz draft first, add questions in Quiz Builder, then submit for admin approval. Set the start and end times (IST) for a strict quiz window. Questions lock once the quiz is published."
           : "Create a draft first. The expected date is informational; publication and round activation stay manual."
       }
       action={<button className="outline-btn" onClick={onCancel}>Back</button>}
@@ -1121,9 +1135,20 @@ function CreateHackathon({ onCancel, onCreate }) {
             <input className="org-input" type="number" min="1" step="1" value={form.max_teams} onChange={(e) => update("max_teams", e.target.value)} />
           </Field>
         )}
-        <Field label={isQuiz ? "Quiz date" : "Expected date"}>
-          <input className="org-input" type="date" value={form.expected_date} onChange={(e) => update("expected_date", e.target.value)} />
-        </Field>
+        {isQuiz ? (
+          <>
+            <Field label="Quiz start (IST)">
+              <input className="org-input" type="datetime-local" value={form.quiz_start} onChange={(e) => update("quiz_start", e.target.value)} />
+            </Field>
+            <Field label="Quiz end (IST)">
+              <input className="org-input" type="datetime-local" value={form.quiz_end} onChange={(e) => update("quiz_end", e.target.value)} />
+            </Field>
+          </>
+        ) : (
+          <Field label="Expected date">
+            <input className="org-input" type="date" value={form.expected_date} onChange={(e) => update("expected_date", e.target.value)} />
+          </Field>
+        )}
         <Field label="Description" required full>
           <textarea className="org-input textarea" rows={7} value={form.description} onChange={(e) => update("description", e.target.value)} placeholder={isQuiz ? "Explain the quiz, syllabus, eligibility and rules..." : "Explain the hackathon, challenge, eligibility and what participants should build..."} />
         </Field>

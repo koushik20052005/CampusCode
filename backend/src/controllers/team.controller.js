@@ -202,7 +202,8 @@ export async function joinTeam(req, res) {
         t.name,
         t.leader_id,
         t.status,
-        h.title AS hackathon_title
+        h.title AS hackathon_title,
+        h.event_type AS hackathon_event_type
       FROM teams t
       INNER JOIN hackathons h
         ON h.id = t.hackathon_id
@@ -222,6 +223,16 @@ export async function joinTeam(req, res) {
     }
 
     const team = teamResult.rows[0];
+
+    // v6.20 — quizzes are solo: no joining teams on quiz events.
+    if (team.hackathon_event_type === "quiz") {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        success: false,
+        message: "Teams are not available for quiz events",
+      });
+    }
 
     if (team.status !== "BUILDING") {
       await client.query("ROLLBACK");
@@ -676,7 +687,8 @@ export async function addMemberToTeam(req, res) {
         t.name,
         t.leader_id,
         t.status,
-        h.title AS hackathon_title
+        h.title AS hackathon_title,
+        h.event_type AS hackathon_event_type
       FROM teams t
       INNER JOIN hackathons h
         ON h.id = t.hackathon_id
@@ -696,6 +708,16 @@ export async function addMemberToTeam(req, res) {
     }
 
     const team = teamResult.rows[0];
+
+    // v6.20 — quizzes are solo: no adding members on quiz events.
+    if (team.hackathon_event_type === "quiz") {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        success: false,
+        message: "Teams are not available for quiz events",
+      });
+    }
 
     /* -------------------------------------------------------
        ONLY LEADER

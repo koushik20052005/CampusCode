@@ -154,7 +154,7 @@ function Register() {
 
       setDevOtp(data.dev_otp || null);
       setStep("otp");
-      setResendIn(60);
+      setResendIn(300);
 
       setSuccess(
         data.dev_otp
@@ -889,7 +889,7 @@ function Register() {
                   }
                 >
                   {resendIn > 0
-                    ? `RESEND IN ${resendIn}s`
+                    ? `RESEND IN ${Math.floor(resendIn / 60)}:${String(resendIn % 60).padStart(2, "0")}`
                     : "RESEND CODE"}
                 </button>
 

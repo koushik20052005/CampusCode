@@ -1,5 +1,5 @@
 import express from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { requireAuth } from "../middleware/auth.middleware.js";
 
 import {
@@ -16,13 +16,20 @@ import {
   verifyOtpHandler,
 } from "../controllers/authOtp.controller.js";
 
-// v6.10: OTP endpoints — free via Gmail SMTP, master-OTP fallback
+// v6.20: OTP resend — one send per email every 5 minutes, so a
+// student can always resend 5 minutes after their last request.
+// Keyed by email (not IP) so students sharing one Wi-Fi network
+// never block each other.
 const otpSendLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+  windowMs: 5 * 60 * 1000,
+  max: 1,
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    return email || ipKeyGenerator(req.ip);
+  },
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: "Too many OTP requests. Try again in 15 minutes." },
+  message: { success: false, message: "OTP already sent. You can resend it after 5 minutes." },
 });
 const otpVerifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

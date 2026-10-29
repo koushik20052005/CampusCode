@@ -66,6 +66,7 @@ export async function createTeam(req, res) {
       SELECT
         id,
         title,
+        event_type,
         status,
         max_teams,
         publication_status,
@@ -87,6 +88,14 @@ export async function createTeam(req, res) {
 
     const hackathon =
       hackathonResult.rows[0];
+
+    // v6.20 — quizzes are solo: no teams on quiz events.
+    if (hackathon.event_type === "quiz") {
+      return res.status(400).json({
+        success: false,
+        message: "Teams are not available for quiz events",
+      });
+    }
 
     // -----------------------------------------------------
     // 4. Hackathon must be published/open
