@@ -11,6 +11,8 @@
    (UNIQUE on hackathon_id + user_id + type).
    FirstCommit/Unstop manual-name issue is NOT in v1: the
    organizer picker is finalized later, per Koushik 2026-10-26.
+   v6.27: issuance uses autocommit inserts + a post-write
+   persistence re-read (persisted count in the response).
 ========================================================= */
 
 import pool from "../config/db.js";
@@ -271,7 +273,6 @@ export async function listHackathonCertificates(req, res) {
 ========================================================= */
 
 export async function issueParticipation(req, res) {
-  const client = await pool.connect();
   try {
     const hackathon = await loadOwnedHackathon(req, res, req.params.hackathonId);
     if (!hackathon) return;
@@ -282,7 +283,7 @@ export async function issueParticipation(req, res) {
        every student with a SUBMITTED attempt for this quiz. */
     const eligible =
       hackathon.event_type === "quiz"
-        ? await client.query(
+        ? await pool.query(
             `
             SELECT DISTINCT
               NULL::uuid AS team_id,
@@ -295,7 +296,7 @@ export async function issueParticipation(req, res) {
             `,
             [hackathon.id]
           )
-        : await client.query(
+        : await pool.query(
             `
       SELECT DISTINCT
         t.id AS team_id,
@@ -317,11 +318,15 @@ export async function issueParticipation(req, res) {
 
     const rows = eligible.rows;
     const codes = await generateUniqueCodes(pool, rows.length);
+    /* v6.27: no explicit transaction here — each INSERT below
+       auto-commits, and persistence is verified with a fresh
+       re-read before responding. (An explicit BEGIN/COMMIT
+       through the pooler was reporting success while no rows
+       persisted.) */
 
-    await client.query("BEGIN");
-    const insertedUserIds = [];
+        const insertedUserIds = [];
     for (let i = 0; i < rows.length; i++) {
-      const inserted = await client.query(
+      const inserted = await pool.query(
         `
         INSERT INTO certificates (
           hackathon_id, team_id, user_id, type, theme, code
@@ -335,12 +340,19 @@ export async function issueParticipation(req, res) {
       if (inserted.rows.length > 0) insertedUserIds.push(rows[i].user_id);
     }
     await notifyUsers(
-      client,
+      pool,
       insertedUserIds,
       "Your participation certificate is ready",
       `Your certificate for "${hackathon.title}" is ready to download.`
     );
-    await client.query("COMMIT");
+    const persistedResult = await pool.query(
+      `
+      SELECT COUNT(*)::integer AS n
+      FROM certificates
+      WHERE hackathon_id = $1 AND type = 'PARTICIPATION'
+      `,
+      [hackathon.id]
+    );
 
     return res.status(200).json({
       success: true,
@@ -348,19 +360,15 @@ export async function issueParticipation(req, res) {
       eligible: rows.length,
       issued: insertedUserIds.length,
       already_had: rows.length - insertedUserIds.length,
+      persisted: persistedResult.rows[0]?.n ?? 0,
       theme,
     });
   } catch (error) {
-    try {
-      await client.query("ROLLBACK");
-    } catch (_) {}
     console.error("ISSUE PARTICIPATION ERROR:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to issue participation certificates",
     });
-  } finally {
-    client.release();
   }
 }
 
@@ -372,7 +380,6 @@ export async function issueParticipation(req, res) {
 ========================================================= */
 
 export async function issueWinners(req, res) {
-  const client = await pool.connect();
   try {
     const hackathon = await loadOwnedHackathon(req, res, req.params.hackathonId);
     if (!hackathon) return;
@@ -415,7 +422,7 @@ export async function issueWinners(req, res) {
           message: "Each winner must be a different student",
         });
       }
-      const owned = await client.query(
+      const owned = await pool.query(
         `
         SELECT user_id FROM quiz_attempts
         WHERE hackathon_id = $1
@@ -431,11 +438,10 @@ export async function issueWinners(req, res) {
         });
       }
 
-      await client.query("BEGIN");
-      const insertedUserIds = [];
+            const insertedUserIds = [];
       for (const winner of winners) {
         const codes = await generateUniqueCodes(pool, 1);
-        const inserted = await client.query(
+        const inserted = await pool.query(
           `
           INSERT INTO certificates (
             hackathon_id, team_id, user_id, type, place, theme, code
@@ -449,23 +455,31 @@ export async function issueWinners(req, res) {
         if (inserted.rows.length > 0) insertedUserIds.push(winner.user_id);
       }
       await notifyUsers(
-        client,
+        pool,
         insertedUserIds,
         "Your winner certificate is ready",
         `Your winner certificate for "${hackathon.title}" is ready to download.`
       );
-      await client.query("COMMIT");
+      const persistedResult = await pool.query(
+        `
+        SELECT COUNT(*)::integer AS n
+        FROM certificates
+        WHERE hackathon_id = $1 AND type = 'WINNER'
+        `,
+        [hackathon.id]
+      );
 
       return res.status(200).json({
         success: true,
         message: "Winner certificates issued",
         issued: insertedUserIds.length,
+        persisted: persistedResult.rows[0]?.n ?? 0,
         theme,
       });
     }
 
     const teamIds = winners.map((w) => w.team_id);
-    const owned = await client.query(
+    const owned = await pool.query(
       `
       SELECT id FROM teams
       WHERE hackathon_id = $1 AND id = ANY($2)
@@ -479,10 +493,9 @@ export async function issueWinners(req, res) {
       });
     }
 
-    await client.query("BEGIN");
-    const insertedUserIds = [];
+        const insertedUserIds = [];
     for (const winner of winners) {
-      const members = await client.query(
+      const members = await pool.query(
         `
         SELECT user_id FROM team_members WHERE team_id = $1
         `,
@@ -490,7 +503,7 @@ export async function issueWinners(req, res) {
       );
       const codes = await generateUniqueCodes(pool, members.rows.length);
       for (let i = 0; i < members.rows.length; i++) {
-        const inserted = await client.query(
+        const inserted = await pool.query(
           `
           INSERT INTO certificates (
             hackathon_id, team_id, user_id, type, place, theme, code
@@ -514,30 +527,33 @@ export async function issueWinners(req, res) {
       }
     }
     await notifyUsers(
-      client,
+      pool,
       insertedUserIds,
       "Your winner certificate is ready",
       `Your winner certificate for "${hackathon.title}" is ready to download.`
     );
-    await client.query("COMMIT");
+    const persistedResult = await pool.query(
+      `
+      SELECT COUNT(*)::integer AS n
+      FROM certificates
+      WHERE hackathon_id = $1 AND type = 'WINNER'
+      `,
+      [hackathon.id]
+    );
 
     return res.status(200).json({
       success: true,
       message: "Winner certificates issued",
       issued: insertedUserIds.length,
+      persisted: persistedResult.rows[0]?.n ?? 0,
       theme,
     });
   } catch (error) {
-    try {
-      await client.query("ROLLBACK");
-    } catch (_) {}
     console.error("ISSUE WINNERS ERROR:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to issue winner certificates",
     });
-  } finally {
-    client.release();
   }
 }
 

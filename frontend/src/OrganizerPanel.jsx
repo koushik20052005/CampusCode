@@ -3779,7 +3779,7 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
         method: "POST",
         body: JSON.stringify({ theme }),
       });
-      setMessage(`Issued ${data?.issued ?? 0} participation certificates (${data?.already_had ?? 0} already had one).`);
+      setMessage(`Issued ${data?.issued ?? 0} participation certificates (${data?.already_had ?? 0} already had one). Saved in database: ${data?.persisted ?? "?"}.`);
       load();
     } catch (e) {
       setError(e.message || "Failed to issue participation certificates.");
@@ -3809,7 +3809,7 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
         method: "POST",
         body: JSON.stringify({ theme, winners }),
       });
-      setMessage(`Issued ${data?.issued ?? 0} winner certificates.`);
+      setMessage(`Issued ${data?.issued ?? 0} winner certificates. Saved in database: ${data?.persisted ?? "?"}.`);
       load();
     } catch (e) {
       setError(e.message || "Failed to issue winner certificates.");
