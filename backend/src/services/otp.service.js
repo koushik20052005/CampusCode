@@ -6,6 +6,7 @@
    - MASTER OTP fallback: env vars MASTER_OTP_1 / MASTER_OTP_2
      (8-digit codes). If the mail system is down, a master OTP
      always verifies — usage is flagged used_master=TRUE for audit.
+     REGISTRATION ONLY: never accepted for password resets.
      Keep these secret; rotate them periodically.
    ========================================================= */
 
@@ -62,8 +63,9 @@ export async function verifyOtp(email, otp, purpose = "register") {
   const clean = String(email).trim().toLowerCase();
   const code = String(otp).trim();
 
-  // Master OTP bypass — works even when mail is down. Audit-flagged.
-  if (isMasterOtp(code)) {
+  // Master OTP bypass — REGISTRATION ONLY, never for password resets.
+  // Works even when mail is down. Audit-flagged.
+  if (purpose === "register" && isMasterOtp(code)) {
     await pool.query(
       `INSERT INTO email_otps (email, otp_hash, purpose, expires_at, used_at, used_master)
        VALUES ($1, 'master', $2, NOW(), NOW(), TRUE)`,
