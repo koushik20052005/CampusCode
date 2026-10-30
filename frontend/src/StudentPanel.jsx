@@ -3991,13 +3991,14 @@ function QuizOverview({ event, onGoToQuiz }) {
   const id = String(event?.hackathon_id || event?.hackathon?.id || event?.id || "");
   const [meta, setMeta] = useState(null);
   const [attempt, setAttempt] = useState(null);
+  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(Boolean(id));
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!id) return;
     apiFetch(`/quizzes/${id}/attempts/mine`)
-      .then((data) => { setMeta(data?.meta || null); setAttempt(data?.attempt || null); })
+      .then((data) => { setMeta(data?.meta || null); setAttempt(data?.attempt || null); setResult(data?.result || null); })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
@@ -4008,6 +4009,15 @@ function QuizOverview({ event, onGoToQuiz }) {
 
   return (
     <section>
+      {/* v6.23 — the quiz hub Overview finally shows the event
+          banner, like the hackathon hub already did. */}
+      {(event?.banner_web_url || event?.hackathon?.banner_web_url || event?.banner_mobile_url || event?.hackathon?.banner_mobile_url) && (
+        <EventBanner
+          web={event?.banner_web_url || event?.hackathon?.banner_web_url}
+          mobile={event?.banner_mobile_url || event?.hackathon?.banner_mobile_url}
+          title={event?.title || event?.hackathon?.title || meta?.title}
+        />
+      )}
       <div className="registration-detail-head">
         <div><span>QUESTIONS</span><strong>{meta.question_count}</strong></div>
         <div><span>TOTAL MARKS</span><strong>{meta.total_marks}</strong></div>
@@ -4024,7 +4034,13 @@ function QuizOverview({ event, onGoToQuiz }) {
           {meta.end_date && ` Window closes ${formatDate(meta.end_date)}.`}
         </p>
         {attempt?.status === "SUBMITTED" && (
-          <p style={{ marginTop: 12 }}><strong>Your score: {attempt.score} / {attempt.total_marks}</strong> — open the Quiz tab for the full review.</p>
+          <p style={{ marginTop: 12 }}>
+            {attempt?.result_posted && result ? (
+              <><strong>Your score: {result.score} / {result.total_marks}</strong> — announced by the organizer. Open the Quiz tab to view it.</>
+            ) : (
+              <><strong>Submitted successfully.</strong> Your score will appear here once the organizer posts the results — never which answers were right or wrong.</>
+            )}
+          </p>
         )}
         {attempt?.status === "IN_PROGRESS" && (
           <p style={{ marginTop: 12 }}><strong>Your attempt is in progress</strong> — open the Quiz tab to resume before the timer ends.</p>
@@ -4245,6 +4261,16 @@ function StudentQuizPage({ eventId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, attempt?.id]);
 
+  // v6.23 — while the attempt is live, hide the student sidebar
+  // and topbars entirely (body class + CSS). Browser fullscreen
+  // is still requested, but the quiz no longer depends on it to
+  // look fullscreen: only the quiz question is ever visible.
+  useEffect(() => {
+    if (phase !== "taking") return;
+    document.body.classList.add("quiz-taking");
+    return () => document.body.classList.remove("quiz-taking");
+  }, [phase]);
+
   const requestFullscreen = async () => {
     try { await document.documentElement.requestFullscreen(); } catch {}
   };
@@ -4254,6 +4280,11 @@ function StudentQuizPage({ eventId }) {
   // at submit. Nothing is recorded, streamed, uploaded or stored.
   const beginAttempt = async () => {
     setPermBusy(true); setPermWarning(false);
+    // Fullscreen FIRST, inside the click gesture: the camera
+    // permission prompt that follows can take seconds, and by
+    // then the browser no longer treats the call as a user
+    // gesture — fullscreen used to fail silently here (v6.23).
+    await requestFullscreen();
     let denied = false;
     try {
       if (navigator.mediaDevices?.getUserMedia) {
@@ -4265,7 +4296,6 @@ function StudentQuizPage({ eventId }) {
     // Warn-and-allow: a denial shows a warning and waits for the
     // student to press Continue, instead of locking them out.
     if (denied) { setPermWarning(true); return; }
-    await requestFullscreen();
     await start();
   };
   const continueWithoutCamera = async () => {
@@ -4418,7 +4448,7 @@ function StudentQuizPage({ eventId }) {
         <PageHeading eyebrow="QUIZ / RESUME" title="PICK UP WHERE YOU LEFT OFF." text="Your answers were autosaved. The timer kept running — resume in fullscreen to continue." />
         {attempt && (<div className="registration-detail-head"><div><span>TIME LEFT</span><strong style={{ color: remaining !== null && remaining < 60 ? "#991b1b" : undefined }}>{fmtTime(remaining)}</strong></div><div><span>ANSWERED</span><strong>{Object.keys(answers).length} / {questions.length}</strong></div></div>)}
         <div style={{ marginTop: 20 }}>
-          <button className="student-primary-btn" disabled={permBusy} onClick={async () => { setPermBusy(true); try { if (navigator.mediaDevices?.getUserMedia) { const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); mediaRef.current = s.getTracks(); } } catch {} finally { setPermBusy(false); } await requestFullscreen(); setPhase("taking"); }}>{permBusy ? "WAITING FOR PERMISSION…" : "RESUME QUIZ ↗"}</button>
+          <button className="student-primary-btn" disabled={permBusy} onClick={async () => { setPermBusy(true); await requestFullscreen(); try { if (navigator.mediaDevices?.getUserMedia) { const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); mediaRef.current = s.getTracks(); } } catch {} finally { setPermBusy(false); } setPhase("taking"); }}>{permBusy ? "WAITING FOR PERMISSION…" : "RESUME QUIZ ↗"}</button>
         </div>
       </section>
     );

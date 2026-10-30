@@ -49,6 +49,7 @@ html,body,#root{background:#f8f8f5;color:#111}
 .student-empty{border-color:#deded8;background:#fafaf7;color:#555}.student-empty span{color:#777}
 .student-state{border-color:#deded8;background:#fff;color:#555}.student-state-error{color:#9a3f3f}
 .hackathon-card,.registration-card,.profile-field,.notification-full,.match-card,.digital-id-card,.digital-id-info,.registration-detail-head>div{border-color:#deded8;background:#fff;color:#111}
+.registration-detail-head{background:#e8e8e0;border-color:#deded8}
 .hackathon-card-top span,.hackathon-card p,.registration-card p,.match-card span,.match-card p,.digital-id-info p,.profile-field span,.registration-detail-head span{color:#70706a}
 .hackathon-data span,.hackathon-data small{color:#555}.hackathon-data small{color:#888}
 .round-row{border-bottom-color:#e3e3dd}.round-row>div span{color:#777}.team-detail p{color:#666}
@@ -5568,6 +5569,16 @@ html, body, #root {
   .event-banner-mobile {
     display: block;
   }
+}
+
+/* v6.23 — during a quiz attempt, hide every trace of the student
+   chrome (sidebar, topbars) so only the quiz itself is on screen,
+   even if the browser fullscreen request failed. The class is added
+   by StudentQuizPage while phase is "taking" and removed after. */
+body.quiz-taking .student-sidebar,
+body.quiz-taking .student-topbar,
+body.quiz-taking .student-mobile-topbar {
+  display: none !important;
 }
 
 /* =========================================================

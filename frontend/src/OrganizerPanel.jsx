@@ -228,11 +228,12 @@ function OrganizerPanel({
 
   const stats = dashboard?.stats || {};
 
-  // Quiz Manager (v6.22): a selected quiz has no rounds, teams or
-  // round submissions — bounce the organizer to Quiz Manager
-  // instead of leaving them on a dead hackathon section.
+  // Quiz Manager (v6.22, extended v6.23): a selected quiz has no
+  // rounds, teams, round submissions, round results, team
+  // certificates or round leaderboard — bounce the organizer to
+  // Quiz Manager instead of leaving them on a dead section.
   useEffect(() => {
-    if (selected?.event_type === "quiz" && ["rounds", "teams", "submissions"].includes(section)) {
+    if (selected?.event_type === "quiz" && ["rounds", "teams", "submissions", "result-request", "certificates", "leaderboard"].includes(section)) {
       navigate("quiz-manager");
     }
   }, [selected?.event_type, section]);
@@ -491,7 +492,7 @@ function OrganizerSidebar({ section, navigate, open, user, onLogout, selectedEve
           // A selected quiz has no hackathon flows: hide Rounds,
           // Teams and round Submissions; Quiz Manager covers quizzes.
           if (selectedEventType !== "quiz") return true;
-          return !["rounds", "teams", "submissions"].includes(key);
+          return !["rounds", "teams", "submissions", "result-request", "certificates", "leaderboard"].includes(key);
         }).map(([key, label, Icon]) => (
           <button
             key={key}
