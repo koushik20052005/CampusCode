@@ -3,7 +3,11 @@
    Participation: every member of a team with a SUBMITTED
    Round 1 submission (auto-submitted proposals count).
    Winners: organizer picks up to 3 teams + places 1/2/3.
-   Both issues are idempotent — re-running never duplicates
+   QUIZ EVENTS (v6.26): participation goes to every student
+   with a SUBMITTED quiz attempt; winners are students picked
+   by user_id + place (no teams exist for quizzes, team_id
+   stays NULL and the PDF team line is omitted).
+   All issues are idempotent — re-running never duplicates
    (UNIQUE on hackathon_id + user_id + type).
    FirstCommit/Unstop manual-name issue is NOT in v1: the
    organizer picker is finalized later, per Koushik 2026-10-26.
@@ -29,7 +33,8 @@ async function loadOwnedHackathon(req, res, hackathonId) {
       track,
       start_date,
       end_date,
-      organizer_id
+      organizer_id,
+      event_type
 
     FROM hackathons
 
@@ -273,8 +278,25 @@ export async function issueParticipation(req, res) {
 
     const theme = validTheme(req.body?.theme);
 
-    const eligible = await client.query(
-      `
+    /* Quiz events have no teams and no Round 1: eligibility is
+       every student with a SUBMITTED attempt for this quiz. */
+    const eligible =
+      hackathon.event_type === "quiz"
+        ? await client.query(
+            `
+            SELECT DISTINCT
+              NULL::uuid AS team_id,
+              user_id
+
+            FROM quiz_attempts
+
+            WHERE hackathon_id = $1
+              AND status = 'SUBMITTED'
+            `,
+            [hackathon.id]
+          )
+        : await client.query(
+            `
       SELECT DISTINCT
         t.id AS team_id,
         tm.user_id AS user_id
@@ -290,8 +312,8 @@ export async function issueParticipation(req, res) {
 
       WHERE t.hackathon_id = $1
       `,
-      [hackathon.id]
-    );
+            [hackathon.id]
+          );
 
     const rows = eligible.rows;
     const codes = await generateUniqueCodes(pool, rows.length);
@@ -361,7 +383,7 @@ export async function issueWinners(req, res) {
     if (winners.length === 0 || winners.length > 3) {
       return res.status(400).json({
         success: false,
-        message: "Provide 1 to 3 winning teams",
+        message: "Provide 1 to 3 winners",
       });
     }
 
@@ -374,6 +396,71 @@ export async function issueWinners(req, res) {
       return res.status(400).json({
         success: false,
         message: "Places must be unique values from 1, 2, 3",
+      });
+    }
+
+    /* Quiz branch: winners are individual students (user_id),
+       each must hold a SUBMITTED attempt for this quiz. */
+    if (hackathon.event_type === "quiz") {
+      const userIds = winners.map((w) => w.user_id);
+      if (userIds.some((id) => !id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Each winner needs a student",
+        });
+      }
+      if (new Set(userIds.map(String)).size !== userIds.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Each winner must be a different student",
+        });
+      }
+      const owned = await client.query(
+        `
+        SELECT user_id FROM quiz_attempts
+        WHERE hackathon_id = $1
+          AND user_id = ANY($2)
+          AND status = 'SUBMITTED'
+        `,
+        [hackathon.id, userIds]
+      );
+      if (owned.rows.length !== userIds.length) {
+        return res.status(400).json({
+          success: false,
+          message: "One or more students did not submit this quiz",
+        });
+      }
+
+      await client.query("BEGIN");
+      const insertedUserIds = [];
+      for (const winner of winners) {
+        const codes = await generateUniqueCodes(pool, 1);
+        const inserted = await client.query(
+          `
+          INSERT INTO certificates (
+            hackathon_id, team_id, user_id, type, place, theme, code
+          )
+          VALUES ($1, NULL, $2, 'WINNER', $3, $4, $5)
+          ON CONFLICT (hackathon_id, user_id, type) DO NOTHING
+          RETURNING id
+          `,
+          [hackathon.id, winner.user_id, winner.place, theme, codes[0]]
+        );
+        if (inserted.rows.length > 0) insertedUserIds.push(winner.user_id);
+      }
+      await notifyUsers(
+        client,
+        insertedUserIds,
+        "Your winner certificate is ready",
+        `Your winner certificate for "${hackathon.title}" is ready to download.`
+      );
+      await client.query("COMMIT");
+
+      return res.status(200).json({
+        success: true,
+        message: "Winner certificates issued",
+        issued: insertedUserIds.length,
+        theme,
       });
     }
 
@@ -523,7 +610,7 @@ export async function downloadCertificate(req, res) {
       holderName: cert.holder_name,
       college: cert.track,
       hackathonTitle: cert.hackathon_title,
-      teamName: cert.team_name || "—",
+      teamName: cert.team_name || null,
       track: cert.track,
       eventDate: formatCertDate(cert.end_date || cert.start_date || cert.issued_at),
       code: cert.code,

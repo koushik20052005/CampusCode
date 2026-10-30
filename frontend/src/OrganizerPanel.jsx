@@ -229,11 +229,11 @@ function OrganizerPanel({
   const stats = dashboard?.stats || {};
 
   // Quiz Manager (v6.22, extended v6.23): a selected quiz has no
-  // rounds, teams, round submissions, round results, team
-  // certificates or round leaderboard — bounce the organizer to
-  // Quiz Manager instead of leaving them on a dead section.
+  // rounds, teams, round submissions or round results — bounce the
+  // organizer to Quiz Manager instead of leaving them on a dead
+  // section. Certificates is quiz-aware since v6.26, so it stays.
   useEffect(() => {
-    if (selected?.event_type === "quiz" && ["rounds", "teams", "submissions", "result-request", "certificates", "leaderboard"].includes(section)) {
+    if (selected?.event_type === "quiz" && ["rounds", "teams", "submissions", "result-request", "leaderboard"].includes(section)) {
       navigate("quiz-manager");
     }
   }, [selected?.event_type, section]);
@@ -490,9 +490,11 @@ function OrganizerSidebar({ section, navigate, open, user, onLogout, selectedEve
         <p className="org-nav-label">Workspace</p>
         {NAV.filter(([key]) => {
           // A selected quiz has no hackathon flows: hide Rounds,
-          // Teams and round Submissions; Quiz Manager covers quizzes.
+          // Teams, round Submissions, Result Approval and the round
+          // Leaderboard; Quiz Manager covers quiz results and
+          // Certificates is quiz-aware since v6.26, so it stays.
           if (selectedEventType !== "quiz") return true;
-          return !["rounds", "teams", "submissions", "result-request", "certificates", "leaderboard"].includes(key);
+          return !["rounds", "teams", "submissions", "result-request", "leaderboard"].includes(key);
         }).map(([key, label, Icon]) => (
           <button
             key={key}
@@ -3717,6 +3719,7 @@ const CERT_THEMES = [
 function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
   const [issued, setIssued] = useState([]);
   const [teams, setTeams] = useState([]);
+  const [students, setStudents] = useState([]);
   const [theme, setTheme] = useState("sidebar");
   const [winnerPicks, setWinnerPicks] = useState({ 1: "", 2: "", 3: "" });
   const [loading, setLoading] = useState(false);
@@ -3724,21 +3727,36 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState("");
 
+  /* v6.26 — quiz mode: no teams, no Round 1. Participation comes
+     from submitted quiz attempts; winners are picked students. */
+  const isQuiz = hackathon?.event_type === "quiz";
+  const submittedStudents = students.filter((s) => s.status === "SUBMITTED");
+
   const load = async () => {
     if (!hackathon) {
       setIssued([]);
       setTeams([]);
+      setStudents([]);
       return;
     }
     setLoading(true);
     setError("");
+    setWinnerPicks({ 1: "", 2: "", 3: "" });
     try {
-      const [certData, teamData] = await Promise.all([
+      const [certData, otherData] = await Promise.all([
         apiFetch(`/certificates/hackathons/${hackathon.id}`),
-        apiFetch(`/hackathons/${hackathon.id}/teams`),
+        isQuiz
+          ? apiFetch(`/quizzes/${hackathon.id}/submissions`)
+          : apiFetch(`/hackathons/${hackathon.id}/teams`),
       ]);
       setIssued(Array.isArray(certData?.certificates) ? certData.certificates : []);
-      setTeams(arr(teamData, "teams", "data"));
+      if (isQuiz) {
+        setTeams([]);
+        setStudents(Array.isArray(otherData?.submissions) ? otherData.submissions : []);
+      } else {
+        setStudents([]);
+        setTeams(arr(otherData, "teams", "data"));
+      }
     } catch (e) {
       setError(e.message || "Unable to load certificates.");
     } finally {
@@ -3774,9 +3792,13 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
     if (!hackathon) return;
     const winners = [1, 2, 3]
       .filter((place) => winnerPicks[place])
-      .map((place) => ({ team_id: winnerPicks[place], place }));
+      .map((place) =>
+        isQuiz
+          ? { user_id: winnerPicks[place], place }
+          : { team_id: winnerPicks[place], place }
+      );
     if (winners.length === 0) {
-      setError("Pick at least one winning team first.");
+      setError(isQuiz ? "Pick at least one winning student first." : "Pick at least one winning team first.");
       return;
     }
     setBusy("winners");
@@ -3808,7 +3830,7 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
   };
 
   return (
-    <Panel eyebrow="Certificates" title="Issue certificates" description="Pick a theme, then issue. Participation goes to every member of a team that submitted Round 1. Winners go to the teams you pick below. Re-issuing is safe — nobody gets a duplicate." action={<Picker hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId} />}>
+    <Panel eyebrow="Certificates" title="Issue certificates" description={isQuiz ? "Participation goes to every student who submitted the quiz. Winners go to the students you pick below. Re-issuing is safe — nobody gets a duplicate." : "Pick a theme, then issue. Participation goes to every member of a team that submitted Round 1. Winners go to the teams you pick below. Re-issuing is safe — nobody gets a duplicate."} action={<Picker hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId} />}>
       {error && <div className="form-error">{error}</div>}
       {message && <AlertBox type="success" message={message} onClose={() => setMessage("")} />}
 
@@ -3827,6 +3849,12 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
         {CERT_THEMES.find((t) => t.id === theme)?.note} The theme is saved on each certificate at issue time.
       </p>
 
+      {isQuiz && (
+        <p style={{ marginBottom: 20 }}>
+          {submittedStudents.length} student{submittedStudents.length === 1 ? "" : "s"} submitted this quiz — participation goes to all of them.
+        </p>
+      )}
+
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
         <button className="primary-btn" disabled={busy !== "" || !hackathon} onClick={issueParticipation}>
           {busy === "participation" ? "ISSUING…" : "ISSUE PARTICIPATION CERTIFICATES"}
@@ -3842,12 +3870,18 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
               value={winnerPicks[place]}
               onChange={(e) => setWinnerPicks((prev) => ({ ...prev, [place]: e.target.value }))}
             >
-              <option value="">— No team —</option>
-              {teams.map((team) => (
-                <option key={team.id || team.team_id} value={team.id || team.team_id}>
-                  {team.name || team.team_name || "Team"}
-                </option>
-              ))}
+              <option value="">{isQuiz ? "— No student —" : "— No team —"}</option>
+              {isQuiz
+                ? submittedStudents.map((s) => (
+                    <option key={s.user_id} value={s.user_id}>
+                      {s.user_name || "Student"}{s.score != null && s.total_marks != null ? ` (${s.score}/${s.total_marks})` : ""}
+                    </option>
+                  ))
+                : teams.map((team) => (
+                    <option key={team.id || team.team_id} value={team.id || team.team_id}>
+                      {team.name || team.team_name || "Team"}
+                    </option>
+                  ))}
             </select>
           </label>
         ))}

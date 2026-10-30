@@ -212,7 +212,11 @@ function drawSidebar(doc, W, H, d, qr) {
   doc.text(d.hackathonTitle, x, 272);
   doc.font("Inter").fontSize(12).fillColor("#777770");
   doc.text(
-    `Team ${d.teamName}  \u00b7  Track: ${d.track}  \u00b7  ${d.eventDate}`,
+    [
+      ...(d.teamName ? [`Team ${d.teamName}`] : []),
+      `Track: ${d.track}`,
+      d.eventDate,
+    ].join("  \u00b7  "),
     x,
     300
   );
@@ -335,7 +339,7 @@ function drawBlueprint(doc, W, H, d, qr) {
   // Spec rows.
   const rows = [
     ["EVENT", d.hackathonTitle],
-    ["TEAM", d.teamName],
+    ...(d.teamName ? [["TEAM", d.teamName]] : []),
     ["TRACK", d.track],
     ["HELD ON", d.eventDate],
     ["ISSUED BY", "CampusCode"],
