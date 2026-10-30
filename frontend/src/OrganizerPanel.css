@@ -3542,3 +3542,35 @@ body,
 @media (prefers-reduced-motion: reduce) {
   .publish-rings i, .publish-live-chip { animation: none !important; }
 }
+
+/* =====================================================
+   v6.28 — mobile sidebar close arrow.
+   Hidden everywhere except on an OPEN mobile drawer,
+   where it sits on the drawer's right edge: one tap
+   closes the drawer and gives the content full width.
+===================================================== */
+.org-sidebar-close {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .org-sidebar.is-open .org-sidebar-close {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    top: 92px;
+    right: -16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    background: #a7f37a;
+    color: #0a0a0a;
+    font-size: 21px;
+    font-weight: 900;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 6;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  }
+}

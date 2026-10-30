@@ -4759,6 +4759,8 @@ function StudentPanel() {
       <div className="student-bg-orb one" /><div className="student-bg-orb two" />
       <div className="student-mobile-topbar"><button onClick={() => setSidebarOpen((x) => !x)} className="student-menu-button">☰</button><Brand mobile /><div className="student-mobile-avatar">{initials || "S"}</div></div>
       <aside className={`student-sidebar ${sidebarOpen ? "student-sidebar-open" : ""}`}>
+        {/* v6.28 — small arrow on the drawer edge: one tap closes it on mobile */}
+        <button className="student-sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar">‹</button>
         <Brand />
 
         <div className="sidebar-label">WORKSPACE</div>

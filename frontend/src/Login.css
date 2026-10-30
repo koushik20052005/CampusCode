@@ -874,6 +874,61 @@
   .login-bottom span:nth-child(2) {
     display: none;
   }
+
+  /* v6.28 — mobile-first login: form first, no marketing scroll.
+     The intro block used to sit above the card on phones, burying
+     the login button below the fold. 16px inputs stop iOS auto-zoom. */
+  .login-intro {
+    display: none;
+  }
+
+  .login-main {
+    padding: 26px 16px 90px;
+    gap: 0;
+  }
+
+  .login-card {
+    padding: 24px 18px;
+  }
+
+  .login-card h2 {
+    font-size: 32px;
+  }
+
+  .login-input-wrap input {
+    font-size: 16px;
+  }
+
+  .login-captcha-row {
+    flex-wrap: wrap;
+  }
+}
+
+/* =====================================================
+   MOBILE — very small phones (v6.28 tighter padding)
+===================================================== */
+
+@media (max-width: 380px) {
+  .login-nav {
+    padding: 0 16px;
+  }
+
+  .login-main {
+    padding: 20px 12px 80px;
+  }
+
+  .login-card {
+    padding: 20px 14px;
+  }
+
+  .login-card h2 {
+    font-size: 30px;
+  }
+
+  .login-bottom {
+    left: 12px;
+    right: 12px;
+  }
 }
 
 /* =====================================================

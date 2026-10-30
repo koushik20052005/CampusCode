@@ -270,6 +270,7 @@ function OrganizerPanel({
         section={section}
         navigate={go}
         open={sidebarOpen}
+        onClose={() => setSidebarOpen?.(false)}
         user={user}
         onLogout={onLogout}
         selectedEventType={selected?.event_type}
@@ -446,9 +447,11 @@ function OrganizerPanel({
   );
 }
 
-function OrganizerSidebar({ section, navigate, open, user, onLogout, selectedEventType }) {
+function OrganizerSidebar({ section, navigate, open, onClose, user, onLogout, selectedEventType }) {
   return (
     <aside className={`org-sidebar ${open ? "is-open" : ""}`}>
+      {/* v6.28 — small arrow on the drawer edge: one tap closes it on mobile */}
+      <button className="org-sidebar-close" onClick={onClose} aria-label="Close sidebar">‹</button>
       <div className="org-brand-row">
         <button className="org-brand" onClick={() => navigate("dashboard")}>
           {/* v6.13.1 — logo matches the loading animation: #f4f7fb, #10b981, #10b981 */}

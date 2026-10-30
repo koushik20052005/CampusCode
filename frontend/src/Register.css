@@ -1536,3 +1536,28 @@
 .register-field label.register-age-check input[type="checkbox"] { width: 20px; height: 20px; margin: 1px 0 0; flex-shrink: 0; accent-color: #7665ff; cursor: pointer; }
 .register-field label.register-age-check span { color: #111; }
 .register-field label.register-age-check span b { color: #7665ff; }
+
+/* =====================================================
+   v6.28 — mobile-first auth: form first, like login.
+   (Appended after the existing 600px block; same
+   specificity, later in the file, so it wins on phones.)
+===================================================== */
+@media (max-width: 600px) {
+  .register-intro {
+    display: none;
+  }
+
+  .register-main {
+    padding: 26px 16px 100px;
+    gap: 0;
+  }
+
+  .register-card {
+    padding: 24px 18px;
+  }
+
+  .register-input-wrap input,
+  .register-input-wrap select {
+    font-size: 16px;
+  }
+}
