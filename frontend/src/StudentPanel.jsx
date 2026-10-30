@@ -4009,20 +4009,13 @@ function QuizOverview({ event, onGoToQuiz }) {
 
   return (
     <section>
-      {/* v6.23 — the quiz hub Overview finally shows the event
-          banner, like the hackathon hub already did. */}
-      {(event?.banner_web_url || event?.hackathon?.banner_web_url || event?.banner_mobile_url || event?.hackathon?.banner_mobile_url) && (
-        <EventBanner
-          web={event?.banner_web_url || event?.hackathon?.banner_web_url}
-          mobile={event?.banner_mobile_url || event?.hackathon?.banner_mobile_url}
-          title={event?.title || event?.hackathon?.title || meta?.title}
-        />
-      )}
-      <div className="registration-detail-head">
-        <div><span>QUESTIONS</span><strong>{meta.question_count}</strong></div>
-        <div><span>TOTAL MARKS</span><strong>{meta.total_marks}</strong></div>
-        <div><span>DURATION</span><strong>{meta.duration_minutes} MIN</strong></div>
-        <div><span>NEGATIVE</span><strong>{meta.negative_marks ? `−${meta.negative_marks}` : "NONE"}</strong></div>
+      {/* v6.24 — Sample 3 four-card stats: 4 stats, 4 equal cards,
+          so the grid can never have an empty slot again. */}
+      <div className="quiz-stat-cards">
+        <div className="quiz-stat-card"><i style={{ background: "#7665ff" }} /><strong>{meta.question_count}</strong><span>QUESTIONS</span></div>
+        <div className="quiz-stat-card"><i style={{ background: "#a8e62e" }} /><strong>{meta.total_marks}</strong><span>TOTAL MARKS</span></div>
+        <div className="quiz-stat-card"><i style={{ background: "#111" }} /><strong>{meta.duration_minutes} MIN</strong><span>DURATION</span></div>
+        <div className="quiz-stat-card"><i style={{ background: "#999" }} /><strong>{meta.negative_marks ? `−${meta.negative_marks}` : "NONE"}</strong><span>NEGATIVE</span></div>
       </div>
       <div className="student-panel-card" style={{ marginTop: 16 }}>
         <div className="student-panel-title"><span>HOW THIS QUIZ WORKS</span></div>
@@ -4640,6 +4633,16 @@ function EventHub({ event, tab, setTab, onBack }) {
             : "Everything for this event lives here — rounds, team, results, leaderboard and certificates."
         }
       />
+      {/* v6.24 — the quiz banner lives in the journey header, so it
+          greets the student the moment the journey opens, on every
+          tab — not just on the event card or the Overview tab. */}
+      {isQuiz && (resolved?.banner_web_url || resolved?.hackathon?.banner_web_url || resolved?.banner_mobile_url || resolved?.hackathon?.banner_mobile_url) && (
+        <EventBanner
+          web={resolved?.banner_web_url || resolved?.hackathon?.banner_web_url}
+          mobile={resolved?.banner_mobile_url || resolved?.hackathon?.banner_mobile_url}
+          title={title}
+        />
+      )}
       <div className="event-hub-tabs" role="tablist" aria-label="Event sections">
         {tabs.map(([key, label]) => (
           <button

@@ -5581,6 +5581,47 @@ body.quiz-taking .student-mobile-topbar {
   display: none !important;
 }
 
+/* v6.24 — Sample 3: quiz Overview stats as 4 equal cards.
+   4 stats in 4 columns (2 on phones) can never leave an empty
+   slot, unlike the old 3-column grid. Quiz Overview only. */
+.quiz-stat-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 15px;
+}
+.quiz-stat-card {
+  background: #fff;
+  border: 1px solid #deded8;
+  border-radius: 14px;
+  padding: 22px;
+}
+.quiz-stat-card i {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.quiz-stat-card strong {
+  display: block;
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 900;
+  font-size: 40px;
+  letter-spacing: -0.03em;
+  margin: 16px 0 8px;
+  color: #111;
+}
+.quiz-stat-card span {
+  font: 500 9px 'DM Mono', monospace;
+  color: #70706a;
+  letter-spacing: 0.08em;
+}
+@media (max-width: 780px) {
+  .quiz-stat-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* =========================================================
    v6.19 — picked celebration animations
    J1 join confetti + stamp · R2 R1 paper-plane send-off ·
