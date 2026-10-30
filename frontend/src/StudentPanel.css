@@ -5558,15 +5558,19 @@ html, body, #root {
 .event-banner-single {
   max-height: 220px;
 }
-.event-banner-mobile {
+/* v6.25 — the hide/show rules must beat `.event-banner img`
+   (class + element outranks a lone class). Before this fix the
+   mobile image rendered on desktop too, so every banner showed
+   twice and the card looked overlapped. */
+.event-banner img.event-banner-mobile {
   display: none;
   max-height: 300px;
 }
 @media (max-width: 780px) {
-  .event-banner-web {
+  .event-banner img.event-banner-web {
     display: none;
   }
-  .event-banner-mobile {
+  .event-banner img.event-banner-mobile {
     display: block;
   }
 }
