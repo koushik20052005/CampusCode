@@ -3707,23 +3707,24 @@ function RuleBot({ hackathons, selectedId, setSelectedId }) {
 
 /* =========================================================
    v6 — CERTIFICATES (Module 8, organizer issue section)
-   Theme picker offers the 3 launch themes now; the other 3
-   v2 designs join the picker when the organizer template is
-   finalized later. Issuing is idempotent — re-running never
-   duplicates a certificate.
+   Theme picker offers ONLY the 3 quiz designs picked 2026-10-30.
+   The v2 launch themes (sidebar, constellation, blueprint) are NOT
+   listed here anymore — but they stay renderable in the backend, so
+   certificates already issued with them still download unchanged.
+   Issuing is idempotent — re-running never duplicates a certificate.
 ========================================================= */
 
 const CERT_THEMES = [
-  { id: "sidebar", name: "Sidebar Panel", note: "Dark panel + watermark, classic certificate look." },
-  { id: "constellation", name: "Constellation Night", note: "Dark gradient + medallion, premium awards feel." },
-  { id: "blueprint", name: "Blueprint Spec", note: "Grid + spec rows, CampusCode's own visual language." },
+  { id: "light-clean", name: "Light Clean", note: "Landing off-white + grid, purple name — the participation design." },
+  { id: "minimal", name: "Minimal", note: "White + lime edge bar + ghost place numeral — the runner-up design." },
+  { id: "classic-ivory", name: "Classic Ivory", note: "Formal serif + double rule + lime seal — the winner design." },
 ];
 
 function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
   const [issued, setIssued] = useState([]);
   const [teams, setTeams] = useState([]);
   const [students, setStudents] = useState([]);
-  const [theme, setTheme] = useState("sidebar");
+  const [theme, setTheme] = useState("light-clean");
   const [winnerPicks, setWinnerPicks] = useState({ 1: "", 2: "", 3: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

@@ -183,6 +183,17 @@ export default function LandingPage() {
           <button onClick={() => scrollTo("community")}>
             COMMUNITY
           </button>
+
+          {/* Mobile-menu copy: on phones the header actions collapse to
+             LOGIN only, so JOIN lives here and appears when the menu
+             opens (desktop hides this copy via CSS). */}
+          <button
+            className="landing-join"
+            onClick={() => goTo("/register")}
+          >
+            JOIN CAMPUSCODE
+            <span>↗</span>
+          </button>
         </nav>
 
         <div className="landing-nav-actions">

@@ -191,6 +191,12 @@ a {
     transform 0.25s ease;
 }
 
+/* The JOIN copy inside the nav is mobile-menu-only: desktop hides it,
+   the open mobile menu shows it full-width (see the 800px block). */
+.landing-links .landing-join {
+  display: none;
+}
+
 .landing-links button:hover,
 .landing-login:hover {
   color: #111;
@@ -2107,7 +2113,15 @@ a {
     display: none;
   }
 
+  /* Mobile header keeps LOGIN visible next to the hamburger; only the
+     JOIN button collapses into the menu (it is long text and the hero
+     already carries register CTAs). Previously this whole block was
+     display:none, which is why LOGIN vanished on phones. */
   .landing-nav-actions {
+    display: flex;
+  }
+
+  .landing-nav-actions .landing-join {
     display: none;
   }
 
@@ -2140,6 +2154,23 @@ a {
     box-shadow:
       0 20px 50px
       rgba(0,0,0,.08);
+  }
+
+  /* JOIN copy inside the open menu: full-width bordered button, not
+     the transparent nav-link style (which would otherwise win on
+     specificity over .landing-join). */
+  .landing-links.open .landing-join {
+    display: block;
+
+    width: 100%;
+
+    padding: 12px 15px;
+
+    border: 1px solid #b8b8b0;
+
+    background: rgba(255, 255, 255, 0.65);
+
+    text-align: center;
   }
 
   .hero-content {

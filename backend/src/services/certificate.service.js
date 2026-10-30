@@ -1,11 +1,11 @@
 /* =========================================================
    CERTIFICATE SERVICE — Module 8
-   On-demand PDF rendering for the 3 organizer-pickable themes:
-     sidebar        — v2 design 01 (Unstop-style side panel)
-     constellation  — v2 design 02 (Unstop Awards-style night sky)
-     blueprint      — v2 design 06 (CampusCode-native spec sheet)
-   The other 3 v2 designs (band+ribbon, split hero, portrait)
-   stay as samples only until the organizer picker is finalized.
+   On-demand PDF rendering. The 3 organizer-pickable themes are the
+   quiz designs picked 2026-10-30 (light-clean, minimal,
+   classic-ivory). The v2 launch themes (sidebar, constellation,
+   blueprint) stay renderable so certificates already issued with
+   them still download exactly as before — they are just no longer
+   offered in the organizer picker.
 
    PDFs are rendered fresh from the database row on every
    download: no file storage, nothing goes stale.
@@ -25,6 +25,9 @@ import QRCode from "qrcode";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ASSETS = path.join(__dirname, "..", "assets");
 const LOGO = path.join(ASSETS, "campuscode-logo.png");
+// Corrected render: slash center = tile center, verified 0.0px off.
+// All NEW themes use this; the old themes keep LOGO untouched.
+const LOGO_CORRECTED = path.join(ASSETS, "campuscode-logo-corrected.png");
 
 const FONTS = {
   InterBlack: path.join(ASSETS, "fonts", "Inter-Black.ttf"),
@@ -35,7 +38,7 @@ const FONTS = {
   Serif: path.join(ASSETS, "fonts", "DejaVuSerif.ttf"),
 };
 
-export const CERT_THEMES = ["sidebar", "constellation", "blueprint"];
+export const CERT_THEMES = ["sidebar", "constellation", "blueprint", "light-clean", "minimal", "classic-ivory"];
 
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
@@ -373,7 +376,111 @@ const THEME_DRAWERS = {
   sidebar: drawSidebar,
   constellation: drawConstellation,
   blueprint: drawBlueprint,
+  "light-clean": drawLightClean,
+  minimal: drawMinimal,
+  "classic-ivory": drawClassicIvory,
 };
+
+/* ---------------- LIGHT CLEAN (quiz participation pick, 2026-10-30)
+   Landing off-white + grid + lime top bar + centered purple name. */
+function drawLightClean(doc, W, H, d, qr) {
+  doc.fillColor("#f7f7f4").rect(0, 0, W, H).fill();
+  doc.strokeColor("#e8e8e0").lineWidth(0.5);
+  for (let gx = 0; gx <= W; gx += 28) doc.moveTo(gx, 0).lineTo(gx, H).stroke();
+  for (let gy = 0; gy <= H; gy += 28) doc.moveTo(0, gy).lineTo(W, gy).stroke();
+  doc.fillColor("#a8e62e").rect(0, 0, W, 7).fill();
+  const cx = W / 2;
+  doc.image(LOGO_CORRECTED, cx - 40, 62, { width: 80, height: 80 });
+  doc.font("DMMono").fontSize(10).fillColor("#777770");
+  doc.text("CAMPUSCODE", 0, 158, { align: "center" });
+  doc.font("InterBlack").fontSize(40).fillColor("#111111");
+  doc.text(d.title, 0, 188, { align: "center" });
+  doc.strokeColor("#a8e62e").lineWidth(3);
+  doc.moveTo(cx - 60, 248).lineTo(cx + 60, 248).stroke();
+  doc.font("InterBold").fontSize(13).fillColor("#777770");
+  doc.text("This certificate is proudly presented to", 0, 268, { align: "center" });
+  doc.font("InterBlack").fontSize(52).fillColor("#7665ff");
+  doc.text(d.holderName, 0, 296, { align: "center" });
+  const action = d.placeLine
+    ? `for winning the ${d.hackathonTitle}`
+    : `for participating in the ${d.hackathonTitle}`;
+  doc.font("InterBold").fontSize(14).fillColor("#111111");
+  doc.text(action, 0, 372, { align: "center" });
+  doc.text(`held on ${d.eventDate}`, 0, 394, { align: "center" });
+  if (d.placeLine) {
+    doc.font("InterBold").fontSize(13).fillColor("#7665ff");
+    doc.text(d.placeLine, 0, 418, { align: "center" });
+  }
+  drawSignature(doc, cx - 80, H - 130, "CampusCode Team", "HACKATHON ORGANIZER", "#777770", "#111111");
+  drawQr(doc, W - 300, H - 154, qr, 64, d.code, "#777770");
+  drawFooter(doc, W, H, d.code, "#777770");
+}
+
+/* ---------------- MINIMAL (quiz runner-up pick, 2026-10-30)
+   White + lime edge bar + left-aligned type + ghost place numeral. */
+function drawMinimal(doc, W, H, d, qr) {
+  doc.fillColor("#ffffff").rect(0, 0, W, H).fill();
+  doc.fillColor("#a8e62e").rect(0, 0, 12, H).fill();
+  doc.image(LOGO_CORRECTED, 56, 44, { width: 72, height: 72 });
+  doc.font("DMMono").fontSize(12).fillColor("#111111");
+  doc.text("CAMPUSCODE", 144, 66);
+  doc.font("DMMono").fontSize(8).fillColor("#777770");
+  doc.text("VERIFIED CERTIFICATE", 144, 86);
+  if (d.place) {
+    doc.save();
+    doc.fillColor("#f2f2ee").fillOpacity(1);
+    doc.font("InterBlack").fontSize(300);
+    doc.text(String(d.place), W - 280, 150, { width: 220, align: "center" });
+    doc.restore();
+  }
+  doc.font("InterBlack").fontSize(44).fillColor("#111111");
+  doc.text(d.title, 56, 170, { width: 560 });
+  doc.strokeColor("#a8e62e").lineWidth(4);
+  doc.moveTo(56, 292).lineTo(140, 292).stroke();
+  doc.font("InterBlack").fontSize(40).fillColor("#7665ff");
+  doc.text(d.holderName, 56, 312, { width: 560 });
+  doc.font("InterBold").fontSize(14).fillColor("#111111");
+  doc.text(d.hackathonTitle, 56, 372, { width: 560 });
+  doc.font("InterBold").fontSize(13).fillColor("#777770");
+  doc.text(d.placeLine ? `${d.eventDate}  \u00b7  ${d.placeLine}` : d.eventDate, 56, 396, { width: 560 });
+  drawQr(doc, 56, H - 110, qr, 56, d.code, "#777770");
+}
+
+/* ---------------- CLASSIC IVORY (quiz winner pick, 2026-10-30)
+   Formal serif certificate: ivory + double rule + lime CC seal. */
+function drawClassicIvory(doc, W, H, d, qr) {
+  void qr;
+  doc.fillColor("#fdf8ec").rect(0, 0, W, H).fill();
+  doc.strokeColor("#5a4632").lineWidth(1.5);
+  doc.rect(18, 18, W - 36, H - 36).stroke();
+  doc.strokeColor("#b4a078").lineWidth(0.75);
+  doc.rect(28, 28, W - 56, H - 56).stroke();
+  const cx = W / 2;
+  doc.image(LOGO_CORRECTED, cx - 35, 52, { width: 70, height: 70 });
+  doc.font("DMMono").fontSize(10).fillColor("#786446");
+  doc.text("CAMPUSCODE", 0, 136, { align: "center" });
+  doc.font("SerifBold").fontSize(44).fillColor("#1e1810");
+  doc.text(d.title, 0, 168, { align: "center" });
+  doc.strokeColor("#b4a078").lineWidth(1);
+  doc.moveTo(cx - 75, 232).lineTo(cx + 75, 232).stroke();
+  doc.font("Serif").fontSize(14).fillColor("#5a4c36");
+  doc.text("This is to certify that", 0, 252, { align: "center" });
+  doc.font("SerifBold").fontSize(52).fillColor("#1e1810");
+  doc.text(d.holderName, 0, 282, { align: "center" });
+  const action = d.placeLine
+    ? `has won the ${d.hackathonTitle}`
+    : `has participated in the ${d.hackathonTitle}`;
+  doc.font("Serif").fontSize(15).fillColor("#1e1810");
+  doc.text(action, 0, 352, { align: "center" });
+  doc.text(`held on ${d.eventDate}`, 0, 378, { align: "center" });
+  if (d.placeLine) {
+    doc.font("SerifBold").fontSize(14).fillColor("#5a4632");
+    doc.text(d.placeLine, 0, 404, { align: "center" });
+  }
+  drawSeal(doc, cx, 470, 30, "CC", "#8a6f3c", "#a8e62e", "#111111");
+  doc.font("DMMono").fontSize(8).fillColor("#786446");
+  doc.text(`${d.code}  \u00b7  campuscode.co.in`, 0, H - 40, { align: "center" });
+}
 
 /**
  * Render one certificate PDF.
