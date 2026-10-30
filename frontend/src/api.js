@@ -26,6 +26,16 @@ export async function apiFetch(endpoint, options = {}) {
     data = null;
   }
 
+  // v6.30 — kicked admin session: the backend flags it, so drop the
+  // dead token and send the user back to login instead of leaving
+  // them staring at errors on every panel. Other 401s are untouched.
+  if (response.status === 401 && data?.sessionEnded) {
+    localStorage.removeItem("token");
+    if (!window.location.pathname.startsWith("/login")) {
+      window.location.href = "/login";
+    }
+  }
+
   if (!response.ok) {
     throw new Error(
       data?.message ||

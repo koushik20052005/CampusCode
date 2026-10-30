@@ -51,6 +51,34 @@ export async function requireAuth(req, res, next) {
       });
     }
 
+    // v6.30 — ADMIN single session: the JWT must carry the current
+    // token_version. A newer admin login bumps the version, so any
+    // older token is rejected with a session-ended flag (the frontend
+    // clears the token and sends the user back to /login). Tokens
+    // minted before this feature (no tv claim) are rejected too, so
+    // the admin logs in once after the deploy and single-session
+    // holds from then on. Non-admin roles skip this check entirely.
+    if (user.role === "ADMIN") {
+      try {
+        const versionResult = await pool.query(
+          `SELECT token_version FROM users WHERE id = $1`,
+          [user.id]
+        );
+        const current = versionResult.rows[0]?.token_version;
+        if (decoded.tv === undefined || decoded.tv !== current) {
+          return res.status(401).json({
+            success: false,
+            message: "Your session ended because this account was logged in on another device.",
+            sessionEnded: true,
+          });
+        }
+      } catch (versionError) {
+        // Column not migrated yet: feature not active, allow the
+        // request (it starts enforcing itself once 022 has run).
+        if (versionError.code !== "42703") throw versionError;
+      }
+    }
+
     req.user = user;
 
     next();

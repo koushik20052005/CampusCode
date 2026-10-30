@@ -17,12 +17,13 @@ import { sendMail, otpEmailTemplate, isMailConfigured } from "../services/mail.s
    CREATE JWT
 ========================================================= */
 
-const createToken = (user) => {
+const createToken = (user, tv) => {
   return jwt.sign(
     {
       id: user.id,
       role: user.role,
       email: user.email,
+      ...(tv !== undefined && tv !== null ? { tv } : {}),
     },
     process.env.JWT_SECRET,
     {
@@ -31,6 +32,27 @@ const createToken = (user) => {
       expiresIn: process.env.JWT_EXPIRES_IN || "1d",
     }
   );
+};
+
+/* v6.30 — single active session for ADMIN: every successful admin
+   login bumps users.token_version and the new JWT carries tv. Any
+   older admin token then fails the middleware check, so the new
+   login kicks the old device out. Returns the new version, or null
+   if the column does not exist yet (migration pending) — in that
+   case the token carries no tv and enforcement starts once the
+   column lands. Failed logins never reach this code, so a wrong
+   password or 2FA key can never kill the active session. */
+const bumpAdminTokenVersion = async (userId) => {
+  try {
+    const result = await pool.query(
+      `UPDATE users SET token_version = token_version + 1 WHERE id = $1 AND role = 'ADMIN' RETURNING token_version`,
+      [userId]
+    );
+    return result.rows[0]?.token_version ?? null;
+  } catch (error) {
+    if (error.code === "42703") return null; // column not there yet
+    throw error;
+  }
 };
 
 
@@ -378,8 +400,14 @@ export const login = async (req, res) => {
     // v6.13 — successful login clears the failure counter
     await resetAttempts(normalizedEmail);
 
+    // v6.30 — ADMIN single session: a new login invalidates every
+    // older admin token (the old device gets a session-ended 401).
+    // Students/organizers are unaffected. This runs only after
+    // password + captcha + 2FA all passed.
+    const tv = user.role === "ADMIN" ? await bumpAdminTokenVersion(user.id) : undefined;
+
     const token =
-      createToken(user);
+      createToken(user, tv);
 
     return res.json({
       success: true,
