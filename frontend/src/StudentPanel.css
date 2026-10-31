@@ -5728,3 +5728,36 @@ body.quiz-taking .student-mobile-topbar {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
   }
 }
+
+/* =====================================================
+   v6.33 — FINAL mobile layout guard. MUST STAY LAST.
+   Why: later base blocks in this file (the light-theme
+   re-layout) override the ≤780px media queries above,
+   so on phones the panel stayed a flex row, the desktop
+   topbar leaked back in, and .student-main (width 100%
+   as a flex item sitting after the mobile topbar) was
+   pushed right and clipped at the screen edge. This
+   block re-asserts the mobile layout and wins because
+   it is last; !important is used only where an earlier
+   rule already used it (panel overflow, main overflow)
+   or where a later base rule must be beaten.
+===================================================== */
+@media (max-width: 780px) {
+  .student-panel { display: block !important; width: 100% !important; height: 100dvh !important; min-height: 100dvh !important; overflow: hidden !important; }
+  .student-mobile-topbar { display: flex !important; position: sticky !important; top: 0 !important; z-index: 60 !important; width: 100% !important; height: 64px !important; }
+  .student-sidebar { position: fixed !important; top: 64px !important; bottom: 0 !important; left: -280px !important; width: 260px !important; min-width: 260px !important; flex: none !important; height: calc(100dvh - 64px) !important; max-height: none !important; z-index: 50 !important; }
+  .student-sidebar.open, .student-sidebar.student-sidebar-open { left: 0 !important; }
+  .student-main { display: block !important; width: 100% !important; flex: none !important; height: calc(100dvh - 64px) !important; min-height: 0 !important; max-height: none !important; overflow-x: hidden !important; overflow-y: auto !important; }
+  .student-topbar { display: none !important; }
+  .student-content { width: 100% !important; max-width: 100% !important; min-height: 0 !important; padding: 32px 16px 70px !important; overflow-x: hidden !important; }
+  .student-page-heading h1 { font-size: 36px !important; overflow-wrap: anywhere !important; }
+  .student-page-heading p { max-width: 100% !important; }
+  .student-hero { flex-direction: column !important; align-items: flex-start !important; padding: 25px !important; min-height: 0 !important; }
+  .student-hero-copy { max-width: 100% !important; }
+  .student-hero-copy h2 { overflow-wrap: anywhere !important; }
+  .student-hero-copy p { max-width: 100% !important; }
+  .student-hero-avatars { margin-top: 18px !important; }
+  .student-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .student-two-col, .registration-grid, .profile-grid, .match-grid, .hackathon-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .student-panel-card, .student-stat-card, .student-hero { min-width: 0 !important; }
+}

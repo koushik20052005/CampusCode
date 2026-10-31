@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 import pool from "./config/db.js";
 
@@ -133,7 +133,7 @@ const app = express();
 // Trust the first proxy hop so express-rate-limit reads the
 // real client IP from X-Forwarded-For instead of throwing
 // ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
-app.set("trust proxy", 1);
+app.set("trust proxy", 2); // Cloudflare edge + Render load balancer
 
 const PORT = process.env.PORT || 5000;
 
@@ -148,11 +148,21 @@ app.use(helmet());
 ========================================================= */
 
 // Strict limiter for auth endpoints (brute-force protection)
+// v6.32: raised 20 -> 100 and GETs skipped. One login page visit used to
+// cost 2-3 hits (captcha + /me + login) from a shared campus/hostel IP, so
+// ~10 students on one Wi-Fi tripped the whole network. Reads are not login
+// attempts; brute force runs on POSTs, which keep this limiter plus the
+// per-account lockout (5 fails -> 15 min).
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // 20 attempts per IP per window
+  max: 100, // 100 attempts per IP per window
   standardHeaders: "draft-7",
   legacyHeaders: false,
+  skip: (req) => req.method === "GET",
+  // v6.32: with Cloudflare in front, req.ip alone is a shared edge IP, so
+  // key by CF-Connecting-IP (set by Cloudflare, unspoofable through it).
+  keyGenerator: (req) =>
+    req.headers["cf-connecting-ip"] || ipKeyGenerator(req.ip),
   message: {
     success: false,
     message: "Too many attempts. Please try again in 15 minutes.",
@@ -165,6 +175,10 @@ const apiLimiter = rateLimit({
   max: 600,
   standardHeaders: "draft-7",
   legacyHeaders: false,
+  // v6.32: same Cloudflare shared-IP problem as authLimiter — key by the
+  // real client IP from CF-Connecting-IP, not the edge IP.
+  keyGenerator: (req) =>
+    req.headers["cf-connecting-ip"] || ipKeyGenerator(req.ip),
   message: {
     success: false,
     message: "Too many requests. Please slow down.",

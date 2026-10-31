@@ -34,6 +34,13 @@ const otpSendLimiter = rateLimit({
 const otpVerifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 12,
+  // v6.32: keyed by email (not IP), same as otpSendLimiter above, so
+  // students sharing one Wi-Fi network never block each other. Falls back
+  // to IP only when no email is present in the body.
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    return email || ipKeyGenerator(req.ip);
+  },
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many attempts. Try again in 15 minutes." },
