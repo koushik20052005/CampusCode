@@ -1505,6 +1505,125 @@ function QuizBuilder({ hackathons, forceQuizId }) {
   );
 }
 
+/* v6.34 — organizer "View in Sheets": spreadsheet-style student sheets.
+   Quiz sheet: rank, name, email, CC ID, test time, proctor faults, marks,
+   status. Rank: submitted attempts by score desc, earlier submission wins
+   ties; in-progress attempts show no rank. Hackathon sheet: same idea over
+   participants joined with the backend leaderboard (team score + rank);
+   hackathons have no timed test or proctoring, so no time/fault columns. */
+function downloadCsvFile(filename, head, rows) {
+  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const csv = [head, ...rows].map((row) => row.map(esc).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+}
+
+function fmtSheetWhen(d) {
+  if (!d) return "—";
+  try { return new Date(d).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }); } catch { return String(d); }
+}
+
+function QuizSheetView({ rows, eventTitle, onBack }) {
+  const submitted = (rows || [])
+    .filter((s) => s.status === "SUBMITTED")
+    .slice()
+    .sort((a, b) => (Number(b.score ?? -1) - Number(a.score ?? -1)) || (new Date(a.submitted_at || 0) - new Date(b.submitted_at || 0)));
+  const rankOf = new Map(submitted.map((s, i) => [s.id, i + 1]));
+  const durationMin = (s) => {
+    if (!s.started_at || !s.submitted_at) return "—";
+    const m = Math.round((new Date(s.submitted_at) - new Date(s.started_at)) / 60000);
+    return Number.isFinite(m) ? `${m} min` : "—";
+  };
+  const faults = (s) => {
+    const parts = [];
+    if (Number(s.tab_switches) > 0) parts.push(`${s.tab_switches} tab switch${Number(s.tab_switches) === 1 ? "" : "es"}`);
+    if (Number(s.fullscreen_exits) > 0) parts.push(`${s.fullscreen_exits} fullscreen exit${Number(s.fullscreen_exits) === 1 ? "" : "s"}`);
+    return parts.length ? parts.join(", ") : "Clean";
+  };
+  const sheetRows = (rows || []).map((s) => ({
+    rank: rankOf.get(s.id) ?? "—",
+    name: s.user_name || "—",
+    email: s.user_email || "—",
+    cc: s.user_cc_id || "—",
+    time: s.status === "SUBMITTED" ? `${fmtSheetWhen(s.started_at)} · ${durationMin(s)}` : `Started ${fmtSheetWhen(s.started_at)} · In progress`,
+    faults: faults(s),
+    marks: (s.score === null || s.score === undefined) ? "—" : `${s.score} / ${s.total_marks}`,
+    status: s.status === "SUBMITTED" ? (s.result_posted ? "Submitted · Posted" : "Submitted") : "In progress",
+  }));
+  const head = ["Rank", "Student name", "Email", "CC ID", "Test time", "Faults", "Marks", "Status"];
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+        <button className="outline-btn small" onClick={onBack}>← Back to submissions</button>
+        <button className="primary-btn small" onClick={() => downloadCsvFile(`${String(eventTitle || "quiz").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-sheets.csv`, head, sheetRows.map((r) => [r.rank, r.name, r.email, r.cc, r.time, r.faults, r.marks, r.status]))}>Download CSV</button>
+        <span className="hack-meta">{sheetRows.length} students · Rank by marks, earlier submission wins ties</span>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Rank</th><th>Student</th><th>Email</th><th>CC ID</th><th>Test time</th><th>Faults</th><th>Marks</th><th>Status</th></tr></thead>
+          <tbody>{sheetRows.map((r, i) => (
+            <tr key={i}>
+              <td><b>{r.rank}</b></td>
+              <td><b>{r.name}</b></td>
+              <td>{r.email}</td>
+              <td>{r.cc}</td>
+              <td>{r.time}</td>
+              <td style={r.faults === "Clean" ? undefined : { color: "#991b1b" }}>{r.faults}</td>
+              <td><b>{r.marks}</b></td>
+              <td>{r.status}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function HackathonSheetView({ participants, board, eventTitle, onBack }) {
+  const byTeam = new Map((board || []).map((r) => [String(r.team_name || r.team?.name || ""), r]));
+  const sheetRows = (participants || []).map((p) => {
+    const teamName = p.team_name || p.team?.name || "Not assigned";
+    const row = byTeam.get(String(teamName));
+    return {
+      rank: row?.rank ?? "—",
+      name: p.name || p.user_name || "—",
+      email: p.email || "—",
+      cc: p.campus_code_id || p.campusCodeId || "—",
+      team: teamName,
+      marks: (row?.score ?? row?.overall_score ?? null) === null ? "—" : String(row.score ?? row.overall_score),
+      status: row ? "Ranked" : "No result yet",
+    };
+  });
+  const head = ["Rank", "Student name", "Email", "CC ID", "Team", "Marks", "Status"];
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+        <button className="outline-btn small" onClick={onBack}>← Back to participants</button>
+        <button className="primary-btn small" onClick={() => downloadCsvFile(`${String(eventTitle || "hackathon").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-sheets.csv`, head, sheetRows.map((r) => [r.rank, r.name, r.email, r.cc, r.team, r.marks, r.status]))}>Download CSV</button>
+        <span className="hack-meta">{sheetRows.length} students · Marks and rank from the team leaderboard</span>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Rank</th><th>Student</th><th>Email</th><th>CC ID</th><th>Team</th><th>Marks</th><th>Status</th></tr></thead>
+          <tbody>{sheetRows.map((r, i) => (
+            <tr key={i}>
+              <td><b>{r.rank}</b></td>
+              <td><b>{r.name}</b></td>
+              <td>{r.email}</td>
+              <td>{r.cc}</td>
+              <td>{r.team}</td>
+              <td><b>{r.marks}</b></td>
+              <td>{r.status}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function QuizManager({ hackathons, onRefresh }) {
   const quizzes = (hackathons || []).filter((h) => h.event_type === "quiz");
   const [quizId, setQuizId] = useState("");
@@ -1516,6 +1635,7 @@ function QuizManager({ hackathons, onRefresh }) {
   const [message, setMessage] = useState("");
   const [showCount, setShowCount] = useState(10);
   const [checked, setChecked] = useState({});
+  const [showSheets, setShowSheets] = useState(false);
 
   const selected = quizzes.find((q) => String(q.id) === String(quizId)) || quizzes[0] || null;
   const effectiveId = selected?.id || "";
@@ -1682,8 +1802,11 @@ function QuizManager({ hackathons, onRefresh }) {
                   {all.filter((s) => s.status === "SUBMITTED").length} submitted · {all.filter((s) => s.result_posted).length} results posted
                 </span>
                 <button className="outline-btn small" disabled={loading} onClick={() => loadSubs(effectiveId)}>Refresh</button>
+                <button className="primary-btn small" disabled={loading || !all.length} onClick={() => setShowSheets(true)}>View in Sheets</button>
               </div>
-              {loading ? (
+              {showSheets ? (
+                <QuizSheetView rows={all} eventTitle={selected?.title || "Quiz"} onBack={() => setShowSheets(false)} />
+              ) : loading ? (
                 <p className="hack-meta">Loading submissions…</p>
               ) : !all.length ? (
                 <Empty text="No attempts yet. Students appear here once they start the quiz." />
@@ -1918,6 +2041,18 @@ function Participants({ hackathon, hackathons, selectedId, setSelectedId }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showSheets, setShowSheets] = useState(false);
+  const [board, setBoard] = useState(null);
+
+  const openSheets = async () => {
+    setShowSheets(true);
+    if (board === null && hackathon?.id) {
+      try {
+        const d = await apiFetch(`/results/hackathon/${hackathon.id}`);
+        setBoard(arr(d, "results", "data"));
+      } catch { setBoard([]); }
+    }
+  };
 
   useEffect(() => {
     if (!hackathon) return setItems([]);
@@ -1931,7 +2066,14 @@ function Participants({ hackathon, hackathons, selectedId, setSelectedId }) {
   return (
     <Panel eyebrow="Participants" title="Registered participants" description="Loaded from the selected hackathon." action={<Picker hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId}/>}>
       {error && <div className="form-error">{error}</div>}
-      {loading ? <Loading /> : items.length ? (
+      {loading ? <Loading /> : showSheets ? (
+        <HackathonSheetView participants={items} board={board || []} eventTitle={hackathon?.title || "Hackathon"} onBack={() => setShowSheets(false)} />
+      ) : items.length ? (
+        <>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+          <button className="primary-btn small" onClick={openSheets}>View in Sheets</button>
+          <span className="hack-meta">{items.length} students</span>
+        </div>
         <div className="table-wrap">
           <table>
             <thead><tr><th>Name</th><th>Email</th><th>Campus ID</th><th>Team</th></tr></thead>
@@ -1945,6 +2087,7 @@ function Participants({ hackathon, hackathons, selectedId, setSelectedId }) {
             ))}</tbody>
           </table>
         </div>
+        </>
       ) : <Empty text="No participants registered for this hackathon." />}
     </Panel>
   );

@@ -4509,7 +4509,8 @@ function StudentQuizPage({ eventId }) {
               className="student-primary-btn"
               disabled={submitting}
               onClick={() => {
-                if (window.confirm("Submit the quiz? You cannot change answers after this.")) submit(answersRef.current);
+                const answeredCount = Object.keys(answersRef.current || {}).length;
+                if (window.confirm(`You have answered ${answeredCount} of ${questions.length} questions. Submit the whole quiz now? You cannot change answers after this.`)) submit(answersRef.current);
               }}
             >
               {submitting ? "SUBMITTING..." : "SUBMIT QUIZ"}

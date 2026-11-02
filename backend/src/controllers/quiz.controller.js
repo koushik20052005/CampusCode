@@ -629,6 +629,7 @@ export async function listSubmissions(req, res) {
     if (!canManageQuiz(req, event)) return fail(res, 403, "Not your event");
     const result = await pool.query(
       `SELECT a.id, a.user_id, u.name AS user_name, u.email AS user_email,
+              u.campus_code_id AS user_cc_id,
               a.status, a.score, a.total_marks, a.correct_count,
               a.question_count, a.started_at, a.submitted_at,
               a.result_posted, a.fullscreen_exits, a.tab_switches
