@@ -376,7 +376,8 @@ export async function issueParticipation(req, res) {
 /* =========================================================
    ORGANIZER: ISSUE WINNER CERTIFICATES
    POST /api/certificates/hackathons/:hackathonId/issue-winners
-   Body: { theme, winners: [{ team_id, place }] }
+   Body: { theme, winners: [{ team_id, place, theme? }] }
+   A per-winner theme overrides the batch theme for that winner.
 ========================================================= */
 
 export async function issueWinners(req, res) {
@@ -385,6 +386,7 @@ export async function issueWinners(req, res) {
     if (!hackathon) return;
 
     const theme = validTheme(req.body?.theme);
+    const themeFor = (w) => (w.theme ? validTheme(w.theme) : theme);
     const winners = Array.isArray(req.body?.winners) ? req.body.winners : [];
 
     if (winners.length === 0 || winners.length > 3) {
@@ -450,7 +452,7 @@ export async function issueWinners(req, res) {
           ON CONFLICT (hackathon_id, user_id, type) DO NOTHING
           RETURNING id
           `,
-          [hackathon.id, winner.user_id, winner.place, theme, codes[0]]
+          [hackathon.id, winner.user_id, winner.place, themeFor(winner), codes[0]]
         );
         if (inserted.rows.length > 0) insertedUserIds.push(winner.user_id);
       }
@@ -517,7 +519,7 @@ export async function issueWinners(req, res) {
             winner.team_id,
             members.rows[i].user_id,
             winner.place,
-            theme,
+            themeFor(winner),
             codes[i],
           ]
         );

@@ -3863,11 +3863,36 @@ const CERT_THEMES = [
   { id: "classic-ivory", name: "Classic Ivory", note: "Formal serif + double rule + lime seal — the winner design." },
 ];
 
+/* v6.35 — demo preview of one certificate theme (CSS-drawn stand-in for
+   the real PDF render, so the organizer sees the design before picking). */
+function CertDemo({ themeId, line }) {
+  const s = {
+    "light-clean": { bg: "#f7f7f4", border: "#d8d8d1", name: "#7665ff" },
+    minimal: { bg: "#ffffff", border: "#999999", name: "#111111" },
+    "classic-ivory": { bg: "#f5efdd", border: "#b09a5e", name: "#333333" },
+  }[themeId] || { bg: "#ffffff", border: "#999999", name: "#111111" };
+  return (
+    <div style={{ background: s.bg, border: `2px solid ${s.border}`, borderRadius: 8, padding: "14px 10px", textAlign: "center" }}>
+      <div style={{ display: "inline-block", background: "#090909", borderRadius: 6, padding: "5px 7px", marginBottom: 6 }}>
+        {["#ffffff", "#7665ff", "#8bcf19"].map((c) => (
+          <span key={c} style={{ display: "inline-block", width: 5, height: 16, background: c, transform: "skewX(-18deg)", marginRight: 3 }} />
+        ))}
+      </div>
+      <div style={{ fontWeight: 700, fontSize: 13 }}>CERTIFICATE</div>
+      <div style={{ fontSize: 12, color: "#555" }}>{line}</div>
+      <div style={{ fontSize: 12, color: "#888", marginTop: 6 }}>Awarded to</div>
+      <div style={{ fontWeight: 700, fontSize: 14, color: s.name }}>Student Name</div>
+      <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Demo preview</div>
+    </div>
+  );
+}
+
 function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
   const [issued, setIssued] = useState([]);
   const [teams, setTeams] = useState([]);
   const [students, setStudents] = useState([]);
-  const [theme, setTheme] = useState("light-clean");
+  const [partTheme, setPartTheme] = useState("light-clean");
+  const [placeThemes, setPlaceThemes] = useState({ 1: "classic-ivory", 2: "minimal", 3: "minimal" });
   const [winnerPicks, setWinnerPicks] = useState({ 1: "", 2: "", 3: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -3924,7 +3949,7 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
     try {
       const data = await apiFetch(`/certificates/hackathons/${hackathon.id}/issue-participation`, {
         method: "POST",
-        body: JSON.stringify({ theme }),
+        body: JSON.stringify({ theme: partTheme }),
       });
       setMessage(`Issued ${data?.issued ?? 0} participation certificates (${data?.already_had ?? 0} already had one). Saved in database: ${data?.persisted ?? "?"}.`);
       load();
@@ -3941,8 +3966,8 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
       .filter((place) => winnerPicks[place])
       .map((place) =>
         isQuiz
-          ? { user_id: winnerPicks[place], place }
-          : { team_id: winnerPicks[place], place }
+          ? { user_id: winnerPicks[place], place, theme: placeThemes[place] }
+          : { team_id: winnerPicks[place], place, theme: placeThemes[place] }
       );
     if (winners.length === 0) {
       setError(isQuiz ? "Pick at least one winning student first." : "Pick at least one winning team first.");
@@ -3954,7 +3979,7 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
     try {
       const data = await apiFetch(`/certificates/hackathons/${hackathon.id}/issue-winners`, {
         method: "POST",
-        body: JSON.stringify({ theme, winners }),
+        body: JSON.stringify({ theme: placeThemes[1], winners }),
       });
       setMessage(`Issued ${data?.issued ?? 0} winner certificates. Saved in database: ${data?.persisted ?? "?"}.`);
       load();
@@ -3977,23 +4002,31 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
   };
 
   return (
-    <Panel eyebrow="Certificates" title="Issue certificates" description={isQuiz ? "Participation goes to every student who submitted the quiz. Winners go to the students you pick below. Re-issuing is safe — nobody gets a duplicate." : "Pick a theme, then issue. Participation goes to every member of a team that submitted Round 1. Winners go to the teams you pick below. Re-issuing is safe — nobody gets a duplicate."} action={<Picker hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId} />}>
+    <Panel eyebrow="Certificates" title="Issue certificates" description={isQuiz ? "Participation goes to every student who submitted the quiz. Winners go to the students you pick below. Re-issuing is safe — nobody gets a duplicate." : "Pick a theme for each level, then issue. Participation goes to every member of a team that submitted Round 1. Winners go to the teams you pick below. Re-issuing is safe — nobody gets a duplicate."} action={<Picker hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId} />}>
       {error && <div className="form-error">{error}</div>}
       {message && <AlertBox type="success" message={message} onClose={() => setMessage("")} />}
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-        {CERT_THEMES.map((t) => (
-          <button
-            key={t.id}
-            className={theme === t.id ? "primary-btn small" : "outline-btn small"}
-            onClick={() => setTheme(t.id)}
-          >
-            {t.name}
-          </button>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
+        {[
+          { key: "part", level: "Participation", line: "Certificate of Participation", theme: partTheme, set: setPartTheme },
+          { key: 1, level: "1st place", line: "Winner · 1st Place", theme: placeThemes[1], set: (t) => setPlaceThemes((p) => ({ ...p, 1: t })) },
+          { key: 2, level: "2nd place", line: "Runner-up · 2nd Place", theme: placeThemes[2], set: (t) => setPlaceThemes((p) => ({ ...p, 2: t })) },
+          { key: 3, level: "3rd place", line: "3rd Place", theme: placeThemes[3], set: (t) => setPlaceThemes((p) => ({ ...p, 3: t })) },
+        ].map((card) => (
+          <div key={card.key} style={{ flex: "1 1 220px", border: "1px solid #d8d8d1", borderRadius: 12, padding: 12 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>{card.level}</div>
+            <CertDemo themeId={card.theme} line={card.line} />
+            <select className="org-select compact" value={card.theme} onChange={(e) => card.set(e.target.value)} style={{ width: "100%", marginTop: 10 }}>
+              {CERT_THEMES.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            <p style={{ fontSize: 12, color: "#666", marginTop: 6 }}>{CERT_THEMES.find((t) => t.id === card.theme)?.note}</p>
+          </div>
         ))}
       </div>
-      <p style={{ marginTop: -8, marginBottom: 20 }}>
-        {CERT_THEMES.find((t) => t.id === theme)?.note} The theme is saved on each certificate at issue time.
+      <p style={{ marginBottom: 20 }}>
+        Demo previews — pick a design for each level. The theme is saved on each certificate at issue time.
       </p>
 
       {isQuiz && (
