@@ -38,7 +38,7 @@ const FONTS = {
   Serif: path.join(ASSETS, "fonts", "DejaVuSerif.ttf"),
 };
 
-export const CERT_THEMES = ["sidebar", "constellation", "blueprint", "light-clean", "minimal", "classic-ivory"];
+export const CERT_THEMES = ["sidebar", "constellation", "blueprint", "light-clean", "minimal", "classic-ivory", "midnight-gold", "royal-purple", "ocean-blue", "emerald-classic", "rose-blush", "sunset-glow", "mono-grid", "forest-line", "crimson-award", "skyline-blue", "charcoal-lime", "teal-ribbon"];
 
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
@@ -379,6 +379,18 @@ const THEME_DRAWERS = {
   "light-clean": drawLightClean,
   minimal: drawMinimal,
   "classic-ivory": drawClassicIvory,
+  "midnight-gold": drawMidnightGold,
+  "royal-purple": drawRoyalPurple,
+  "ocean-blue": drawOceanBlue,
+  "emerald-classic": drawEmeraldClassic,
+  "rose-blush": drawRoseBlush,
+  "sunset-glow": drawSunsetGlow,
+  "mono-grid": drawMonoGrid,
+  "forest-line": drawForestLine,
+  "crimson-award": drawCrimsonAward,
+  "skyline-blue": drawSkylineBlue,
+  "charcoal-lime": drawCharcoalLime,
+  "teal-ribbon": drawTealRibbon,
 };
 
 /* ---------------- LIGHT CLEAN (quiz participation pick, 2026-10-30)
@@ -449,7 +461,6 @@ function drawMinimal(doc, W, H, d, qr) {
 /* ---------------- CLASSIC IVORY (quiz winner pick, 2026-10-30)
    Formal serif certificate: ivory + double rule + lime CC seal. */
 function drawClassicIvory(doc, W, H, d, qr) {
-  void qr;
   doc.fillColor("#fdf8ec").rect(0, 0, W, H).fill();
   doc.strokeColor("#5a4632").lineWidth(1.5);
   doc.rect(18, 18, W - 36, H - 36).stroke();
@@ -478,9 +489,85 @@ function drawClassicIvory(doc, W, H, d, qr) {
     doc.text(d.placeLine, 0, 404, { align: "center" });
   }
   drawSeal(doc, cx, 470, 30, "CC", "#8a6f3c", "#a8e62e", "#111111");
+  drawQr(doc, 56, H - 110, qr, 56, d.code, "#786446");
   doc.font("DMMono").fontSize(8).fillColor("#786446");
   doc.text(`${d.code}  \u00b7  campuscode.co.in`, 0, H - 40, { align: "center" });
 }
+
+/* ---------------- v6.36 — 12 extra demo themes (organizer picker) --
+   One shared layout engine; each theme is just a palette + layout.
+   Center layout mirrors Light Clean; left layout mirrors Minimal. */
+function drawSimpleTheme(doc, W, H, d, qr, o) {
+  const cx = W / 2;
+  doc.fillColor(o.bg).rect(0, 0, W, H).fill();
+  if (o.grid) {
+    doc.strokeColor(o.grid).lineWidth(0.5);
+    for (let gx = 0; gx <= W; gx += 28) doc.moveTo(gx, 0).lineTo(gx, H).stroke();
+    for (let gy = 0; gy <= H; gy += 28) doc.moveTo(0, gy).lineTo(W, gy).stroke();
+  }
+  if (o.barLeft) doc.fillColor(o.barLeft).rect(0, 0, 12, H).fill();
+  if (o.bandTop) doc.fillColor(o.bandTop).rect(0, 0, W, 14).fill();
+  doc.strokeColor(o.frame).lineWidth(2);
+  doc.rect(18, 18, W - 36, H - 36).stroke();
+  if (o.frameInner) {
+    doc.strokeColor(o.frameInner).lineWidth(0.75);
+    doc.rect(28, 28, W - 56, H - 56).stroke();
+  }
+  if (o.layout === "left") {
+    doc.image(LOGO_CORRECTED, 56, 44, { width: 72, height: 72 });
+    doc.font("DMMono").fontSize(12).fillColor(o.titleColor);
+    doc.text("CAMPUSCODE", 144, 66);
+    doc.font("DMMono").fontSize(8).fillColor(o.subColor);
+    doc.text("VERIFIED CERTIFICATE", 144, 86);
+    doc.font(o.titleFont).fontSize(44).fillColor(o.titleColor);
+    doc.text(d.title, 56, 170, { width: 560 });
+    doc.strokeColor(o.accent).lineWidth(4);
+    doc.moveTo(56, 292).lineTo(140, 292).stroke();
+    doc.font("InterBlack").fontSize(40).fillColor(o.nameColor);
+    doc.text(d.holderName, 56, 312, { width: 560 });
+    doc.font("InterBold").fontSize(14).fillColor(o.titleColor);
+    doc.text(d.hackathonTitle, 56, 372, { width: 560 });
+    doc.font("InterBold").fontSize(13).fillColor(o.subColor);
+    doc.text(d.placeLine ? `${d.eventDate} · ${d.placeLine}` : d.eventDate, 56, 396, { width: 560 });
+  } else {
+    doc.image(LOGO_CORRECTED, cx - 40, 52, { width: 80, height: 80 });
+    doc.font("DMMono").fontSize(10).fillColor(o.subColor);
+    doc.text("CAMPUSCODE", 0, 148, { align: "center" });
+    doc.font(o.titleFont).fontSize(40).fillColor(o.titleColor);
+    doc.text(d.title, 0, 182, { align: "center" });
+    doc.strokeColor(o.accent).lineWidth(3);
+    doc.moveTo(cx - 60, 242).lineTo(cx + 60, 242).stroke();
+    doc.font("InterBold").fontSize(13).fillColor(o.subColor);
+    doc.text(o.presented, 0, 262, { align: "center" });
+    doc.font("InterBlack").fontSize(50).fillColor(o.nameColor);
+    doc.text(d.holderName, 0, 292, { align: "center" });
+    const action = d.placeLine ? `for winning the ${d.hackathonTitle}` : `for participating in the ${d.hackathonTitle}`;
+    doc.font("InterBold").fontSize(14).fillColor(o.titleColor);
+    doc.text(action, 0, 366, { align: "center" });
+    doc.text(`held on ${d.eventDate}`, 0, 390, { align: "center" });
+    if (d.placeLine) {
+      doc.font("InterBold").fontSize(13).fillColor(o.accent);
+      doc.text(d.placeLine, 0, 414, { align: "center" });
+    }
+    if (o.seal) drawSeal(doc, cx, 470, 30, "CC", o.seal.ring, o.seal.fill, o.seal.txt);
+  }
+  if (o.qr === "right") drawQr(doc, W - 300, H - 154, qr, 64, d.code, o.subColor);
+  else drawQr(doc, 56, H - 110, qr, 56, d.code, o.subColor);
+  drawFooter(doc, W, H, d.code, o.subColor);
+}
+
+function drawMidnightGold(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#111111", frame: "#d4af37", frameInner: "#8a6f3c", layout: "center", titleFont: "InterBlack", titleColor: "#f5f5f5", nameColor: "#d4af37", subColor: "#bbbbbb", accent: "#d4af37", presented: "This certificate is proudly presented to", qr: "right", seal: { ring: "#d4af37", fill: "#d4af37", txt: "#111111" } }); }
+function drawRoyalPurple(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#2d1b4e", frame: "#a8e62e", layout: "left", titleFont: "InterBlack", titleColor: "#ffffff", nameColor: "#a8e62e", subColor: "#c9b8e8", accent: "#a8e62e", qr: "left" }); }
+function drawOceanBlue(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#1e4e79", frame: "#7fb3d5", layout: "center", titleFont: "InterBlack", titleColor: "#ffffff", nameColor: "#bcd6ea", subColor: "#9db8d2", accent: "#7fb3d5", presented: "This certificate is proudly presented to", qr: "right" }); }
+function drawEmeraldClassic(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#0d3b2e", frame: "#d4af37", frameInner: "#8a6f3c", layout: "center", titleFont: "SerifBold", titleColor: "#f5f0e1", nameColor: "#d4af37", subColor: "#9db8a8", accent: "#d4af37", presented: "This is to certify that", qr: "left", seal: { ring: "#d4af37", fill: "#d4af37", txt: "#0d3b2e" } }); }
+function drawRoseBlush(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#fdecef", frame: "#e8a0b4", layout: "center", titleFont: "SerifBold", titleColor: "#5a2a35", nameColor: "#b03a5b", subColor: "#8a6a72", accent: "#e8a0b4", presented: "This is to certify that", qr: "right" }); }
+function drawSunsetGlow(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#fff1e0", bandTop: "#e8913a", frame: "#e8913a", layout: "left", titleFont: "InterBlack", titleColor: "#7a3b00", nameColor: "#e8913a", subColor: "#8a6a52", accent: "#e8913a", qr: "left" }); }
+function drawMonoGrid(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#f7f7f4", grid: "#e8e8e0", frame: "#333333", layout: "left", titleFont: "InterBlack", titleColor: "#111111", nameColor: "#7665ff", subColor: "#777770", accent: "#a8e62e", qr: "right" }); }
+function drawForestLine(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#f2f5e9", frame: "#3e6b34", frameInner: "#6a8a5a", layout: "center", titleFont: "SerifBold", titleColor: "#1e3d1a", nameColor: "#3e6b34", subColor: "#6a7a5e", accent: "#3e6b34", presented: "This is to certify that", qr: "left", seal: { ring: "#3e6b34", fill: "#3e6b34", txt: "#ffffff" } }); }
+function drawCrimsonAward(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#5c0a0a", frame: "#d4af37", layout: "center", titleFont: "InterBlack", titleColor: "#fff5f5", nameColor: "#d4af37", subColor: "#c9a0a0", accent: "#d4af37", presented: "This certificate is proudly presented to", qr: "right", seal: { ring: "#d4af37", fill: "#d4af37", txt: "#5c0a0a" } }); }
+function drawSkylineBlue(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#dbeafe", frame: "#1e4e79", layout: "left", titleFont: "InterBlack", titleColor: "#16324f", nameColor: "#1e4e79", subColor: "#5a7a9a", accent: "#1e4e79", qr: "left" }); }
+function drawCharcoalLime(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#262626", barLeft: "#a8e62e", frame: "#a8e62e", layout: "left", titleFont: "InterBlack", titleColor: "#f5f5f5", nameColor: "#a8e62e", subColor: "#aaaaaa", accent: "#a8e62e", qr: "right" }); }
+function drawTealRibbon(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#0f5257", bandTop: "#ffffff", frame: "#ffffff", layout: "center", titleFont: "InterBlack", titleColor: "#ffffff", nameColor: "#a8e62e", subColor: "#9db8ba", accent: "#a8e62e", presented: "This certificate is proudly presented to", qr: "left" }); }
 
 /**
  * Render one certificate PDF.

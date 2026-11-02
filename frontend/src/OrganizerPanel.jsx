@@ -3861,16 +3861,40 @@ const CERT_THEMES = [
   { id: "light-clean", name: "Light Clean", note: "Landing off-white + grid, purple name — the participation design." },
   { id: "minimal", name: "Minimal", note: "White + lime edge bar + ghost place numeral — the runner-up design." },
   { id: "classic-ivory", name: "Classic Ivory", note: "Formal serif + double rule + lime seal — the winner design." },
+  { id: "midnight-gold", name: "Midnight Gold", note: "Black + gold border + gold seal — formal dark." },
+  { id: "royal-purple", name: "Royal Purple", note: "Deep purple + lime accents." },
+  { id: "ocean-blue", name: "Ocean Blue", note: "Deep blue + light border." },
+  { id: "emerald-classic", name: "Emerald Classic", note: "Deep green + gold border + seal." },
+  { id: "rose-blush", name: "Rose Blush", note: "Soft pink + rose border." },
+  { id: "sunset-glow", name: "Sunset Glow", note: "Warm peach + orange top band." },
+  { id: "mono-grid", name: "Mono Grid", note: "Off-white + dark grid, mono labels." },
+  { id: "forest-line", name: "Forest Line", note: "Cream + green double border + seal." },
+  { id: "crimson-award", name: "Crimson Award", note: "Deep red + gold border + seal." },
+  { id: "skyline-blue", name: "Skyline Blue", note: "Light blue + navy border." },
+  { id: "charcoal-lime", name: "Charcoal Lime", note: "Charcoal + lime edge bar." },
+  { id: "teal-ribbon", name: "Teal Ribbon", note: "Teal + white top band." },
 ];
 
 /* v6.35 — demo preview of one certificate theme (CSS-drawn stand-in for
    the real PDF render, so the organizer sees the design before picking). */
 function CertDemo({ themeId, line }) {
   const s = {
-    "light-clean": { bg: "#f7f7f4", border: "#d8d8d1", name: "#7665ff" },
-    minimal: { bg: "#ffffff", border: "#999999", name: "#111111" },
-    "classic-ivory": { bg: "#f5efdd", border: "#b09a5e", name: "#333333" },
-  }[themeId] || { bg: "#ffffff", border: "#999999", name: "#111111" };
+    "light-clean": { bg: "#f7f7f4", border: "#d8d8d1", name: "#7665ff", ink: "#111111", sub: "#555555", muted: "#888888" },
+    minimal: { bg: "#ffffff", border: "#999999", name: "#111111", ink: "#111111", sub: "#555555", muted: "#888888" },
+    "classic-ivory": { bg: "#f5efdd", border: "#b09a5e", name: "#333333", ink: "#111111", sub: "#555555", muted: "#888888" },
+    "midnight-gold": { bg: "#111111", border: "#d4af37", name: "#d4af37", ink: "#f5f5f5", sub: "#bbbbbb", muted: "#999999" },
+    "royal-purple": { bg: "#2d1b4e", border: "#a8e62e", name: "#a8e62e", ink: "#ffffff", sub: "#c9b8e8", muted: "#9a86c8" },
+    "ocean-blue": { bg: "#1e4e79", border: "#7fb3d5", name: "#bcd6ea", ink: "#ffffff", sub: "#9db8d2", muted: "#7a9ab5" },
+    "emerald-classic": { bg: "#0d3b2e", border: "#d4af37", name: "#d4af37", ink: "#f5f0e1", sub: "#9db8a8", muted: "#7a9a88" },
+    "rose-blush": { bg: "#fdecef", border: "#e8a0b4", name: "#b03a5b", ink: "#5a2a35", sub: "#8a6a72", muted: "#a08a90" },
+    "sunset-glow": { bg: "#fff1e0", border: "#e8913a", name: "#e8913a", ink: "#7a3b00", sub: "#8a6a52", muted: "#a08a72" },
+    "mono-grid": { bg: "#f7f7f4", border: "#333333", name: "#7665ff", ink: "#111111", sub: "#555555", muted: "#888888" },
+    "forest-line": { bg: "#f2f5e9", border: "#3e6b34", name: "#3e6b34", ink: "#1e3d1a", sub: "#6a7a5e", muted: "#8a9a7e" },
+    "crimson-award": { bg: "#5c0a0a", border: "#d4af37", name: "#d4af37", ink: "#fff5f5", sub: "#c9a0a0", muted: "#a88080" },
+    "skyline-blue": { bg: "#dbeafe", border: "#1e4e79", name: "#1e4e79", ink: "#16324f", sub: "#5a7a9a", muted: "#7a9ab5" },
+    "charcoal-lime": { bg: "#262626", border: "#a8e62e", name: "#a8e62e", ink: "#f5f5f5", sub: "#aaaaaa", muted: "#888888" },
+    "teal-ribbon": { bg: "#0f5257", border: "#ffffff", name: "#a8e62e", ink: "#ffffff", sub: "#9db8ba", muted: "#7a9aa0" },
+  }[themeId] || { bg: "#ffffff", border: "#999999", name: "#111111", ink: "#111111", sub: "#555555", muted: "#888888" };
   return (
     <div style={{ background: s.bg, border: `2px solid ${s.border}`, borderRadius: 8, padding: "14px 10px", textAlign: "center" }}>
       <div style={{ display: "inline-block", background: "#090909", borderRadius: 6, padding: "5px 7px", marginBottom: 6 }}>
@@ -3878,11 +3902,11 @@ function CertDemo({ themeId, line }) {
           <span key={c} style={{ display: "inline-block", width: 5, height: 16, background: c, transform: "skewX(-18deg)", marginRight: 3 }} />
         ))}
       </div>
-      <div style={{ fontWeight: 700, fontSize: 13 }}>CERTIFICATE</div>
-      <div style={{ fontSize: 12, color: "#555" }}>{line}</div>
-      <div style={{ fontSize: 12, color: "#888", marginTop: 6 }}>Awarded to</div>
+      <div style={{ fontWeight: 700, fontSize: 13, color: s.ink }}>CERTIFICATE</div>
+      <div style={{ fontSize: 12, color: s.sub }}>{line}</div>
+      <div style={{ fontSize: 12, color: s.muted, marginTop: 6 }}>Awarded to</div>
       <div style={{ fontWeight: 700, fontSize: 14, color: s.name }}>Student Name</div>
-      <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Demo preview</div>
+      <div style={{ fontSize: 11, color: s.muted, marginTop: 4 }}>Demo preview</div>
     </div>
   );
 }
