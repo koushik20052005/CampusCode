@@ -3877,7 +3877,7 @@ const CERT_THEMES = [
 
 /* v6.35 — demo preview of one certificate theme (CSS-drawn stand-in for
    the real PDF render, so the organizer sees the design before picking). */
-function CertDemo({ themeId, line }) {
+function CertDemo({ themeId, line, place }) {
   const s = {
     "light-clean": { bg: "#f7f7f4", border: "#d8d8d1", name: "#7665ff", ink: "#111111", sub: "#555555", muted: "#888888" },
     minimal: { bg: "#ffffff", border: "#999999", name: "#111111", ink: "#111111", sub: "#555555", muted: "#888888" },
@@ -3896,7 +3896,10 @@ function CertDemo({ themeId, line }) {
     "teal-ribbon": { bg: "#0f5257", border: "#ffffff", name: "#a8e62e", ink: "#ffffff", sub: "#9db8ba", muted: "#7a9aa0" },
   }[themeId] || { bg: "#ffffff", border: "#999999", name: "#111111", ink: "#111111", sub: "#555555", muted: "#888888" };
   return (
-    <div style={{ background: s.bg, border: `2px solid ${s.border}`, borderRadius: 8, padding: "14px 10px", textAlign: "center" }}>
+    <div style={{ background: s.bg, border: `2px solid ${s.border}`, borderRadius: 8, padding: "14px 10px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+      {themeId === "minimal" && place ? (
+        <span style={{ position: "absolute", right: 6, top: 30, fontSize: 64, fontWeight: 900, color: "#f0f0ec", lineHeight: 1 }}>{place}</span>
+      ) : null}
       <div style={{ display: "inline-block", background: "#090909", borderRadius: 6, padding: "5px 7px", marginBottom: 6 }}>
         {["#ffffff", "#7665ff", "#8bcf19"].map((c) => (
           <span key={c} style={{ display: "inline-block", width: 5, height: 16, background: c, transform: "skewX(-18deg)", marginRight: 3 }} />
@@ -4039,7 +4042,7 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
         ].map((card) => (
           <div key={card.key} style={{ flex: "1 1 220px", border: "1px solid #d8d8d1", borderRadius: 12, padding: 12 }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>{card.level}</div>
-            <CertDemo themeId={card.theme} line={card.line} />
+            <CertDemo themeId={card.theme} line={card.line} place={card.key === "part" ? null : card.key} />
             <select className="org-select compact" value={card.theme} onChange={(e) => card.set(e.target.value)} style={{ width: "100%", marginTop: 10 }}>
               {CERT_THEMES.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
