@@ -117,6 +117,7 @@ export async function verifyCertificate(req, res) {
         c.type,
         c.place,
         c.theme,
+        c.partner_logo,
         c.issued_at,
         u.name AS holder_name,
         h.title AS hackathon_title
@@ -178,6 +179,7 @@ export async function listMyCertificates(req, res) {
         c.type,
         c.place,
         c.theme,
+        c.partner_logo,
         c.code,
         c.issued_at
 
@@ -231,6 +233,7 @@ export async function listHackathonCertificates(req, res) {
         c.type,
         c.place,
         c.theme,
+        c.partner_logo,
         c.code,
         c.issued_at
 
@@ -278,6 +281,7 @@ export async function issueParticipation(req, res) {
     if (!hackathon) return;
 
     const theme = validTheme(req.body?.theme);
+    const partnerLogo = req.body?.partnerLogo === true;
 
     /* Quiz events have no teams and no Round 1: eligibility is
        every student with a SUBMITTED attempt for this quiz. */
@@ -329,13 +333,13 @@ export async function issueParticipation(req, res) {
       const inserted = await pool.query(
         `
         INSERT INTO certificates (
-          hackathon_id, team_id, user_id, type, theme, code
+          hackathon_id, team_id, user_id, type, theme, partner_logo, code
         )
-        VALUES ($1, $2, $3, 'PARTICIPATION', $4, $5)
+        VALUES ($1, $2, $3, 'PARTICIPATION', $4, $5, $6)
         ON CONFLICT (hackathon_id, user_id, type) DO NOTHING
         RETURNING id
         `,
-        [hackathon.id, rows[i].team_id, rows[i].user_id, theme, codes[i]]
+        [hackathon.id, rows[i].team_id, rows[i].user_id, theme, partnerLogo, codes[i]]
       );
       if (inserted.rows.length > 0) insertedUserIds.push(rows[i].user_id);
     }
@@ -362,6 +366,7 @@ export async function issueParticipation(req, res) {
       already_had: rows.length - insertedUserIds.length,
       persisted: persistedResult.rows[0]?.n ?? 0,
       theme,
+      partnerLogo,
     });
   } catch (error) {
     console.error("ISSUE PARTICIPATION ERROR:", error);
@@ -386,6 +391,7 @@ export async function issueWinners(req, res) {
     if (!hackathon) return;
 
     const theme = validTheme(req.body?.theme);
+    const partnerLogo = req.body?.partnerLogo === true;
     const themeFor = (w) => (w.theme ? validTheme(w.theme) : theme);
     const winners = Array.isArray(req.body?.winners) ? req.body.winners : [];
 
@@ -446,13 +452,13 @@ export async function issueWinners(req, res) {
         const inserted = await pool.query(
           `
           INSERT INTO certificates (
-            hackathon_id, team_id, user_id, type, place, theme, code
+            hackathon_id, team_id, user_id, type, place, theme, partner_logo, code
           )
-          VALUES ($1, NULL, $2, 'WINNER', $3, $4, $5)
+          VALUES ($1, NULL, $2, 'WINNER', $3, $4, $5, $6)
           ON CONFLICT (hackathon_id, user_id, type) DO NOTHING
           RETURNING id
           `,
-          [hackathon.id, winner.user_id, winner.place, themeFor(winner), codes[0]]
+          [hackathon.id, winner.user_id, winner.place, themeFor(winner), partnerLogo, codes[0]]
         );
         if (inserted.rows.length > 0) insertedUserIds.push(winner.user_id);
       }
@@ -508,9 +514,9 @@ export async function issueWinners(req, res) {
         const inserted = await pool.query(
           `
           INSERT INTO certificates (
-            hackathon_id, team_id, user_id, type, place, theme, code
+            hackathon_id, team_id, user_id, type, place, theme, partner_logo, code
           )
-          VALUES ($1, $2, $3, 'WINNER', $4, $5, $6)
+          VALUES ($1, $2, $3, 'WINNER', $4, $5, $6, $7)
           ON CONFLICT (hackathon_id, user_id, type) DO NOTHING
           RETURNING id
           `,
@@ -520,6 +526,7 @@ export async function issueWinners(req, res) {
             members.rows[i].user_id,
             winner.place,
             themeFor(winner),
+            partnerLogo,
             codes[i],
           ]
         );
@@ -549,6 +556,7 @@ export async function issueWinners(req, res) {
       issued: insertedUserIds.length,
       persisted: persistedResult.rows[0]?.n ?? 0,
       theme,
+      partnerLogo,
     });
   } catch (error) {
     console.error("ISSUE WINNERS ERROR:", error);
@@ -575,6 +583,7 @@ export async function downloadCertificate(req, res) {
         c.type,
         c.place,
         c.theme,
+        c.partner_logo,
         c.issued_at,
         c.user_id,
         u.name AS holder_name,
@@ -635,6 +644,7 @@ export async function downloadCertificate(req, res) {
       type: cert.type,
       place: cert.place,
       theme: cert.theme,
+      partnerLogo: !!cert.partner_logo,
     });
 
     res.setHeader("Content-Type", "application/pdf");

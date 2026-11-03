@@ -27,7 +27,8 @@ const ASSETS = path.join(__dirname, "..", "assets");
 const LOGO = path.join(ASSETS, "campuscode-logo.png");
 // Corrected render: slash center = tile center, verified 0.0px off.
 // All NEW themes use this; the old themes keep LOGO untouched.
-const LOGO_CORRECTED = path.join(ASSETS, "campuscode-logo-corrected.png");
+const LOGO_BARS = path.join(ASSETS, "campuscode-logo-bars.png");
+const PARTNER_LOGO = path.join(ASSETS, "adaption-logo.png");
 
 const FONTS = {
   InterBlack: path.join(ASSETS, "fonts", "Inter-Black.ttf"),
@@ -401,8 +402,9 @@ function drawLightClean(doc, W, H, d, qr) {
   for (let gx = 0; gx <= W; gx += 28) doc.moveTo(gx, 0).lineTo(gx, H).stroke();
   for (let gy = 0; gy <= H; gy += 28) doc.moveTo(0, gy).lineTo(W, gy).stroke();
   doc.fillColor("#a8e62e").rect(0, 0, W, 7).fill();
+  drawDiagonalTexture(doc, W, H, "#e8e8e0");
   const cx = W / 2;
-  doc.image(LOGO_CORRECTED, cx - 40, 62, { width: 80, height: 80 });
+  doc.image(LOGO_BARS, cx - 35, 80, { width: 70, height: 58 });
   doc.font("DMMono").fontSize(10).fillColor("#777770");
   doc.text("CAMPUSCODE", 0, 158, { align: "center" });
   doc.font("InterBlack").fontSize(40).fillColor("#111111");
@@ -411,7 +413,7 @@ function drawLightClean(doc, W, H, d, qr) {
   doc.moveTo(cx - 60, 248).lineTo(cx + 60, 248).stroke();
   doc.font("InterBold").fontSize(13).fillColor("#777770");
   doc.text("This certificate is proudly presented to", 0, 268, { align: "center" });
-  doc.font("InterBlack").fontSize(52).fillColor("#7665ff");
+  doc.font("InterBlack").fontSize(44).fillColor("#7665ff");
   doc.text(d.holderName, 0, 296, { align: "center" });
   const action = d.placeLine
     ? `for winning the ${d.hackathonTitle}`
@@ -423,6 +425,8 @@ function drawLightClean(doc, W, H, d, qr) {
     doc.font("InterBold").fontSize(13).fillColor("#7665ff");
     doc.text(d.placeLine, 0, 418, { align: "center" });
   }
+  doc.font("DMMono").fontSize(8.5).fillColor("#777770");
+  doc.text("BUILDING REAL PRODUCTS, NOT JUST PROJECTS", 0, d.placeLine ? 444 : 430, { align: "center" });
   drawSignature(doc, cx - 80, H - 130, "CampusCode Team", "HACKATHON ORGANIZER", "#777770", "#111111");
   drawQr(doc, W - 300, H - 154, qr, 64, d.code, "#777770");
   drawFooter(doc, W, H, d.code, "#777770");
@@ -433,11 +437,12 @@ function drawLightClean(doc, W, H, d, qr) {
 function drawMinimal(doc, W, H, d, qr) {
   doc.fillColor("#ffffff").rect(0, 0, W, H).fill();
   doc.fillColor("#a8e62e").rect(0, 0, 12, H).fill();
-  doc.image(LOGO_CORRECTED, 56, 44, { width: 72, height: 72 });
+  drawDotGrid(doc, W, H, "#e9e9e4");
+  doc.image(LOGO_BARS, 56, 44, { width: 66, height: 55 });
   doc.font("DMMono").fontSize(12).fillColor("#111111");
-  doc.text("CAMPUSCODE", 144, 66);
+  doc.text("CAMPUSCODE", 134, 66);
   doc.font("DMMono").fontSize(8).fillColor("#777770");
-  doc.text("VERIFIED CERTIFICATE", 144, 86);
+  doc.text("VERIFIED CERTIFICATE", 134, 86);
   if (d.place) {
     doc.save();
     doc.fillColor("#f2f2ee").fillOpacity(1);
@@ -449,12 +454,20 @@ function drawMinimal(doc, W, H, d, qr) {
   doc.text(d.title, 56, 170, { width: 560 });
   doc.strokeColor("#a8e62e").lineWidth(4);
   doc.moveTo(56, 292).lineTo(140, 292).stroke();
-  doc.font("InterBlack").fontSize(40).fillColor("#7665ff");
+  doc.font("InterBlack").fontSize(36).fillColor("#7665ff");
   doc.text(d.holderName, 56, 312, { width: 560 });
   doc.font("InterBold").fontSize(14).fillColor("#111111");
   doc.text(d.hackathonTitle, 56, 372, { width: 560 });
   doc.font("InterBold").fontSize(13).fillColor("#777770");
   doc.text(d.placeLine ? `${d.eventDate}  \u00b7  ${d.placeLine}` : d.eventDate, 56, 396, { width: 560 });
+  doc.font("DMMono").fontSize(8.5).fillColor("#777770");
+  doc.text("BUILDING REAL PRODUCTS, NOT JUST PROJECTS", 56, 440, { width: 560 });
+  doc.save();
+  doc.fillColor("#e8e8e0").font("DMMono").fontSize(8);
+  doc.translate(W - 24, H - 120);
+  doc.rotate(-90);
+  doc.text("CAMPUSCODE  ·  BUILDING REAL PRODUCTS, NOT JUST PROJECTS", 0, 0);
+  doc.restore();
   drawQr(doc, 56, H - 110, qr, 56, d.code, "#777770");
 }
 
@@ -467,7 +480,7 @@ function drawClassicIvory(doc, W, H, d, qr) {
   doc.strokeColor("#b4a078").lineWidth(0.75);
   doc.rect(28, 28, W - 56, H - 56).stroke();
   const cx = W / 2;
-  doc.image(LOGO_CORRECTED, cx - 35, 52, { width: 70, height: 70 });
+  doc.image(LOGO_BARS, cx - 33, 62, { width: 66, height: 55 });
   doc.font("DMMono").fontSize(10).fillColor("#786446");
   doc.text("CAMPUSCODE", 0, 136, { align: "center" });
   doc.font("SerifBold").fontSize(44).fillColor("#1e1810");
@@ -476,7 +489,7 @@ function drawClassicIvory(doc, W, H, d, qr) {
   doc.moveTo(cx - 75, 232).lineTo(cx + 75, 232).stroke();
   doc.font("Serif").fontSize(14).fillColor("#5a4c36");
   doc.text("This is to certify that", 0, 252, { align: "center" });
-  doc.font("SerifBold").fontSize(52).fillColor("#1e1810");
+  doc.font("SerifBold").fontSize(46).fillColor("#1e1810");
   doc.text(d.holderName, 0, 282, { align: "center" });
   const action = d.placeLine
     ? `has won the ${d.hackathonTitle}`
@@ -488,7 +501,6 @@ function drawClassicIvory(doc, W, H, d, qr) {
     doc.font("SerifBold").fontSize(14).fillColor("#5a4632");
     doc.text(d.placeLine, 0, 404, { align: "center" });
   }
-  drawSeal(doc, cx, 470, 30, "CC", "#8a6f3c", "#a8e62e", "#111111");
   drawQr(doc, 56, H - 110, qr, 56, d.code, "#786446");
   doc.font("DMMono").fontSize(8).fillColor("#786446");
   doc.text(`${d.code}  \u00b7  campuscode.co.in`, 0, H - 40, { align: "center" });
@@ -514,23 +526,23 @@ function drawSimpleTheme(doc, W, H, d, qr, o) {
     doc.rect(28, 28, W - 56, H - 56).stroke();
   }
   if (o.layout === "left") {
-    doc.image(LOGO_CORRECTED, 56, 44, { width: 72, height: 72 });
+    doc.image(LOGO_BARS, 56, 44, { width: 66, height: 55 });
     doc.font("DMMono").fontSize(12).fillColor(o.titleColor);
-    doc.text("CAMPUSCODE", 144, 66);
+    doc.text("CAMPUSCODE", 134, 66);
     doc.font("DMMono").fontSize(8).fillColor(o.subColor);
-    doc.text("VERIFIED CERTIFICATE", 144, 86);
+    doc.text("VERIFIED CERTIFICATE", 134, 86);
     doc.font(o.titleFont).fontSize(44).fillColor(o.titleColor);
     doc.text(d.title, 56, 170, { width: 560 });
     doc.strokeColor(o.accent).lineWidth(4);
     doc.moveTo(56, 292).lineTo(140, 292).stroke();
-    doc.font("InterBlack").fontSize(40).fillColor(o.nameColor);
+    doc.font("InterBlack").fontSize(36).fillColor(o.nameColor);
     doc.text(d.holderName, 56, 312, { width: 560 });
     doc.font("InterBold").fontSize(14).fillColor(o.titleColor);
     doc.text(d.hackathonTitle, 56, 372, { width: 560 });
     doc.font("InterBold").fontSize(13).fillColor(o.subColor);
     doc.text(d.placeLine ? `${d.eventDate} · ${d.placeLine}` : d.eventDate, 56, 396, { width: 560 });
   } else {
-    doc.image(LOGO_CORRECTED, cx - 40, 52, { width: 80, height: 80 });
+    doc.image(LOGO_BARS, cx - 35, 70, { width: 70, height: 58 });
     doc.font("DMMono").fontSize(10).fillColor(o.subColor);
     doc.text("CAMPUSCODE", 0, 148, { align: "center" });
     doc.font(o.titleFont).fontSize(40).fillColor(o.titleColor);
@@ -539,7 +551,7 @@ function drawSimpleTheme(doc, W, H, d, qr, o) {
     doc.moveTo(cx - 60, 242).lineTo(cx + 60, 242).stroke();
     doc.font("InterBold").fontSize(13).fillColor(o.subColor);
     doc.text(o.presented, 0, 262, { align: "center" });
-    doc.font("InterBlack").fontSize(50).fillColor(o.nameColor);
+    doc.font("InterBlack").fontSize(44).fillColor(o.nameColor);
     doc.text(d.holderName, 0, 292, { align: "center" });
     const action = d.placeLine ? `for winning the ${d.hackathonTitle}` : `for participating in the ${d.hackathonTitle}`;
     doc.font("InterBold").fontSize(14).fillColor(o.titleColor);
@@ -569,10 +581,63 @@ function drawSkylineBlue(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, {
 function drawCharcoalLime(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#262626", barLeft: "#a8e62e", frame: "#a8e62e", layout: "left", titleFont: "InterBlack", titleColor: "#f5f5f5", nameColor: "#a8e62e", subColor: "#aaaaaa", accent: "#a8e62e", qr: "right" }); }
 function drawTealRibbon(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#0f5257", bandTop: "#ffffff", frame: "#ffffff", layout: "center", titleFont: "InterBlack", titleColor: "#ffffff", nameColor: "#a8e62e", subColor: "#9db8ba", accent: "#a8e62e", presented: "This certificate is proudly presented to", qr: "left" }); }
 
+
+/* ---------------- v6.46 — partner logo strip (Adaption)
+   Centered white pill: "IN PARTNERSHIP WITH" + Adaption wordmark.
+   Drawn AFTER the theme drawer so it sits on top of every theme.
+   yTop = top edge of the pill. */
+function drawPartnerStrip(doc, W, H, yTop) {
+  const cx = W / 2;
+  const label = "IN PARTNERSHIP WITH";
+  doc.font("DMMono").fontSize(8).fillColor("#777770");
+  const labelW = doc.widthOfString(label);
+  const logoH = 24;
+  const logoW = (logoH * 571) / 138;
+  const gap = 8;
+  const pad = 10;
+  const pillW = pad + labelW + gap + logoW + pad;
+  const pillH = 36;
+  const x = cx - pillW / 2;
+  doc.fillColor("#ffffff");
+  doc.roundedRect(x, yTop, pillW, pillH, 15).fill();
+  doc.strokeColor("#e8e8e0").lineWidth(0.75);
+  doc.roundedRect(x, yTop, pillW, pillH, 15).stroke();
+  doc.font("DMMono").fontSize(8).fillColor("#777770");
+  doc.text(label, x + pad, yTop + 13);
+  doc.image(PARTNER_LOGO, x + pad + labelW + gap, yTop + 6, { width: logoW, height: logoH });
+}
+
+
+
+/* ---------------- v6.47 — diagonal hairline texture (LC + Minimal)
+   Full-page "/" hairlines in a near-background tone: fills the empty
+   background like certificate security paper, without crossing text
+   the way the big slash watermark did. Drawn right after the bg fill. */
+function drawDotGrid(doc, W, H, color) {
+  doc.save();
+  doc.fillColor(color);
+  for (let x = 14; x <= W; x += 28) {
+    for (let y = 14; y <= H; y += 28) {
+      doc.circle(x, y, 1.3).fill();
+    }
+  }
+  doc.restore();
+}
+
+function drawDiagonalTexture(doc, W, H, color) {
+  doc.save();
+  doc.strokeColor(color).lineWidth(0.5);
+  for (let x = -H; x <= W; x += 26) {
+    doc.moveTo(x, H).lineTo(x + H, 0).stroke();
+  }
+  doc.restore();
+}
+
 /**
  * Render one certificate PDF.
  * cert: { holderName, college, hackathonTitle, teamName, track,
- *         eventDate (already formatted), code, type, place, theme }
+ *         eventDate (already formatted), code, type, place, theme,
+ *         partnerLogo (boolean) }
  * Returns a Buffer with the PDF bytes.
  */
 export async function renderCertificatePdf(cert) {
@@ -595,6 +660,11 @@ export async function renderCertificatePdf(cert) {
   const W = 841.89;
   const H = 595.28;
   THEME_DRAWERS[theme](doc, W, H, d, qr);
+  /* v6.46: partner strip on top of every theme except blueprint,
+     whose bottom black band + centered signature leave no room. */
+  if (cert.partnerLogo && theme !== "blueprint") {
+    drawPartnerStrip(doc, W, H, theme === "classic-ivory" ? H - 110 : H - 72);
+  }
   doc.end();
   await done;
   return Buffer.concat(chunks);
