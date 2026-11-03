@@ -230,11 +230,11 @@ function OrganizerPanel({
   const stats = dashboard?.stats || {};
 
   // Quiz Manager (v6.22, extended v6.23): a selected quiz has no
-  // rounds, teams, round submissions or round results — bounce the
+  // rounds, round submissions or round results — bounce the
   // organizer to Quiz Manager instead of leaving them on a dead
   // section. Certificates is quiz-aware since v6.26, so it stays.
   useEffect(() => {
-    if (selected?.event_type === "quiz" && ["rounds", "invite-codes", "teams", "submissions", "result-request", "leaderboard"].includes(section)) {
+    if (selected?.event_type === "quiz" && ["rounds", "submissions", "result-request", "leaderboard"].includes(section)) {
       navigate("quiz-manager");
     }
   }, [selected?.event_type, section]);
@@ -376,8 +376,8 @@ function OrganizerPanel({
                 />
               )}
 
-              {section === "invite-codes" && selected?.event_type !== "quiz" && (
-                <InviteCodes hackathon={selected} hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId} onRefresh={load} />
+              {section === "invite-codes" && (
+                <InviteCodes hackathon={selected?.event_type === "quiz" ? null : selected} hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId} onRefresh={load} />
               )}
 
               {section === "participants" && (
@@ -389,7 +389,7 @@ function OrganizerPanel({
                 />
               )}
 
-              {section === "teams" && selected?.event_type !== "quiz" && (
+              {section === "teams" && (
                 <Teams
                   hackathon={selected}
                   hackathons={hackathons}
@@ -498,11 +498,11 @@ function OrganizerSidebar({ section, navigate, open, onClose, user, onLogout, se
         <p className="org-nav-label">Workspace</p>
         {NAV.filter(([key]) => {
           // A selected quiz has no hackathon flows: hide Rounds,
-          // Teams, round Submissions, Result Approval and the round
+          // round Submissions, Result Approval and the round
           // Leaderboard; Quiz Manager covers quiz results and
           // Certificates is quiz-aware since v6.26, so it stays.
           if (selectedEventType !== "quiz") return true;
-          return !["rounds", "invite-codes", "teams", "submissions", "result-request", "leaderboard"].includes(key);
+          return !["rounds", "submissions", "result-request", "leaderboard"].includes(key);
         }).map(([key, label, Icon]) => (
           <button
             key={key}
@@ -2270,7 +2270,7 @@ function InviteCodes({ hackathon, hackathons, selectedId, setSelectedId, onRefre
       action={<Picker hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId} />}
     >
       {!hackathon ? (
-        <p>Pick an event from the dropdown above, then the invite-code tools appear here.</p>
+        <p>Pick a hackathon event from the dropdown above, then the invite-code tools appear here.</p>
       ) : (
         <>
           <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer", marginBottom: 16 }}>
