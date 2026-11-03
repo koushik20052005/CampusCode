@@ -544,7 +544,9 @@ export const getRound2Status = async (
           team_id,
           submitted_by,
           github_url,
+          demo_url,
           pdf_url,
+          organizer_note,
           extracted_text,
           status,
           submitted_at,
@@ -701,8 +703,9 @@ export const submitRound2 = async (
     // --------------------------------------------------------
     // INPUT
     //
-    // GitHub = OPTIONAL
-    // PDF = REQUIRED
+    // v6.45 — same four fields as a demo Round 1:
+    // GitHub = REQUIRED, live demo = REQUIRED,
+    // note for the organizer = REQUIRED, PDF = OPTIONAL.
     // --------------------------------------------------------
 
     const githubUrl =
@@ -711,10 +714,22 @@ export const submitRound2 = async (
         ? req.body.github_url.trim()
         : "";
 
+    const demoUrl =
+      typeof req.body?.demo_url ===
+      "string"
+        ? req.body.demo_url.trim()
+        : "";
+
     const pdfUrl =
       typeof req.body?.pdf_url ===
       "string"
         ? req.body.pdf_url.trim()
+        : "";
+
+    const organizerNote =
+      typeof req.body?.organizer_note ===
+      "string"
+        ? req.body.organizer_note.trim()
         : "";
 
     // --------------------------------------------------------
@@ -737,22 +752,22 @@ export const submitRound2 = async (
     }
 
     // --------------------------------------------------------
-    // PDF REQUIRED
+    // REQUIRED FIELDS
     // --------------------------------------------------------
 
-    if (!pdfUrl) {
+    if (!githubUrl || !demoUrl || !organizerNote) {
       return res.status(400).json({
         success: false,
         message:
-          "Google Drive PDF URL is required.",
+          "GitHub link, live demo link and note for the organizer are required.",
       });
     }
 
     // --------------------------------------------------------
-    // GOOGLE DRIVE URL
+    // GOOGLE DRIVE URL (only when a PDF is provided)
     // --------------------------------------------------------
 
-    if (!isGoogleDriveUrl(pdfUrl)) {
+    if (pdfUrl && !isGoogleDriveUrl(pdfUrl)) {
       return res.status(400).json({
         success: false,
         message:
@@ -965,7 +980,9 @@ export const submitRound2 = async (
           team_id,
           submitted_by,
           github_url,
+          demo_url,
           pdf_url,
+          organizer_note,
           extracted_text,
           status,
           submitted_at,
@@ -996,49 +1013,53 @@ export const submitRound2 = async (
     }
 
     // --------------------------------------------------------
-    // DOWNLOAD PDF
+    // DOWNLOAD + EXTRACT PDF (only when one is provided)
     // --------------------------------------------------------
 
-    console.log(
-      `Round 2 PDF download started: hackathon=${hackathonId}, team=${team.id}`
-    );
+    let extractedText = null;
 
-    const downloaded =
-      await downloadGoogleDrivePdf(
-        pdfUrl
+    if (pdfUrl) {
+      console.log(
+        `Round 2 PDF download started: hackathon=${hackathonId}, team=${team.id}`
       );
 
-    tempDir =
-      downloaded.tempDir;
+      const downloaded =
+        await downloadGoogleDrivePdf(
+          pdfUrl
+        );
 
-    console.log(
-      `Round 2 PDF downloaded successfully: ${downloaded.fileSize} bytes`
-    );
+      tempDir =
+        downloaded.tempDir;
 
-    // --------------------------------------------------------
-    // EXTRACT PDF TEXT
-    // --------------------------------------------------------
-
-    console.log(
-      "Round 2 PDF text extraction started..."
-    );
-
-    const extractedText =
-      await extractPdfText(
-        downloaded.tempPath
+      console.log(
+        `Round 2 PDF downloaded successfully: ${downloaded.fileSize} bytes`
       );
 
-    console.log(
-      `Round 2 PDF text extraction successful: ${extractedText.length} characters`
-    );
+      // --------------------------------------------------------
+      // EXTRACT PDF TEXT
+      // --------------------------------------------------------
 
-    if (
-      !extractedText ||
-      extractedText.trim().length < 20
-    ) {
-      throw new Error(
-        "The PDF was downloaded, but its text could not be extracted. Please upload a readable text-based PDF."
+      console.log(
+        "Round 2 PDF text extraction started..."
       );
+
+      extractedText =
+        await extractPdfText(
+          downloaded.tempPath
+        );
+
+      console.log(
+        `Round 2 PDF text extraction successful: ${extractedText.length} characters`
+      );
+
+      if (
+        !extractedText ||
+        extractedText.trim().length < 20
+      ) {
+        throw new Error(
+          "The PDF was downloaded, but its text could not be extracted. Please upload a readable text-based PDF."
+        );
+      }
     }
 
     // --------------------------------------------------------
@@ -1053,7 +1074,9 @@ export const submitRound2 = async (
           team_id,
           submitted_by,
           github_url,
+          demo_url,
           pdf_url,
+          organizer_note,
           extracted_text,
           status,
           submitted_at,
@@ -1066,6 +1089,8 @@ export const submitRound2 = async (
           $4,
           $5,
           $6,
+          $7,
+          $8,
           'SUBMITTED',
           NOW(),
           NOW()
@@ -1076,7 +1101,9 @@ export const submitRound2 = async (
           team_id,
           submitted_by,
           github_url,
+          demo_url,
           pdf_url,
+          organizer_note,
           extracted_text,
           status,
           submitted_at,
@@ -1086,8 +1113,10 @@ export const submitRound2 = async (
           hackathonId,
           team.id,
           studentId,
-          githubUrl || null,
-          pdfUrl,
+          githubUrl,
+          demoUrl,
+          pdfUrl || null,
+          organizerNote,
           extractedText,
         ]
       );
@@ -1097,20 +1126,23 @@ export const submitRound2 = async (
     // --------------------------------------------------------
     // ENQUEUE AUTOMATIC AI ANALYSIS (persistent queue)
     // Fire-and-forget: a queue failure must never break
-    // the student's submission.
+    // the student's submission. Skipped when no PDF text
+    // exists to analyze (PDF is optional since v6.45).
     // --------------------------------------------------------
 
-    enqueueAnalysisJob({
-      hackathonId,
-      teamId: team.id,
-      round: 2,
-      submissionId: submission.id,
-    }).catch((queueError) => {
-      console.error(
-        "AI ANALYSIS ENQUEUE FAILED (R2):",
-        queueError?.message || queueError
-      );
-    });
+    if (extractedText) {
+      enqueueAnalysisJob({
+        hackathonId,
+        teamId: team.id,
+        round: 2,
+        submissionId: submission.id,
+      }).catch((queueError) => {
+        console.error(
+          "AI ANALYSIS ENQUEUE FAILED (R2):",
+          queueError?.message || queueError
+        );
+      });
+    }
     // --------------------------------------------------------
     // SUCCESS
     // --------------------------------------------------------

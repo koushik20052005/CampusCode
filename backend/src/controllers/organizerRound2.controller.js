@@ -440,7 +440,9 @@ export const getRound2Submissions =
             rs.submitted_by,
 
             rs.github_url,
+            rs.demo_url,
             rs.pdf_url,
+            rs.organizer_note,
             rs.pdf_file_name,
             rs.pdf_file_path,
             rs.extracted_text,
@@ -525,6 +527,9 @@ export const getRound2Submissions =
             github_url:
               row.github_url,
 
+            demo_url:
+              row.demo_url,
+
             pdf: {
               url: row.pdf_url,
               file_name:
@@ -532,6 +537,9 @@ export const getRound2Submissions =
               file_path:
                 row.pdf_file_path,
             },
+
+            organizer_note:
+              row.organizer_note,
 
             extracted_text:
               row.extracted_text,

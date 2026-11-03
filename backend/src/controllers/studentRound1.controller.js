@@ -74,6 +74,7 @@ export async function getRound1Status(req, res) {
         start_at,
         end_at,
         status,
+        submission_type,
         activated_at,
         completed_at
 
@@ -178,6 +179,10 @@ export async function getRound1Status(req, res) {
         s.approved_by,
         s.leader_note,
         s.problem_statement,
+        s.github_url,
+        s.demo_url,
+        s.pdf_url,
+        s.organizer_note,
         s.status,
         s.submitted_at,
         s.created_at,
@@ -352,7 +357,13 @@ export async function submitRound1(req, res) {
   try {
     const studentId = req.user.id;
     const { hackathonId } = req.params;
-    const { problem_statement } = req.body;
+    const {
+      problem_statement,
+      github_url,
+      demo_url,
+      pdf_url,
+      organizer_note,
+    } = req.body;
 
 
     // -----------------------------------------------------
@@ -363,28 +374,6 @@ export async function submitRound1(req, res) {
       return res.status(400).json({
         success: false,
         message: "Hackathon ID is required",
-      });
-    }
-
-    if (
-      !problem_statement ||
-      typeof problem_statement !== "string" ||
-      !problem_statement.trim()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Problem statement is required",
-      });
-    }
-
-    const cleanProblemStatement =
-      problem_statement.trim();
-
-    if (cleanProblemStatement.length < 20) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Problem statement must contain at least 20 characters",
       });
     }
 
@@ -440,6 +429,7 @@ export async function submitRound1(req, res) {
         start_at,
         end_at,
         status,
+        submission_type,
         activated_at,
         completed_at
 
@@ -474,6 +464,58 @@ export async function submitRound1(req, res) {
         round_status: round.status,
         current_round: hackathon.current_round,
       });
+    }
+
+
+    // -----------------------------------------------------
+    // 3b. VALIDATE PAYLOAD FOR THIS ROUND'S SUBMISSION TYPE
+    // v6.45 — 'demo' rounds take links, not a statement.
+    // -----------------------------------------------------
+
+    const isDemoRound =
+      round.submission_type === "demo";
+
+    const cleanGithub =
+      typeof github_url === "string" ? github_url.trim() : "";
+    const cleanDemo =
+      typeof demo_url === "string" ? demo_url.trim() : "";
+    const cleanPdf =
+      typeof pdf_url === "string" ? pdf_url.trim() : "";
+    const cleanOrganizerNote =
+      typeof organizer_note === "string" ? organizer_note.trim() : "";
+
+    let cleanProblemStatement = null;
+
+    if (isDemoRound) {
+      if (!cleanGithub || !cleanDemo || !cleanOrganizerNote) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "GitHub link, live demo link and note for the organizer are required",
+        });
+      }
+    } else {
+      if (
+        !problem_statement ||
+        typeof problem_statement !== "string" ||
+        !problem_statement.trim()
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Problem statement is required",
+        });
+      }
+
+      cleanProblemStatement =
+        problem_statement.trim();
+
+      if (cleanProblemStatement.length < 20) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Problem statement must contain at least 20 characters",
+        });
+      }
     }
 
 
@@ -529,6 +571,10 @@ export async function submitRound1(req, res) {
       SELECT
         s.id,
         s.problem_statement,
+        s.github_url,
+        s.demo_url,
+        s.pdf_url,
+        s.organizer_note,
         s.status,
         s.submitted_at,
         s.created_at,
@@ -561,7 +607,9 @@ export async function submitRound1(req, res) {
       return res.status(409).json({
         success: false,
         message:
-          "Your team's idea is already awaiting leader approval",
+          isDemoRound
+            ? "Your team's demo is already awaiting leader approval"
+            : "Your team's idea is already awaiting leader approval",
 
         submission: existing,
       });
@@ -583,77 +631,178 @@ export async function submitRound1(req, res) {
     let submission;
 
     if (existing?.status === "DRAFT") {
-      const updatedResult = await pool.query(
-        `
-        UPDATE round1_submissions
-        SET
-          problem_statement = $1,
-          status = $2,
-          leader_note = NULL,
-          approved_by = CASE WHEN $2 = 'SUBMITTED' THEN $4 ELSE approved_by END,
-          submitted_at = CASE WHEN $2 = 'SUBMITTED' THEN NOW() ELSE submitted_at END,
-          updated_at = NOW()
-        WHERE id = $3
-        RETURNING
-          id,
-          hackathon_id,
-          team_id,
-          submitted_by,
-          problem_statement,
-          status,
-          submitted_at,
-          created_at,
-          updated_at
-        `,
-        [
-          cleanProblemStatement,
-          isLeader ? "SUBMITTED" : "PENDING_APPROVAL",
-          existing.id,
-          studentId,
-        ]
-      );
+      const updatedResult = isDemoRound
+        ? await pool.query(
+          `
+          UPDATE round1_submissions
+          SET
+            github_url = $1,
+            demo_url = $2,
+            pdf_url = $3,
+            organizer_note = $4,
+            status = $5,
+            leader_note = NULL,
+            approved_by = CASE WHEN $5 = 'SUBMITTED' THEN $7 ELSE approved_by END,
+            submitted_at = CASE WHEN $5 = 'SUBMITTED' THEN NOW() ELSE submitted_at END,
+            updated_at = NOW()
+          WHERE id = $6
+          RETURNING
+            id,
+            hackathon_id,
+            team_id,
+            submitted_by,
+            problem_statement,
+            github_url,
+            demo_url,
+            pdf_url,
+            organizer_note,
+            status,
+            submitted_at,
+            created_at,
+            updated_at
+          `,
+          [
+            cleanGithub,
+            cleanDemo,
+            cleanPdf || null,
+            cleanOrganizerNote,
+            isLeader ? "SUBMITTED" : "PENDING_APPROVAL",
+            existing.id,
+            studentId,
+          ]
+        )
+        : await pool.query(
+          `
+          UPDATE round1_submissions
+          SET
+            problem_statement = $1,
+            status = $2,
+            leader_note = NULL,
+            approved_by = CASE WHEN $2 = 'SUBMITTED' THEN $4 ELSE approved_by END,
+            submitted_at = CASE WHEN $2 = 'SUBMITTED' THEN NOW() ELSE submitted_at END,
+            updated_at = NOW()
+          WHERE id = $3
+          RETURNING
+            id,
+            hackathon_id,
+            team_id,
+            submitted_by,
+            problem_statement,
+            github_url,
+            demo_url,
+            pdf_url,
+            organizer_note,
+            status,
+            submitted_at,
+            created_at,
+            updated_at
+          `,
+          [
+            cleanProblemStatement,
+            isLeader ? "SUBMITTED" : "PENDING_APPROVAL",
+            existing.id,
+            studentId,
+          ]
+        );
 
       submission = updatedResult.rows[0];
     } else {
-      const submissionResult = await pool.query(
-        `
-        INSERT INTO round1_submissions (
-          hackathon_id,
-          team_id,
-          submitted_by,
-          problem_statement,
-          status,
-          submitted_at
-        )
+      const submissionResult = isDemoRound
+        ? await pool.query(
+          `
+          INSERT INTO round1_submissions (
+            hackathon_id,
+            team_id,
+            submitted_by,
+            github_url,
+            demo_url,
+            pdf_url,
+            organizer_note,
+            status,
+            submitted_at
+          )
 
-        VALUES (
-          $1,
-          $2,
-          $3,
-          $4,
-          $5,
-          CASE WHEN $5 = 'SUBMITTED' THEN NOW() ELSE NULL END
-        )
+          VALUES (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7,
+            $8,
+            CASE WHEN $8 = 'SUBMITTED' THEN NOW() ELSE NULL END
+          )
 
-        RETURNING
-          id,
-          hackathon_id,
-          team_id,
-          submitted_by,
-          problem_statement,
-          status,
-          submitted_at,
-          created_at,
-          updated_at
-        `,
-        [
-          hackathonId,
-          team.team_id,
-          studentId,
-          cleanProblemStatement,
-          isLeader ? "SUBMITTED" : "PENDING_APPROVAL",
-        ]
-      );
+          RETURNING
+            id,
+            hackathon_id,
+            team_id,
+            submitted_by,
+            problem_statement,
+            github_url,
+            demo_url,
+            pdf_url,
+            organizer_note,
+            status,
+            submitted_at,
+            created_at,
+            updated_at
+          `,
+          [
+            hackathonId,
+            team.team_id,
+            studentId,
+            cleanGithub,
+            cleanDemo,
+            cleanPdf || null,
+            cleanOrganizerNote,
+            isLeader ? "SUBMITTED" : "PENDING_APPROVAL",
+          ]
+        )
+        : await pool.query(
+          `
+          INSERT INTO round1_submissions (
+            hackathon_id,
+            team_id,
+            submitted_by,
+            problem_statement,
+            status,
+            submitted_at
+          )
+
+          VALUES (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            CASE WHEN $5 = 'SUBMITTED' THEN NOW() ELSE NULL END
+          )
+
+          RETURNING
+            id,
+            hackathon_id,
+            team_id,
+            submitted_by,
+            problem_statement,
+            github_url,
+            demo_url,
+            pdf_url,
+            organizer_note,
+            status,
+            submitted_at,
+            created_at,
+            updated_at
+          `,
+          [
+            hackathonId,
+            team.team_id,
+            studentId,
+            cleanProblemStatement,
+            isLeader ? "SUBMITTED" : "PENDING_APPROVAL",
+          ]
+        );
 
       submission = submissionResult.rows[0];
     }
@@ -666,22 +815,30 @@ export async function submitRound1(req, res) {
     // -----------------------------------------------------
 
     if (submission.status === "SUBMITTED") {
-      enqueueAnalysisJob({
-        hackathonId,
-        teamId: team.team_id,
-        round: 1,
-        submissionId: submission.id,
-      }).catch((queueError) => {
-        console.error(
-          "AI ANALYSIS ENQUEUE FAILED (R1):",
-          queueError?.message || queueError
-        );
-      });
+      // v6.45 — demo rounds carry links, not a statement, so
+      // there is nothing for the idea analyzer to score.
+      if (!isDemoRound) {
+        enqueueAnalysisJob({
+          hackathonId,
+          teamId: team.team_id,
+          round: 1,
+          submissionId: submission.id,
+        }).catch((queueError) => {
+          console.error(
+            "AI ANALYSIS ENQUEUE FAILED (R1):",
+            queueError?.message || queueError
+          );
+        });
+      }
     } else {
       await notifyUser(
         team.leader_id,
-        "Round 1 idea awaiting your approval",
-        `A teammate proposed a Round 1 idea for "${hackathon.title}". Open Rounds to review and approve it.`,
+        isDemoRound
+          ? "Round 1 demo awaiting your approval"
+          : "Round 1 idea awaiting your approval",
+        isDemoRound
+          ? `A teammate proposed a Round 1 demo for "${hackathon.title}". Open Rounds to review and approve it.`
+          : `A teammate proposed a Round 1 idea for "${hackathon.title}". Open Rounds to review and approve it.`,
         hackathonId
       );
     }
@@ -696,8 +853,12 @@ export async function submitRound1(req, res) {
 
       message:
         submission.status === "SUBMITTED"
-          ? "Round 1 idea submitted successfully"
-          : "Round 1 idea sent to your team leader for approval",
+          ? isDemoRound
+            ? "Round 1 demo submitted successfully"
+            : "Round 1 idea submitted successfully"
+          : isDemoRound
+            ? "Round 1 demo sent to your team leader for approval"
+            : "Round 1 idea sent to your team leader for approval",
 
       submission: {
         ...submission,
@@ -809,6 +970,10 @@ async function findTeamPendingSubmission(req, res, studentId, hackathonId) {
       team_id,
       submitted_by,
       problem_statement,
+      github_url,
+      demo_url,
+      pdf_url,
+      organizer_note,
       status,
       submitted_at
 
@@ -836,7 +1001,26 @@ async function findTeamPendingSubmission(req, res, studentId, hackathonId) {
     return null;
   }
 
-  return { team, submission };
+  // v6.45 — the approval path branches on the round's type.
+  const roundResult = await pool.query(
+    `
+    SELECT submission_type
+    FROM hackathon_rounds
+    WHERE hackathon_id = $1
+      AND round_number = 1
+    LIMIT 1
+    `,
+    [hackathonId]
+  );
+
+  return {
+    team,
+    submission,
+    submissionType:
+      roundResult.rows[0]?.submission_type === "demo"
+        ? "demo"
+        : "idea",
+  };
 }
 
 
@@ -851,31 +1035,13 @@ export async function approveRound1(req, res) {
   try {
     const studentId = req.user.id;
     const { hackathonId } = req.params;
-    const { problem_statement } = req.body;
-
-    let cleanProblemStatement = null;
-
-    if (problem_statement !== undefined) {
-      if (
-        typeof problem_statement !== "string" ||
-        !problem_statement.trim()
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Problem statement is required",
-        });
-      }
-
-      cleanProblemStatement = problem_statement.trim();
-
-      if (cleanProblemStatement.length < 20) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Problem statement must contain at least 20 characters",
-        });
-      }
-    }
+    const {
+      problem_statement,
+      github_url,
+      demo_url,
+      pdf_url,
+      organizer_note,
+    } = req.body;
 
     const found = await findTeamPendingSubmission(
       req, res, studentId, hackathonId
@@ -883,58 +1049,170 @@ export async function approveRound1(req, res) {
 
     if (!found) return;
 
-    const { team, submission } = found;
+    const { team, submission, submissionType } = found;
+    const isDemoRound = submissionType === "demo";
 
-    const updatedResult = await pool.query(
-      `
-      UPDATE round1_submissions
-      SET
-        problem_statement = COALESCE($1, problem_statement),
-        status = 'SUBMITTED',
-        approved_by = $2,
-        leader_note = NULL,
-        submitted_at = NOW(),
-        updated_at = NOW()
-      WHERE id = $3
-      RETURNING
-        id,
-        hackathon_id,
-        team_id,
-        submitted_by,
-        approved_by,
-        problem_statement,
-        status,
-        submitted_at,
-        created_at,
-        updated_at
-      `,
-      [cleanProblemStatement, studentId, submission.id]
-    );
+    // v6.45 — leader may edit before approving. In demo mode the
+    // merged values (edit ?? proposal) must satisfy the same
+    // required set as a fresh demo submission.
+    let cleanProblemStatement = null;
+    let cleanGithub = null;
+    let cleanDemo = null;
+    let cleanPdf = null;
+    let cleanOrganizerNote = null;
+
+    if (isDemoRound) {
+      cleanGithub =
+        typeof github_url === "string"
+          ? github_url.trim()
+          : submission.github_url;
+      cleanDemo =
+        typeof demo_url === "string"
+          ? demo_url.trim()
+          : submission.demo_url;
+      cleanPdf =
+        typeof pdf_url === "string"
+          ? pdf_url.trim()
+          : submission.pdf_url;
+      cleanOrganizerNote =
+        typeof organizer_note === "string"
+          ? organizer_note.trim()
+          : submission.organizer_note;
+
+      if (!cleanGithub || !cleanDemo || !cleanOrganizerNote) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "GitHub link, live demo link and note for the organizer are required",
+        });
+      }
+    } else {
+      if (problem_statement !== undefined) {
+        if (
+          typeof problem_statement !== "string" ||
+          !problem_statement.trim()
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: "Problem statement is required",
+          });
+        }
+
+        cleanProblemStatement = problem_statement.trim();
+
+        if (cleanProblemStatement.length < 20) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Problem statement must contain at least 20 characters",
+          });
+        }
+      }
+    }
+
+    const updatedResult = isDemoRound
+      ? await pool.query(
+        `
+        UPDATE round1_submissions
+        SET
+          github_url = COALESCE($1, github_url),
+          demo_url = COALESCE($2, demo_url),
+          pdf_url = COALESCE($3, pdf_url),
+          organizer_note = COALESCE($4, organizer_note),
+          status = 'SUBMITTED',
+          approved_by = $5,
+          leader_note = NULL,
+          submitted_at = NOW(),
+          updated_at = NOW()
+        WHERE id = $6
+        RETURNING
+          id,
+          hackathon_id,
+          team_id,
+          submitted_by,
+          approved_by,
+          problem_statement,
+          github_url,
+          demo_url,
+          pdf_url,
+          organizer_note,
+          status,
+          submitted_at,
+          created_at,
+          updated_at
+        `,
+        [
+          cleanGithub || null,
+          cleanDemo || null,
+          cleanPdf || null,
+          cleanOrganizerNote || null,
+          studentId,
+          submission.id,
+        ]
+      )
+      : await pool.query(
+        `
+        UPDATE round1_submissions
+        SET
+          problem_statement = COALESCE($1, problem_statement),
+          status = 'SUBMITTED',
+          approved_by = $2,
+          leader_note = NULL,
+          submitted_at = NOW(),
+          updated_at = NOW()
+        WHERE id = $3
+        RETURNING
+          id,
+          hackathon_id,
+          team_id,
+          submitted_by,
+          approved_by,
+          problem_statement,
+          github_url,
+          demo_url,
+          pdf_url,
+          organizer_note,
+          status,
+          submitted_at,
+          created_at,
+          updated_at
+        `,
+        [cleanProblemStatement, studentId, submission.id]
+      );
 
     const approved = updatedResult.rows[0];
 
-    enqueueAnalysisJob({
-      hackathonId,
-      teamId: team.team_id,
-      round: 1,
-      submissionId: approved.id,
-    }).catch((queueError) => {
-      console.error(
-        "AI ANALYSIS ENQUEUE FAILED (R1 APPROVE):",
-        queueError?.message || queueError
-      );
-    });
+    // v6.45 — demo approvals carry no statement to analyze.
+    if (!isDemoRound) {
+      enqueueAnalysisJob({
+        hackathonId,
+        teamId: team.team_id,
+        round: 1,
+        submissionId: approved.id,
+      }).catch((queueError) => {
+        console.error(
+          "AI ANALYSIS ENQUEUE FAILED (R1 APPROVE):",
+          queueError?.message || queueError
+        );
+      });
+    }
 
     await notifyUser(
       submission.submitted_by,
-      "Your Round 1 idea was approved",
-      `Your team leader approved the Round 1 idea for this hackathon. It is now officially submitted.`,
+      isDemoRound
+        ? "Your Round 1 demo was approved"
+        : "Your Round 1 idea was approved",
+      isDemoRound
+        ? `Your team leader approved the Round 1 demo for this hackathon. It is now officially submitted.`
+        : `Your team leader approved the Round 1 idea for this hackathon. It is now officially submitted.`,
       hackathonId
     );
 
     return res.status(200).json({
       success: true,
-      message: "Round 1 idea approved and submitted",
+      message: isDemoRound
+        ? "Round 1 demo approved and submitted"
+        : "Round 1 idea approved and submitted",
       submission: approved,
     });
   } catch (error) {
@@ -970,7 +1248,8 @@ export async function rejectRound1(req, res) {
 
     if (!found) return;
 
-    const { submission } = found;
+    const { submission, submissionType } = found;
+    const isDemoRound = submissionType === "demo";
 
     const cleanNote =
       typeof note === "string" ? note.trim().slice(0, 1000) : null;
@@ -989,6 +1268,10 @@ export async function rejectRound1(req, res) {
         team_id,
         submitted_by,
         problem_statement,
+        github_url,
+        demo_url,
+        pdf_url,
+        organizer_note,
         status,
         leader_note,
         submitted_at,
@@ -1000,10 +1283,14 @@ export async function rejectRound1(req, res) {
 
     await notifyUser(
       submission.submitted_by,
-      "Your Round 1 idea needs changes",
+      isDemoRound
+        ? "Your Round 1 demo needs changes"
+        : "Your Round 1 idea needs changes",
       cleanNote
         ? `Your team leader asked for changes: ${cleanNote}`
-        : `Your team leader asked for changes to the Round 1 idea. Open Rounds to revise it.`,
+        : isDemoRound
+          ? `Your team leader asked for changes to the Round 1 demo. Open Rounds to revise it.`
+          : `Your team leader asked for changes to the Round 1 idea. Open Rounds to revise it.`,
       hackathonId
     );
 

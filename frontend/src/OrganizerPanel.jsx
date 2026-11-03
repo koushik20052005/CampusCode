@@ -1116,9 +1116,9 @@ function CreateHackathon({ onCancel, onCreate }) {
   // its own timer switch (no more one global timer checkbox).
   const [roundCount, setRoundCount] = useState(3);
   const [createRounds, setCreateRounds] = useState([
-    { title: "", requirement: "", ai: false, start: "", end: "", timer: false },
-    { title: "", requirement: "", ai: false, start: "", end: "", timer: false },
-    { title: "", requirement: "", ai: false, start: "", end: "", timer: false },
+    { title: "", requirement: "", ai: false, start: "", end: "", timer: false, submissionType: "idea" },
+    { title: "", requirement: "", ai: false, start: "", end: "", timer: false, submissionType: "idea" },
+    { title: "", requirement: "", ai: false, start: "", end: "", timer: false, submissionType: "idea" },
   ]);
   const [bannerWeb, setBannerWeb] = useState("");
   const [bannerMobile, setBannerMobile] = useState("");
@@ -1132,7 +1132,7 @@ function CreateHackathon({ onCancel, onCreate }) {
     setRoundCount(n);
     setCreateRounds((current) => {
       const next = current.slice(0, n);
-      while (next.length < n) next.push({ title: "", requirement: "", ai: false, start: "", end: "", timer: false });
+      while (next.length < n) next.push({ title: "", requirement: "", ai: false, start: "", end: "", timer: false, submissionType: "idea" });
       return next;
     });
   };
@@ -1232,6 +1232,7 @@ function CreateHackathon({ onCancel, onCreate }) {
             start_at: toIST(r.start),
             end_at: toIST(r.end),
             show_timer: !!r.timer,
+            submission_type: i === 0 ? (r.submissionType || "idea") : "idea",
           })),
           banner_web_url: bannerWeb.trim() || null,
           banner_mobile_url: bannerMobile.trim() || null,
@@ -1359,6 +1360,14 @@ function CreateHackathon({ onCancel, onCreate }) {
                   <input type="checkbox" checked={!!r.timer} onChange={(e) => setCreateRounds((current) => current.map((x, j) => j === i ? { ...x, timer: e.target.checked } : x))} />
                   <span>Show countdown timer for this round</span>
                 </label>
+                {i === 0 && (
+                  <Field label="Round 1 submission type">
+                    <select className="org-input" value={r.submissionType || "idea"} onChange={(e) => setCreateRounds((current) => current.map((x, j) => j === i ? { ...x, submissionType: e.target.value } : x))}>
+                      <option value="idea">Idea text — students submit a problem statement</option>
+                      <option value="demo">Demo links — GitHub + live demo + note (PDF optional)</option>
+                    </select>
+                  </Field>
+                )}
               </div>
             ))}
             <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
@@ -2003,6 +2012,7 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
       setRounds(base.map((r) => ({
         ...r,
         show_timer: r.show_timer ?? !!hackathon?.show_timer,
+        submission_type: r.submission_type || "idea",
       })));
     } catch (e) {
       setError(e.message);
@@ -2039,6 +2049,7 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
               requirement: r?.requirement?.trim() || null,
               ai_usage_required: !!r?.ai_usage_required,
               show_timer: !!r?.show_timer,
+              submission_type: r?.submission_type || "idea",
             };
           }),
         }),
@@ -2209,6 +2220,22 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
                     />
                     <span>Show countdown timer for this round</span>
                   </label>
+                  {n === 1 && (
+                    <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span>Submission type</span>
+                      <select
+                        className="org-input"
+                        value={r.submission_type || "idea"}
+                        disabled={st === "LIVE" || st === "COMPLETED"}
+                        onChange={(e) => setRounds((current) => current.map((x) =>
+                          Number(x.round_number) === n ? { ...x, submission_type: e.target.value } : x
+                        ))}
+                      >
+                        <option value="idea">Idea text — problem statement</option>
+                        <option value="demo">Demo links — GitHub + live demo + note</option>
+                      </select>
+                    </label>
+                  )}
                   <button className="live-btn wide" disabled={!canActivate || !!busy} onClick={() => roundAction(n, "activate")}>
                     {busy === `activate-${n}` ? <LoaderCircle className="spin" size={14}/> : <Zap size={14}/>}
                     Activate Round {n}
@@ -3741,6 +3768,18 @@ function OrganizerSubmissionModal({
                     <Send size={15} />
                     Open submitted PDF ↗
                   </a>
+                </div>
+              )}
+
+              {submission?.organizer_note && (
+                <div className="organizer-review-detail-card organizer-review-detail-wide">
+                  <span>
+                    NOTE FOR ORGANIZER
+                  </span>
+
+                  <p>
+                    {safeText(submission.organizer_note)}
+                  </p>
                 </div>
               )}
             </>

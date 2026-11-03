@@ -183,9 +183,9 @@ export async function createHackathon(req, res) {
           INSERT INTO hackathon_rounds (
             hackathon_id, round_number, title,
             requirement, ai_usage_required, status,
-            start_at, end_at, show_timer
+            start_at, end_at, show_timer, submission_type
           )
-          VALUES ($1,$2,$3,$4,$5,'SCHEDULED',$6,$7,$8)
+          VALUES ($1,$2,$3,$4,$5,'SCHEDULED',$6,$7,$8,$9)
           ON CONFLICT (hackathon_id, round_number) DO NOTHING
           `,
           [
@@ -201,6 +201,7 @@ export async function createHackathon(req, res) {
             r.start_at || null,
             r.end_at || null,
             roundTimer,
+            r.submission_type === "demo" ? "demo" : "idea",
           ]
         );
       }
@@ -2157,6 +2158,13 @@ export async function scheduleHackathonRounds(req, res) {
             : round.show_timer === false || round.show_timer === "false"
               ? false
               : null,
+        // v6.45 — 'demo' or 'idea'; null/omitted keeps the round's.
+        submission_type:
+          round.submission_type === "demo"
+            ? "demo"
+            : round.submission_type === "idea"
+              ? "idea"
+              : null,
       }))
       .sort((a, b) => a.round_number - b.round_number);
 
@@ -2203,9 +2211,10 @@ export async function scheduleHackathonRounds(req, res) {
           requirement,
           ai_usage_required,
           status,
-          show_timer
+          show_timer,
+          submission_type
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,'SCHEDULED',$8)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,'SCHEDULED',$8,$9)
         ON CONFLICT (hackathon_id,round_number)
         DO UPDATE SET
           title = EXCLUDED.title,
@@ -2214,6 +2223,7 @@ export async function scheduleHackathonRounds(req, res) {
           requirement = EXCLUDED.requirement,
           ai_usage_required = EXCLUDED.ai_usage_required,
           show_timer = COALESCE(EXCLUDED.show_timer, hackathon_rounds.show_timer),
+          submission_type = COALESCE(EXCLUDED.submission_type, hackathon_rounds.submission_type),
           updated_at = NOW()
         `,
         [
@@ -2225,6 +2235,7 @@ export async function scheduleHackathonRounds(req, res) {
           round.requirement,
           round.ai_usage_required,
           round.show_timer,
+          round.submission_type,
         ]
       );
     }
@@ -2254,6 +2265,7 @@ export async function scheduleHackathonRounds(req, res) {
         requirement,
         ai_usage_required,
         show_timer,
+        submission_type,
         status,
         activated_at,
         activated_by,
@@ -2329,6 +2341,7 @@ export async function getHackathonRounds(req, res) {
         requirement,
         ai_usage_required,
         show_timer,
+        submission_type,
         status,
         activated_at,
         activated_by,

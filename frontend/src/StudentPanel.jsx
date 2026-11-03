@@ -3101,6 +3101,12 @@ function StudentRoundOnePage() {
   const [selected, setSelected] = useSyncedHackathon();
   const [data, setData] = useState(null);
   const [statement, setStatement] = useState("");
+  // v6.45 — demo-round fields (GitHub + live demo + optional
+  // PDF + note for the organizer).
+  const [github, setGithub] = useState("");
+  const [demo, setDemo] = useState("");
+  const [pdf, setPdf] = useState("");
+  const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -3120,6 +3126,10 @@ function StudentRoundOnePage() {
       // hackathon, round1, team and submission as sibling fields.
       setData(result);
       setStatement(result?.submission?.problem_statement || "");
+      setGithub(result?.submission?.github_url || "");
+      setDemo(result?.submission?.demo_url || "");
+      setPdf(result?.submission?.pdf_url || "");
+      setNote(result?.submission?.organizer_note || "");
     } catch (err) { setData(null); setError(err.message || "Failed to fetch Round 1 status"); }
     finally { setLoadingStatus(false); }
   };
@@ -3151,18 +3161,34 @@ function StudentRoundOnePage() {
   const canSubmit = accessible && Boolean(team) && !submitted && !pendingApproval && !saving;
   const submissionLabel = !submission ? "Not submitted" : submission.status === "PENDING_APPROVAL" ? "AWAITING LEADER APPROVAL" : submission.status === "DRAFT" ? "DRAFT — LEADER ASKED FOR CHANGES" : submission.status;
 
+  // v6.45 — demo rounds submit links, not a statement.
+  const isDemo = round?.submission_type === "demo";
+  const demoValid = Boolean(github.trim() && demo.trim() && note.trim());
+  const demoDetails = (label) => (
+    <div className="student-round-submitted-text">
+      <span>{label}</span>
+      <p><a href={submission?.github_url} target="_blank" rel="noreferrer">GitHub repository ↗</a></p>
+      <p><a href={submission?.demo_url} target="_blank" rel="noreferrer">Live demo ↗</a></p>
+      {submission?.pdf_url && (<p><a href={submission.pdf_url} target="_blank" rel="noreferrer">PDF ↗</a></p>)}
+      <p><span>NOTE FOR ORGANIZER — </span>{submission?.organizer_note}</p>
+    </div>
+  );
+
   const doSubmit = async () => {
-    const clean = statement.trim();
-    if (clean.length < 20) return setError("Problem statement must contain at least 20 characters.");
     if (!selected) return setError("Select a hackathon first.");
     if (!team) return setError("You must be part of a team before submitting Round 1.");
+    const body = isDemo
+      ? { github_url: github.trim(), demo_url: demo.trim(), pdf_url: pdf.trim() || null, organizer_note: note.trim() }
+      : { problem_statement: statement.trim() };
+    if (!isDemo && body.problem_statement.length < 20) return setError("Problem statement must contain at least 20 characters.");
+    if (isDemo && !demoValid) return setError("GitHub link, live demo link and note for the organizer are required.");
     setSaving(true); setError(""); setMessage("");
     try {
-      const result = await apiFetch(`/student/round1/hackathons/${selected}/submit`, { method: "POST", body: JSON.stringify({ problem_statement: clean }) });
-      setMessage(result?.message || (isLeader ? "Round 1 idea submitted successfully." : "Round 1 idea sent to your team leader for approval."));
+      const result = await apiFetch(`/student/round1/hackathons/${selected}/submit`, { method: "POST", body: JSON.stringify(body) });
+      setMessage(result?.message || (isLeader ? (isDemo ? "Round 1 demo submitted successfully." : "Round 1 idea submitted successfully.") : (isDemo ? "Round 1 demo sent to your team leader for approval." : "Round 1 idea sent to your team leader for approval.")));
       setJustSent(true); setTimeout(() => setJustSent(false), 1800);
       await loadStatus(selected);
-    } catch (err) { setError(err.message || "Failed to submit Round 1 idea"); }
+    } catch (err) { setError(err.message || `Failed to submit Round 1 ${isDemo ? "demo" : "idea"}`); }
     finally { setSaving(false); }
   };
 
@@ -3174,13 +3200,16 @@ function StudentRoundOnePage() {
   };
 
   const approve = async () => {
-    const clean = statement.trim();
-    if (clean.length < 20) return setError("Problem statement must contain at least 20 characters.");
     if (!selected) return setError("Select a hackathon first.");
+    const body = isDemo
+      ? { github_url: github.trim(), demo_url: demo.trim(), pdf_url: pdf.trim() || null, organizer_note: note.trim() }
+      : { problem_statement: statement.trim() };
+    if (!isDemo && body.problem_statement.length < 20) return setError("Problem statement must contain at least 20 characters.");
+    if (isDemo && !demoValid) return setError("GitHub link, live demo link and note for the organizer are required.");
     setSaving(true); setError(""); setMessage("");
     try {
-      await apiFetch(`/student/round1/hackathons/${selected}/approve`, { method: "POST", body: JSON.stringify({ problem_statement: clean }) });
-      setMessage("Round 1 idea approved and submitted.");
+      await apiFetch(`/student/round1/hackathons/${selected}/approve`, { method: "POST", body: JSON.stringify(body) });
+      setMessage(isDemo ? "Round 1 demo approved and submitted." : "Round 1 idea approved and submitted.");
       setJustSent(true); setTimeout(() => setJustSent(false), 1800);
       await loadStatus(selected);
     } catch (err) { setError(err.message || "Failed to approve Round 1 proposal"); }
@@ -3202,7 +3231,7 @@ function StudentRoundOnePage() {
   if (loading) return <LoadingState label="Loading Round 1..." />;
   return (
     <section>
-      <PageHeading eyebrow="BUILD / ROUND 01" title="PROBLEM STATEMENT." text="Submit your team's problem statement when Round 1 is live." />
+      <PageHeading eyebrow="BUILD / ROUND 01" title={isDemo ? "DEMO LINKS." : "PROBLEM STATEMENT."} text={isDemo ? "Share your demo links when Round 1 is live." : "Submit your team's problem statement when Round 1 is live."} />
       {justSent && (<div className="r1-plane-strip" aria-hidden="true"><span className="r1-plane-trail" /><span className="r1-plane"><svg width="30" height="30" viewBox="0 0 24 24" fill="#111"><path d="M2 12L22 2l-8 20-2.5-8.5z" /></svg></span><span className="r1-plane-sent">SENT ↗</span></div>)}
       {error && <div className="student-inline-error">{error}</div>}
       {message && <div className="student-inline-success">{message}</div>}
@@ -3216,9 +3245,9 @@ function StudentRoundOnePage() {
           {loadingStatus ? <LoadingState label="Loading round status..." /> : <div className="student-info-list"><div><span>TEAM</span><strong>{value(team?.name, team?.team_name, "No team")}</strong></div><div><span>SUBMISSION</span><strong>{submissionLabel}</strong></div><div><span>DECISION</span><strong>{value(data?.decision?.decision, "Pending")}</strong></div><div className="student-feedback-row"><span>ORGANIZER FEEDBACK</span><strong>{value(data?.decision?.organizer_feedback, "No feedback yet")}</strong></div></div>}
         </div>
         <div className="student-feature-card student-round-form-card">
-          <div className="student-feature-card-head"><div><span className="student-feature-label">ROUND 1 SUBMISSION</span><h2>What are you solving?</h2><p>Explain the problem, who experiences it, and what your team plans to solve.</p></div><div className="student-feature-icon"><Send size={18} /></div></div>
-          {!team ? <div className="student-round-notice warning"><strong>TEAM REQUIRED</strong><span>Create or join a team before submitting Round 1.</span></div> : submitted ? (<div className="student-round-submitted-wrap"><div className="student-round-submitted"><CheckCircle2 size={18} /><div><strong>SUBMITTED SUCCESSFULLY</strong><span>{submission.status || "SUBMITTED"}</span></div></div><div className="student-round-submitted-details"><div className="student-round-submitted-meta"><span>SUBMITTED BY</span><strong>{value(submission.submitted_by_name, "A teammate")}</strong></div><div className="student-round-submitted-meta"><span>SUBMITTED ON</span><strong>{formatDate(submission.submitted_at)}</strong></div><div className="student-round-submitted-text"><span>PROBLEM STATEMENT — VISIBLE TO THE WHOLE TEAM</span><p>{submission.problem_statement}</p></div></div></div>) : pendingApproval ? (isLeader ? (<div className="student-round-approval"><div className="student-round-approval-head"><strong>AWAITING YOUR APPROVAL</strong><span>Proposed by {value(submission.submitted_by_name, "a teammate")} — review it, edit if needed, then approve. Your approval submits it officially.</span></div><div className="student-form-label-row"><label>PROBLEM STATEMENT *</label><span>{statement.length} / 5000</span></div><textarea value={statement} onChange={(e) => setStatement(e.target.value.slice(0, 5000))} rows={10} maxLength={5000} disabled={saving} /><div className="student-round-approval-actions"><button className="student-primary-btn" disabled={saving || statement.trim().length < 20} onClick={() => { setAgreementAction("approve"); setShowAgreement(true); }}>{saving ? "APPROVING..." : "APPROVE & SUBMIT ↗"}</button></div><div className="student-round-reject"><div className="student-form-label-row"><label>NOTE FOR YOUR TEAM (OPTIONAL)</label></div><textarea value={leaderNote} onChange={(e) => setLeaderNote(e.target.value.slice(0, 1000))} rows={3} maxLength={1000} disabled={saving} placeholder="What should they change?" /><button className="student-outline-btn" disabled={saving} onClick={reject}>SEND BACK FOR CHANGES</button></div></div>) : (<div className="student-round-waiting"><div className="student-round-submitted"><CheckCircle2 size={18} /><div><strong>AWAITING LEADER APPROVAL</strong><span>Proposed by {value(submission.submitted_by_name, "a teammate")}</span></div></div><div className="student-round-submitted-details"><div className="student-round-submitted-text"><span>PROPOSED PROBLEM STATEMENT — VISIBLE TO THE WHOLE TEAM</span><p>{submission.problem_statement}</p></div></div></div>)) : roundCompleted || hackathonCompleted ? <div className="student-round-notice student-round-completed-notice"><strong>{hackathonCompleted ? "HACKATHON COMPLETED" : "ROUND 1 COMPLETED"}</strong><span>{hackathonCompleted ? "This hackathon has finished. Round 1 is now read-only." : "Round 1 has been completed. New submissions are closed."}</span></div> : !accessible ? <RoundLock round={1} reason={round.reason === "ROUND_COMPLETED" ? "Round 1 has been completed." : "The organizer has not opened Round 1 yet."} /> : (
-            <div className="student-round-form">{draft && submission.leader_note ? <div className="student-round-leader-note"><strong>LEADER ASKED FOR CHANGES</strong><span>{submission.leader_note}</span></div> : null}<div className="student-form-label-row"><label>PROBLEM STATEMENT *</label><span>{statement.length} / 5000</span></div><textarea value={statement} onChange={(e) => setStatement(e.target.value.slice(0, 5000))} rows={10} maxLength={5000} disabled={!canSubmit} placeholder="Example: Students struggle to discover relevant hackathons and form teams with complementary skills..." /><div className="student-form-actions"><span>{isLeader ? "Minimum 20 characters. Once submitted, your team cannot submit Round 1 again." : "Minimum 20 characters. Your leader reviews it before it becomes official."}</span><button className="student-primary-btn" disabled={!canSubmit || statement.trim().length < 20} onClick={handleSubmitClick}>{saving ? "SUBMITTING..." : isLeader ? "SUBMIT ROUND 1 ↗" : "SEND TO LEADER FOR APPROVAL ↗"}</button></div></div>
+          <div className="student-feature-card-head"><div><span className="student-feature-label">ROUND 1 SUBMISSION</span><h2>{isDemo ? "Share your demo" : "What are you solving?"}</h2><p>{isDemo ? "Paste your GitHub repo, live demo link, optional PDF, and a note for the organizer." : "Explain the problem, who experiences it, and what your team plans to solve."}</p></div><div className="student-feature-icon"><Send size={18} /></div></div>
+          {!team ? <div className="student-round-notice warning"><strong>TEAM REQUIRED</strong><span>Create or join a team before submitting Round 1.</span></div> : submitted ? (<div className="student-round-submitted-wrap"><div className="student-round-submitted"><CheckCircle2 size={18} /><div><strong>SUBMITTED SUCCESSFULLY</strong><span>{submission.status || "SUBMITTED"}</span></div></div><div className="student-round-submitted-details"><div className="student-round-submitted-meta"><span>SUBMITTED BY</span><strong>{value(submission.submitted_by_name, "A teammate")}</strong></div><div className="student-round-submitted-meta"><span>SUBMITTED ON</span><strong>{formatDate(submission.submitted_at)}</strong></div>{isDemo ? demoDetails("DEMO LINKS — VISIBLE TO THE WHOLE TEAM") : (<div className="student-round-submitted-text"><span>PROBLEM STATEMENT — VISIBLE TO THE WHOLE TEAM</span><p>{submission.problem_statement}</p></div>)}</div></div>) : pendingApproval ? (isLeader ? (<div className="student-round-approval"><div className="student-round-approval-head"><strong>AWAITING YOUR APPROVAL</strong><span>Proposed by {value(submission.submitted_by_name, "a teammate")} — review it, edit if needed, then approve. Your approval submits it officially.</span></div>{isDemo ? (<><div className="student-form-label-row"><label>GITHUB LINK *</label></div><input value={github} onChange={(e) => setGithub(e.target.value)} disabled={saving} placeholder="GitHub repository URL" /><div className="student-form-label-row"><label>LIVE DEMO LINK *</label></div><input value={demo} onChange={(e) => setDemo(e.target.value)} disabled={saving} placeholder="Live demo URL" /><div className="student-form-label-row"><label>PDF URL (OPTIONAL)</label></div><input value={pdf} onChange={(e) => setPdf(e.target.value)} disabled={saving} placeholder="Google Drive PDF URL (optional)" /><div className="student-form-label-row"><label>NOTE FOR ORGANIZER *</label></div><textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={3} maxLength={1000} disabled={saving} placeholder="What did your team build?" /></>) : (<><div className="student-form-label-row"><label>PROBLEM STATEMENT *</label><span>{statement.length} / 5000</span></div><textarea value={statement} onChange={(e) => setStatement(e.target.value.slice(0, 5000))} rows={10} maxLength={5000} disabled={saving} /></>)}<div className="student-round-approval-actions"><button className="student-primary-btn" disabled={saving || (isDemo ? !demoValid : statement.trim().length < 20)} onClick={() => { setAgreementAction("approve"); setShowAgreement(true); }}>{saving ? "APPROVING..." : "APPROVE & SUBMIT ↗"}</button></div><div className="student-round-reject"><div className="student-form-label-row"><label>NOTE FOR YOUR TEAM (OPTIONAL)</label></div><textarea value={leaderNote} onChange={(e) => setLeaderNote(e.target.value.slice(0, 1000))} rows={3} maxLength={1000} disabled={saving} placeholder="What should they change?" /><button className="student-outline-btn" disabled={saving} onClick={reject}>SEND BACK FOR CHANGES</button></div></div>) : (<div className="student-round-waiting"><div className="student-round-submitted"><CheckCircle2 size={18} /><div><strong>AWAITING LEADER APPROVAL</strong><span>Proposed by {value(submission.submitted_by_name, "a teammate")}</span></div></div><div className="student-round-submitted-details">{isDemo ? demoDetails("PROPOSED DEMO LINKS — VISIBLE TO THE WHOLE TEAM") : (<div className="student-round-submitted-text"><span>PROPOSED PROBLEM STATEMENT — VISIBLE TO THE WHOLE TEAM</span><p>{submission.problem_statement}</p></div>)}</div></div>)) : roundCompleted || hackathonCompleted ? <div className="student-round-notice student-round-completed-notice"><strong>{hackathonCompleted ? "HACKATHON COMPLETED" : "ROUND 1 COMPLETED"}</strong><span>{hackathonCompleted ? "This hackathon has finished. Round 1 is now read-only." : "Round 1 has been completed. New submissions are closed."}</span></div> : !accessible ? <RoundLock round={1} reason={round.reason === "ROUND_COMPLETED" ? "Round 1 has been completed." : "The organizer has not opened Round 1 yet."} /> : (
+            <div className="student-round-form">{draft && submission.leader_note ? <div className="student-round-leader-note"><strong>LEADER ASKED FOR CHANGES</strong><span>{submission.leader_note}</span></div> : null}{isDemo ? (<><div className="student-form-label-row"><label>GITHUB LINK *</label></div><input value={github} onChange={(e) => setGithub(e.target.value)} disabled={!canSubmit} placeholder="GitHub repository URL" /><div className="student-form-label-row"><label>LIVE DEMO LINK *</label></div><input value={demo} onChange={(e) => setDemo(e.target.value)} disabled={!canSubmit} placeholder="Live demo URL" /><div className="student-form-label-row"><label>PDF URL (OPTIONAL)</label></div><input value={pdf} onChange={(e) => setPdf(e.target.value)} disabled={!canSubmit} placeholder="Google Drive PDF URL (optional)" /><div className="student-form-label-row"><label>NOTE FOR ORGANIZER *</label></div><textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={3} maxLength={1000} disabled={!canSubmit} placeholder="What did your team build?" /><div className="student-form-actions"><span>{isLeader ? "Once submitted, your team cannot submit Round 1 again." : "Your leader reviews it before it becomes official."}</span><button className="student-primary-btn" disabled={!canSubmit || !demoValid} onClick={handleSubmitClick}>{saving ? "SUBMITTING..." : isLeader ? "SUBMIT ROUND 1 ↗" : "SEND TO LEADER FOR APPROVAL ↗"}</button></div></>) : (<><div className="student-form-label-row"><label>PROBLEM STATEMENT *</label><span>{statement.length} / 5000</span></div><textarea value={statement} onChange={(e) => setStatement(e.target.value.slice(0, 5000))} rows={10} maxLength={5000} disabled={!canSubmit} placeholder="Example: Students struggle to discover relevant hackathons and form teams with complementary skills..." /><div className="student-form-actions"><span>{isLeader ? "Minimum 20 characters. Once submitted, your team cannot submit Round 1 again." : "Minimum 20 characters. Your leader reviews it before it becomes official."}</span><button className="student-primary-btn" disabled={!canSubmit || statement.trim().length < 20} onClick={handleSubmitClick}>{saving ? "SUBMITTING..." : isLeader ? "SUBMIT ROUND 1 ↗" : "SEND TO LEADER FOR APPROVAL ↗"}</button></div></>)}</div>
           )}
         </div>
       </div>
@@ -3233,6 +3262,9 @@ function StudentRoundTwoPage() {
   const [data, setData] = useState(null);
   const [github, setGithub] = useState("");
   const [pdf, setPdf] = useState("");
+  // v6.45 — same demo fields as a demo Round 1.
+  const [demo, setDemo] = useState("");
+  const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -3258,6 +3290,12 @@ function StudentRoundTwoPage() {
       );
       setPdf(
         payload?.submission?.pdf_url || ""
+      );
+      setDemo(
+        payload?.submission?.demo_url || ""
+      );
+      setNote(
+        payload?.submission?.organizer_note || ""
       );
     } catch (err) {
       setData(null);
@@ -3344,12 +3382,12 @@ function StudentRoundTwoPage() {
     }
 
     /*
-     * GitHub is OPTIONAL.
-     * PDF is REQUIRED.
+     * v6.45 — GitHub, live demo and note are REQUIRED.
+     * PDF is OPTIONAL.
      */
-    if (!pdf.trim()) {
+    if (!github.trim() || !demo.trim() || !note.trim()) {
       return setError(
-        "Google Drive PDF URL is required."
+        "GitHub link, live demo link and note for the organizer are required."
       );
     }
 
@@ -3364,8 +3402,12 @@ function StudentRoundTwoPage() {
           method: "POST",
           body: JSON.stringify({
             github_url:
-              github.trim() || null,
-            pdf_url: pdf.trim(),
+              github.trim(),
+            demo_url:
+              demo.trim(),
+            pdf_url: pdf.trim() || null,
+            organizer_note:
+              note.trim(),
           }),
         }
       );
@@ -3406,7 +3448,7 @@ function StudentRoundTwoPage() {
       <PageHeading
         eyebrow="BUILD / ROUND 02"
         title="PROJECT SUBMISSION."
-        text="Submit your project PDF when Round 2 is live. GitHub is optional."
+        text="Submit your demo links when Round 2 is live. GitHub, live demo and note are required; PDF is optional."
       />
 
       {error && (
@@ -3529,8 +3571,8 @@ function StudentRoundTwoPage() {
               </h2>
 
               <p>
-                Google Drive PDF is required.
-                GitHub repository is optional.
+                GitHub link, live demo link and note for the organizer
+                are required. PDF is optional.
               </p>
             </div>
 
@@ -3574,10 +3616,12 @@ function StudentRoundTwoPage() {
           ) : (
             <div className="student-round-form">
 
-              {/* OPTIONAL GITHUB */}
+              {/* REQUIRED GITHUB */}
               <label>
                 GITHUB REPOSITORY URL{" "}
-                <span>(OPTIONAL)</span>
+                <span className="student-required-mark">
+                  *
+                </span>
               </label>
 
               <div className="student-input-icon">
@@ -3594,12 +3638,32 @@ function StudentRoundTwoPage() {
                 />
               </div>
 
-              {/* REQUIRED PDF */}
+              {/* REQUIRED LIVE DEMO */}
               <label>
-                GOOGLE DRIVE PDF URL{" "}
+                LIVE DEMO URL{" "}
                 <span className="student-required-mark">
                   *
                 </span>
+              </label>
+
+              <div className="student-input-icon">
+                <ExternalLink size={15} />
+
+                <input
+                  value={demo}
+                  onChange={(e) =>
+                    setDemo(
+                      e.target.value
+                    )
+                  }
+                  placeholder="https://your-project.vercel.app"
+                />
+              </div>
+
+              {/* OPTIONAL PDF */}
+              <label>
+                GOOGLE DRIVE PDF URL{" "}
+                <span>(OPTIONAL)</span>
               </label>
 
               <div className="student-input-icon">
@@ -3616,11 +3680,33 @@ function StudentRoundTwoPage() {
                 />
               </div>
 
+              {/* REQUIRED NOTE FOR ORGANIZER */}
+              <label>
+                NOTE FOR ORGANIZER{" "}
+                <span className="student-required-mark">
+                  *
+                </span>
+              </label>
+
+              <textarea
+                rows={3}
+                maxLength={1000}
+                value={note}
+                onChange={(e) =>
+                  setNote(
+                    e.target.value.slice(0, 1000)
+                  )
+                }
+                placeholder="What did your team build?"
+              />
+
               <button
                 className="student-primary-btn"
                 disabled={
                   saving ||
-                  !pdf.trim()
+                  !github.trim() ||
+                  !demo.trim() ||
+                  !note.trim()
                 }
                 onClick={submit}
               >

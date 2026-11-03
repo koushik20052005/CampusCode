@@ -181,6 +181,10 @@ export async function getRound1Submissions(req, res) {
         r1.submitted_by,
 
         r1.problem_statement,
+        r1.github_url,
+        r1.demo_url,
+        r1.pdf_url,
+        r1.organizer_note,
         r1.status,
 
         r1.ai_score,
@@ -291,6 +295,14 @@ export async function getRound1Submissions(req, res) {
         },
 
         problem_statement: submission.problem_statement,
+
+        github_url: submission.github_url,
+
+        demo_url: submission.demo_url,
+
+        pdf_url: submission.pdf_url,
+
+        organizer_note: submission.organizer_note,
 
         status: submission.status,
 
@@ -422,6 +434,10 @@ export async function getRound1Submission(req, res) {
         r1.submitted_by,
 
         r1.problem_statement,
+        r1.github_url,
+        r1.demo_url,
+        r1.pdf_url,
+        r1.organizer_note,
         r1.status,
 
         r1.ai_score,
@@ -567,6 +583,14 @@ export async function getRound1Submission(req, res) {
 
         problem_statement: submission.problem_statement,
 
+        github_url: submission.github_url,
+
+        demo_url: submission.demo_url,
+
+        pdf_url: submission.pdf_url,
+
+        organizer_note: submission.organizer_note,
+
         status: submission.status,
 
         feedback_draft: submission.feedback_draft,
@@ -632,6 +656,10 @@ export async function analyzeRound1Submission(req, res) {
         r1.team_id,
         r1.submitted_by,
         r1.problem_statement,
+        r1.github_url,
+        r1.demo_url,
+        r1.pdf_url,
+        r1.organizer_note,
         r1.status,
 
         h.title AS hackathon_title,
@@ -690,6 +718,15 @@ export async function analyzeRound1Submission(req, res) {
       return res.status(400).json({
         success: false,
         message: "Draft submissions cannot be analyzed",
+      });
+    }
+
+    // v6.45 — demo submissions carry links, not a statement,
+    // so there is nothing for the idea analyzer to score.
+    if (!submission.problem_statement) {
+      return res.status(400).json({
+        success: false,
+        message: "Demo submissions cannot be analyzed",
       });
     }
 
