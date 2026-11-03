@@ -222,6 +222,7 @@ export async function getHackMateRecommendations(
         title,
         status,
         max_teams,
+        max_team_size,
         current_round
       FROM hackathons
       WHERE id = $1
@@ -480,7 +481,9 @@ export async function getHackMateRecommendations(
     const teamSize =
       currentTeamMembers.length;
 
-    const maxTeamSize = 4;
+    // v6.39 — recommendations respect the event's team cap, so a
+    // solo event shows zero available slots.
+    const maxTeamSize = Number(hackathon.max_team_size) || 4;
 
     const availableSlots = currentTeam
       ? Math.max(

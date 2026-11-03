@@ -16,6 +16,8 @@ export async function createHackathon(req, res) {
       show_timer,
       banner_web_url,
       banner_mobile_url,
+      max_team_size,
+      invite_only,
     } = req.body;
 
     // v6.17 — quiz events: same row, event_type = 'quiz'. Quiz-only
@@ -71,6 +73,24 @@ export async function createHackathon(req, res) {
       });
     }
 
+    // v6.39 — participant type: 1 = Individual (solo), 2-4 = team
+    // cap. Quizzes are solo by design and ignore this field.
+    let teamSize = 4;
+    if (
+      !isQuiz &&
+      max_team_size !== undefined &&
+      max_team_size !== null &&
+      max_team_size !== ""
+    ) {
+      teamSize = Number(max_team_size);
+      if (!Number.isInteger(teamSize) || teamSize < 1 || teamSize > 4) {
+        return res.status(400).json({
+          success: false,
+          message: "Team size must be between 1 and 4",
+        });
+      }
+    }
+
     const expectedDate = expected_date || start_date || null;
     const optionalEndDate = end_date || null;
     const optionalRegistrationDeadline =
@@ -94,9 +114,11 @@ export async function createHackathon(req, res) {
         settings,
         show_timer,
         banner_web_url,
-        banner_mobile_url
+        banner_mobile_url,
+        max_team_size,
+        invite_only
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16,$17,$18)
       RETURNING *
       `,
       [
@@ -122,6 +144,8 @@ export async function createHackathon(req, res) {
         banner_mobile_url && String(banner_mobile_url).trim()
           ? String(banner_mobile_url).trim()
           : null,
+        teamSize,
+        invite_only === true || invite_only === "true",
       ]
     );
 
@@ -883,6 +907,7 @@ export async function getHackathons(req, res) {
         h.banner_web_url,
         h.banner_mobile_url,
         h.invite_only,
+        h.max_team_size,
         h.created_at,
         h.updated_at
       FROM hackathons h
@@ -1162,6 +1187,7 @@ export async function getHackathonById(req, res) {
         h.banner_mobile_url,
         h.show_timer,
         h.invite_only,
+        h.max_team_size,
         h.status,
         h.approval_status,
         h.approval_feedback,
@@ -1212,6 +1238,8 @@ export async function updateHackathon(req, res) {
       end_date,
       registration_deadline,
       max_teams,
+      max_team_size,
+      invite_only,
     } = req.body;
 
     const existing = await pool.query(
@@ -1219,6 +1247,7 @@ export async function updateHackathon(req, res) {
       SELECT
         id, title, description, organizer_id, track, location,
         start_date, end_date, registration_deadline, max_teams,
+        max_team_size, invite_only,
         status, approval_status, approval_feedback,
         approved_by, approved_at, publication_status,
         published_at, published_by, current_round, settings,
@@ -1309,6 +1338,29 @@ export async function updateHackathon(req, res) {
       });
     }
 
+    // v6.39 — DRAFT-only edit (published events are blocked above,
+    // so no team can already exist over a lowered cap).
+    const updatedTeamSize =
+      max_team_size !== undefined
+        ? Number(max_team_size)
+        : Number(hackathon.max_team_size) || 4;
+
+    if (
+      !Number.isInteger(updatedTeamSize) ||
+      updatedTeamSize < 1 ||
+      updatedTeamSize > 4
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Team size must be between 1 and 4",
+      });
+    }
+
+    // v6.39 — invite-only may also change while DRAFT; the same
+    // published-block above keeps live events untouched.
+    const updatedInviteOnly =
+      invite_only !== undefined ? !!invite_only : !!hackathon.invite_only;
+
     const result = await pool.query(
       `
       UPDATE hackathons
@@ -1321,8 +1373,10 @@ export async function updateHackathon(req, res) {
         end_date = $6,
         registration_deadline = $7,
         max_teams = $8,
+        max_team_size = $9,
+        invite_only = $10,
         updated_at = NOW()
-      WHERE id = $9
+      WHERE id = $11
       RETURNING *
       `,
       [
@@ -1334,6 +1388,8 @@ export async function updateHackathon(req, res) {
         updatedEndDate,
         updatedDeadline,
         updatedMaxTeams,
+        updatedTeamSize,
+        updatedInviteOnly,
         id,
       ]
     );
@@ -1764,6 +1820,7 @@ export async function getOrganizerHackathons(req, res) {
         h.banner_mobile_url,
         h.show_timer,
         h.invite_only,
+        h.max_team_size,
         h.created_at,
         h.updated_at,
         (

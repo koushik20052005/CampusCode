@@ -46,6 +46,7 @@ export async function getAvailableHackathons(req, res) {
         h.banner_web_url,
         h.banner_mobile_url,
         h.show_timer,
+        h.max_team_size,
 
         EXISTS (
           SELECT 1
@@ -352,6 +353,7 @@ export async function getMyHackathons(req, res) {
         h.banner_web_url,
         h.banner_mobile_url,
         h.show_timer,
+        h.max_team_size,
 
         team_data.team_id,
         team_data.team_name,

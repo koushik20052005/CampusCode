@@ -204,6 +204,7 @@ export async function joinTeam(req, res) {
         t.status,
         h.title AS hackathon_title,
         h.event_type AS hackathon_event_type
+        h.max_team_size AS hackathon_max_team_size
       FROM teams t
       INNER JOIN hackathons h
         ON h.id = t.hackathon_id
@@ -309,12 +310,14 @@ export async function joinTeam(req, res) {
 
     const memberCount = memberCountResult.rows[0].count;
 
-    if (memberCount >= 4) {
+    // v6.39 — the cap comes from the event, not a hardcoded 4.
+    const teamCap = Number(team.hackathon_max_team_size) || 4;
+    if (memberCount >= teamCap) {
       await client.query("ROLLBACK");
 
       return res.status(400).json({
         success: false,
-        message: "This team is already full. Maximum team size is 4.",
+        message: `This team is already full. Maximum team size is ${teamCap}.`,
       });
     }
 
@@ -689,6 +692,7 @@ export async function addMemberToTeam(req, res) {
         t.status,
         h.title AS hackathon_title,
         h.event_type AS hackathon_event_type
+        h.max_team_size AS hackathon_max_team_size
       FROM teams t
       INNER JOIN hackathons h
         ON h.id = t.hackathon_id
@@ -880,15 +884,16 @@ export async function addMemberToTeam(req, res) {
     );
 
     const memberCount = memberCountResult.rows[0].count;
-    const MAX_TEAM_SIZE = 4;
+    // v6.39 — the cap comes from the event, not a hardcoded 4.
+    const teamCap = Number(team.hackathon_max_team_size) || 4;
 
-    if (memberCount >= MAX_TEAM_SIZE) {
+    if (memberCount >= teamCap) {
       await client.query("ROLLBACK");
 
       return res.status(400).json({
         success: false,
         message:
-          "This team is already full. Maximum team size is 4.",
+          `This team is already full. Maximum team size is ${teamCap}.`,
       });
     }
 

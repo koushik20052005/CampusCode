@@ -710,7 +710,7 @@ function HackathonsPage({ onOpen, onJoined }) {
                 <p>{value(item.description, item.short_description)}</p>
                 <div className="hackathon-data">
                   <span><small>MODE</small>{value(item.mode, item.event_mode)}</span>
-                  <span><small>{isQuiz ? "FORMAT" : "TEAM SIZE"}</small>{isQuiz ? "Solo" : value(item.team_size, item.teamSize, item.max_team_size)}</span>
+                  <span><small>{isQuiz ? "FORMAT" : "TEAM SIZE"}</small>{isQuiz ? "Solo" : Number(item.max_team_size) === 1 ? "Individual" : item.max_team_size ? `Up to ${item.max_team_size}` : value(item.team_size, item.teamSize)}</span>
                   <span><small>START</small>{formatDate(item.start_date || item.startDate)}</span>
                 </div>
                 <div className="hackathon-actions">

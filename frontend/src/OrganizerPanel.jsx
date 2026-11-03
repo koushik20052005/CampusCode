@@ -954,6 +954,7 @@ function Hackathons({
                     <h3>{h.title}</h3>
                     {h.event_type === "quiz" && <span className="status-pill">QUIZ</span>}
                     {(h.banner_web_url || h.banner_mobile_url) && <span className="status-pill">BANNER SET</span>}
+                    {h.invite_only && <span className="status-pill">INVITE ONLY</span>}
                     <span className={`status-pill ${statusClass(state)}`}>{state}</span>
                   </div>
                   <p className="hack-meta">{h.track || "No track"} · {h.location || "Online"}</p>
@@ -1121,6 +1122,11 @@ function CreateHackathon({ onCancel, onCreate }) {
   const [bannerWeb, setBannerWeb] = useState("");
   const [bannerMobile, setBannerMobile] = useState("");
 
+  // v6.39 — participant type: 1 = Individual (solo), 2-4 = team cap.
+  const [participantSize, setParticipantSize] = useState("4");
+  // v6.39 — invite-only chosen at creation, not only in the panel.
+  const [inviteOnly, setInviteOnly] = useState(false);
+
   const changeRoundCount = (n) => {
     setRoundCount(n);
     setCreateRounds((current) => {
@@ -1203,6 +1209,10 @@ function CreateHackathon({ onCancel, onCreate }) {
           location: form.location.trim(),
           expected_date: form.expected_date || null,
           max_teams: Number(form.max_teams),
+          // v6.39 — participant type chosen at creation.
+          max_team_size: Number(participantSize),
+          // v6.39 — invite-only chosen at creation.
+          invite_only: inviteOnly,
           // v6.38 — rounds, timer and banners chosen at creation.
           rounds: createRounds.slice(0, roundCount).map((r, i) => ({
             round_number: i + 1,
@@ -1275,6 +1285,16 @@ function CreateHackathon({ onCancel, onCreate }) {
             <input className="org-input" type="number" min="1" step="1" value={form.max_teams} onChange={(e) => update("max_teams", e.target.value)} />
           </Field>
         )}
+        {!isQuiz && (
+          <Field label="Participant type">
+            <select className="org-input" value={participantSize} onChange={(e) => setParticipantSize(e.target.value)}>
+              <option value="1">Individual — solo</option>
+              <option value="2">Team — up to 2</option>
+              <option value="3">Team — up to 3</option>
+              <option value="4">Team — up to 4</option>
+            </select>
+          </Field>
+        )}
         {isQuiz ? (
           <>
             <Field label="Quiz start (IST)">
@@ -1322,6 +1342,10 @@ function CreateHackathon({ onCancel, onCreate }) {
             <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
               <input type="checkbox" checked={showTimer} onChange={(e) => setShowTimer(e.target.checked)} />
               <span>Show countdown timer on the student round page</span>
+            </label>
+            <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
+              <input type="checkbox" checked={inviteOnly} onChange={(e) => setInviteOnly(e.target.checked)} />
+              <span>Invite-only event — students need an invite code to join</span>
             </label>
             <Field label="Banner — web image URL">
               <input className="org-input" value={bannerWeb} onChange={(e) => setBannerWeb(e.target.value)} placeholder="https://…/banner-web.png" />
