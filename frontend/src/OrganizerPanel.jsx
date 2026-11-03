@@ -1111,14 +1111,15 @@ function CreateHackathon({ onCancel, onCreate }) {
 
   // v6.38 — rounds chosen at creation: 1-3 rounds, each with a
   // name, a requirement (what students must submit) and an
-  // AI-usage flag, plus the timer switch and banner URLs.
+  // AI-usage flag, plus the banner URLs.
+  // v6.44 — each round also carries its own start/end time and
+  // its own timer switch (no more one global timer checkbox).
   const [roundCount, setRoundCount] = useState(3);
   const [createRounds, setCreateRounds] = useState([
-    { title: "", requirement: "", ai: false },
-    { title: "", requirement: "", ai: false },
-    { title: "", requirement: "", ai: false },
+    { title: "", requirement: "", ai: false, start: "", end: "", timer: false },
+    { title: "", requirement: "", ai: false, start: "", end: "", timer: false },
+    { title: "", requirement: "", ai: false, start: "", end: "", timer: false },
   ]);
-  const [showTimer, setShowTimer] = useState(false);
   const [bannerWeb, setBannerWeb] = useState("");
   const [bannerMobile, setBannerMobile] = useState("");
 
@@ -1131,7 +1132,7 @@ function CreateHackathon({ onCancel, onCreate }) {
     setRoundCount(n);
     setCreateRounds((current) => {
       const next = current.slice(0, n);
-      while (next.length < n) next.push({ title: "", requirement: "", ai: false });
+      while (next.length < n) next.push({ title: "", requirement: "", ai: false, start: "", end: "", timer: false });
       return next;
     });
   };
@@ -1181,6 +1182,14 @@ function CreateHackathon({ onCancel, onCreate }) {
         setError("Maximum teams must be at least 1.");
         return;
       }
+      // v6.44 — per-round schedule is chosen at creation.
+      for (let i = 0; i < roundCount; i++) {
+        const r = createRounds[i];
+        if (r?.start && r?.end && new Date(r.end) <= new Date(r.start)) {
+          setError(`Round ${i + 1} end time must be after start time.`);
+          return;
+        }
+      }
     }
 
     setSaving(true);
@@ -1213,14 +1222,17 @@ function CreateHackathon({ onCancel, onCreate }) {
           max_team_size: Number(participantSize),
           // v6.39 — invite-only chosen at creation.
           invite_only: inviteOnly,
-          // v6.38 — rounds, timer and banners chosen at creation.
+          // v6.38 — rounds and banners chosen at creation.
+          // v6.44 — each round carries its own schedule + timer.
           rounds: createRounds.slice(0, roundCount).map((r, i) => ({
             round_number: i + 1,
             title: r.title.trim() || `Round ${i + 1}`,
             requirement: r.requirement.trim() || null,
             ai_usage_required: !!r.ai,
+            start_at: toIST(r.start),
+            end_at: toIST(r.end),
+            show_timer: !!r.timer,
           })),
-          show_timer: showTimer,
           banner_web_url: bannerWeb.trim() || null,
           banner_mobile_url: bannerMobile.trim() || null,
         });
@@ -1337,12 +1349,18 @@ function CreateHackathon({ onCancel, onCreate }) {
                     <option value="yes">AI usage required</option>
                   </select>
                 </Field>
+                <Field label="Round start (IST)">
+                  <input className="org-input" type="datetime-local" value={r.start} onChange={(e) => setCreateRounds((current) => current.map((x, j) => j === i ? { ...x, start: e.target.value } : x))} />
+                </Field>
+                <Field label="Round end (IST)">
+                  <input className="org-input" type="datetime-local" value={r.end} onChange={(e) => setCreateRounds((current) => current.map((x, j) => j === i ? { ...x, end: e.target.value } : x))} />
+                </Field>
+                <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
+                  <input type="checkbox" checked={!!r.timer} onChange={(e) => setCreateRounds((current) => current.map((x, j) => j === i ? { ...x, timer: e.target.checked } : x))} />
+                  <span>Show countdown timer for this round</span>
+                </label>
               </div>
             ))}
-            <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
-              <input type="checkbox" checked={showTimer} onChange={(e) => setShowTimer(e.target.checked)} />
-              <span>Show countdown timer on the student round page</span>
-            </label>
             <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
               <input type="checkbox" checked={inviteOnly} onChange={(e) => setInviteOnly(e.target.checked)} />
               <span>Invite-only event — students need an invite code to join</span>
@@ -1959,9 +1977,6 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  // v6.38 — timer switch, synced from the event, saved with rounds.
-  const [showTimer, setShowTimer] = useState(false);
-  useEffect(() => { setShowTimer(!!hackathon?.show_timer); }, [hackathon?.id]);
 
   const load = async () => {
     if (!hackathon?.id) {
@@ -1978,10 +1993,16 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
       // v6.38 — rounds are whatever the event actually has (1-3);
       // only events created before rounds existed fall back to
       // three empty placeholders.
-      setRounds(fetched.length ? fetched : [1, 2, 3].map((n) => ({
+      // v6.44 — a round with no explicit timer flag falls back to
+      // the event's flag, so older events keep today's behavior.
+      const base = fetched.length ? fetched : [1, 2, 3].map((n) => ({
         round_number: n,
         title: `Round ${n}`,
         status: "SCHEDULED",
+      }));
+      setRounds(base.map((r) => ({
+        ...r,
+        show_timer: r.show_timer ?? !!hackathon?.show_timer,
       })));
     } catch (e) {
       setError(e.message);
@@ -2017,15 +2038,10 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
               end_at: r?.end_at || null,
               requirement: r?.requirement?.trim() || null,
               ai_usage_required: !!r?.ai_usage_required,
+              show_timer: !!r?.show_timer,
             };
           }),
         }),
-      });
-      // v6.38 — the timer switch lives with the rounds: students
-      // see the big countdown on a round page only when it is on.
-      await apiFetch(`/hackathons/${hackathon.id}/settings`, {
-        method: "PUT",
-        body: JSON.stringify({ show_timer: showTimer }),
       });
       setMessage("Round configuration saved.");
       await load();
@@ -2035,6 +2051,16 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
     } finally {
       setBusy("");
     }
+  };
+
+  // v6.44 — API timestamps are ISO; datetime-local needs the
+  // wall-clock form (the create form's toIST, reversed).
+  const toLocalInput = (v) => {
+    if (!v) return "";
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return "";
+    const off = d.getTimezoneOffset();
+    return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16);
   };
 
   const roundAction = async (number, action) => {
@@ -2148,6 +2174,41 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
                       <option value="yes">AI usage required</option>
                     </select>
                   </label>
+                  <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span>Start (IST)</span>
+                    <input
+                      className="org-input"
+                      type="datetime-local"
+                      value={toLocalInput(r.start_at)}
+                      disabled={st === "LIVE" || st === "COMPLETED"}
+                      onChange={(e) => setRounds((current) => current.map((x) =>
+                        Number(x.round_number) === n ? { ...x, start_at: e.target.value ? new Date(e.target.value).toISOString() : null } : x
+                      ))}
+                    />
+                  </label>
+                  <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span>End (IST)</span>
+                    <input
+                      className="org-input"
+                      type="datetime-local"
+                      value={toLocalInput(r.end_at)}
+                      disabled={st === "LIVE" || st === "COMPLETED"}
+                      onChange={(e) => setRounds((current) => current.map((x) =>
+                        Number(x.round_number) === n ? { ...x, end_at: e.target.value ? new Date(e.target.value).toISOString() : null } : x
+                      ))}
+                    />
+                  </label>
+                  <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={!!r.show_timer}
+                      disabled={st === "LIVE" || st === "COMPLETED"}
+                      onChange={(e) => setRounds((current) => current.map((x) =>
+                        Number(x.round_number) === n ? { ...x, show_timer: e.target.checked } : x
+                      ))}
+                    />
+                    <span>Show countdown timer for this round</span>
+                  </label>
                   <button className="live-btn wide" disabled={!canActivate || !!busy} onClick={() => roundAction(n, "activate")}>
                     {busy === `activate-${n}` ? <LoaderCircle className="spin" size={14}/> : <Zap size={14}/>}
                     Activate Round {n}
@@ -2163,11 +2224,7 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
           </div>
 
           <div className="round-save-row">
-            <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
-              <input type="checkbox" checked={showTimer} onChange={(e) => setShowTimer(e.target.checked)} />
-              <span>Show countdown timer on student round pages</span>
-            </label>
-            <span>Save round names before operating the lifecycle.</span>
+            <span>Save round names, times and timer switches before operating the lifecycle.</span>
             <button className="primary-btn" disabled={!!busy || isHackathonCompleted(hackathon)} onClick={save}>
               {busy === "save" ? <LoaderCircle size={14} className="spin"/> : <Settings2 size={14}/>}
               Save configuration

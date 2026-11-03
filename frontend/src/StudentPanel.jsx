@@ -862,7 +862,7 @@ function RegistrationDetail({ registration, onBack, bare }) {
         {selectedRound && (
           <RoundDetailCard
             round={selectedRound}
-            showTimer={registration?.show_timer === true || registration?.hackathon?.show_timer === true}
+            showTimer={selectedRound?.show_timer ?? (registration?.show_timer === true || registration?.hackathon?.show_timer === true)}
           />
         )}
         </>
@@ -4080,7 +4080,7 @@ function StudentRoundsPage({ hackathonId, event }) {
   }, [id]);
 
   const selected = rounds.find((r) => Number(r.round_number) === Number(tab)) || null;
-  const showTimer = event?.show_timer === true || event?.hackathon?.show_timer === true;
+  const showTimer = selected?.show_timer ?? (event?.show_timer === true || event?.hackathon?.show_timer === true);
   const bannerWeb = event?.banner_web_url || event?.hackathon?.banner_web_url;
   const bannerMobile = event?.banner_mobile_url || event?.hackathon?.banner_mobile_url;
 

@@ -91,6 +91,20 @@ export async function createHackathon(req, res) {
       }
     }
 
+    // v6.44 — round times are validated before anything is
+    // inserted, so a bad round can never orphan an event row.
+    if (!isQuiz && Array.isArray(req.body?.rounds)) {
+      for (let i = 0; i < req.body.rounds.length; i++) {
+        const r = req.body.rounds[i] || {};
+        if (r.start_at && r.end_at && new Date(r.start_at) >= new Date(r.end_at)) {
+          return res.status(400).json({
+            success: false,
+            message: `Round ${i + 1} end time must be after start time`,
+          });
+        }
+      }
+    }
+
     const expectedDate = expected_date || start_date || null;
     const optionalEndDate = end_date || null;
     const optionalRegistrationDeadline =
@@ -152,18 +166,26 @@ export async function createHackathon(req, res) {
     // v6.38 — rounds chosen at creation (hackathons only; quizzes
     // are solo timed attempts and never use rounds). 1-3 rounds,
     // each with its own name, requirement and AI-usage flag.
+    // v6.44 — each round also carries its own start/end time
+    // and timer switch.
     const createdRounds = req.body?.rounds;
     if (!isQuiz && Array.isArray(createdRounds) && createdRounds.length >= 1 && createdRounds.length <= 3) {
       const newHackathonId = result.rows[0].id;
       for (let i = 0; i < createdRounds.length; i++) {
         const r = createdRounds[i] || {};
+        const roundTimer = r.show_timer === true || r.show_timer === "true"
+          ? true
+          : r.show_timer === false || r.show_timer === "false"
+            ? false
+            : null;
         await pool.query(
           `
           INSERT INTO hackathon_rounds (
             hackathon_id, round_number, title,
-            requirement, ai_usage_required, status
+            requirement, ai_usage_required, status,
+            start_at, end_at, show_timer
           )
-          VALUES ($1,$2,$3,$4,$5,'SCHEDULED')
+          VALUES ($1,$2,$3,$4,$5,'SCHEDULED',$6,$7,$8)
           ON CONFLICT (hackathon_id, round_number) DO NOTHING
           `,
           [
@@ -176,6 +198,9 @@ export async function createHackathon(req, res) {
               ? String(r.requirement).trim()
               : null,
             r.ai_usage_required === true || r.ai_usage_required === "true",
+            r.start_at || null,
+            r.end_at || null,
+            roundTimer,
           ]
         );
       }
@@ -2124,6 +2149,14 @@ export async function scheduleHackathonRounds(req, res) {
         ai_usage_required:
           round.ai_usage_required === true ||
           round.ai_usage_required === "true",
+        // v6.44 — tri-state: true/false wins, null/omitted keeps
+        // whatever the round already had.
+        show_timer:
+          round.show_timer === true || round.show_timer === "true"
+            ? true
+            : round.show_timer === false || round.show_timer === "false"
+              ? false
+              : null,
       }))
       .sort((a, b) => a.round_number - b.round_number);
 
@@ -2169,9 +2202,10 @@ export async function scheduleHackathonRounds(req, res) {
           end_at,
           requirement,
           ai_usage_required,
-          status
+          status,
+          show_timer
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,'SCHEDULED')
+        VALUES ($1,$2,$3,$4,$5,$6,$7,'SCHEDULED',$8)
         ON CONFLICT (hackathon_id,round_number)
         DO UPDATE SET
           title = EXCLUDED.title,
@@ -2179,6 +2213,7 @@ export async function scheduleHackathonRounds(req, res) {
           end_at = EXCLUDED.end_at,
           requirement = EXCLUDED.requirement,
           ai_usage_required = EXCLUDED.ai_usage_required,
+          show_timer = COALESCE(EXCLUDED.show_timer, hackathon_rounds.show_timer),
           updated_at = NOW()
         `,
         [
@@ -2189,6 +2224,7 @@ export async function scheduleHackathonRounds(req, res) {
           round.end_at,
           round.requirement,
           round.ai_usage_required,
+          round.show_timer,
         ]
       );
     }
@@ -2217,6 +2253,7 @@ export async function scheduleHackathonRounds(req, res) {
         end_at,
         requirement,
         ai_usage_required,
+        show_timer,
         status,
         activated_at,
         activated_by,
@@ -2291,6 +2328,7 @@ export async function getHackathonRounds(req, res) {
         end_at,
         requirement,
         ai_usage_required,
+        show_timer,
         status,
         activated_at,
         activated_by,
