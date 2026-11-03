@@ -450,7 +450,7 @@ function Login() {
                 <span>
                   {loading
                     ? "CHECKING..."
-                    : "SEND LOGIN CODE"}
+                    : "LOGIN"}
                 </span>
 
                 <b className={loading ? "is-loading" : ""}>

@@ -136,7 +136,7 @@ const MARK_GRADIENTS = [
   ["#ffcf5c", "#e07b39"],
 ];
 function initialsOf(text) {
-  const words = String(text || "?").trim().split(/\s+/).filter(Boolean);
+  const words = String(text || "?").trim().split(/\s+/).filter((w) => /^[A-Za-z]/.test(w));
   if (!words.length) return "?";
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return (words[0][0] + words[1][0]).toUpperCase();
