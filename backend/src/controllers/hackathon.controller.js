@@ -13,6 +13,9 @@ export async function createHackathon(req, res) {
       end_date,
       registration_deadline,
       max_teams,
+      show_timer,
+      banner_web_url,
+      banner_mobile_url,
     } = req.body;
 
     // v6.17 — quiz events: same row, event_type = 'quiz'. Quiz-only
@@ -88,9 +91,12 @@ export async function createHackathon(req, res) {
         status,
         current_round,
         event_type,
-        settings
+        settings,
+        show_timer,
+        banner_web_url,
+        banner_mobile_url
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16)
       RETURNING *
       `,
       [
@@ -109,8 +115,47 @@ export async function createHackathon(req, res) {
         1,
         isQuiz ? "quiz" : "hackathon",
         JSON.stringify(quizSettings),
+        show_timer === true || show_timer === "true",
+        banner_web_url && String(banner_web_url).trim()
+          ? String(banner_web_url).trim()
+          : null,
+        banner_mobile_url && String(banner_mobile_url).trim()
+          ? String(banner_mobile_url).trim()
+          : null,
       ]
     );
+
+    // v6.38 — rounds chosen at creation (hackathons only; quizzes
+    // are solo timed attempts and never use rounds). 1-3 rounds,
+    // each with its own name, requirement and AI-usage flag.
+    const createdRounds = req.body?.rounds;
+    if (!isQuiz && Array.isArray(createdRounds) && createdRounds.length >= 1 && createdRounds.length <= 3) {
+      const newHackathonId = result.rows[0].id;
+      for (let i = 0; i < createdRounds.length; i++) {
+        const r = createdRounds[i] || {};
+        await pool.query(
+          `
+          INSERT INTO hackathon_rounds (
+            hackathon_id, round_number, title,
+            requirement, ai_usage_required, status
+          )
+          VALUES ($1,$2,$3,$4,$5,'SCHEDULED')
+          ON CONFLICT (hackathon_id, round_number) DO NOTHING
+          `,
+          [
+            newHackathonId,
+            i + 1,
+            r.title && String(r.title).trim()
+              ? String(r.title).trim()
+              : `Round ${i + 1}`,
+            r.requirement && String(r.requirement).trim()
+              ? String(r.requirement).trim()
+              : null,
+            r.ai_usage_required === true || r.ai_usage_required === "true",
+          ]
+        );
+      }
+    }
 
     return res.status(201).json({
       success: true,
@@ -207,6 +252,70 @@ export async function joinHackathon(req, res) {
       });
     }
 
+    // v6.38 — invite-code-only events (paid hackathons): only a
+    // student holding a code issued for their own email may join.
+    // The event organizer and admins bypass the code check.
+    // Validation happens here; the code is marked used only after
+    // the participant row is inserted successfully below.
+    let inviteCodeRow = null;
+    const inviteOnlyHackathon = await pool.query(
+      `
+      SELECT organizer_id, invite_only
+      FROM hackathons
+      WHERE id = $1
+      `,
+      [id]
+    );
+    const inviteRow = inviteOnlyHackathon.rows[0];
+    if (
+      inviteRow?.invite_only &&
+      req.user.id !== inviteRow.organizer_id &&
+      req.user.role !== "ADMIN"
+    ) {
+      const code = String(req.body?.invite_code || "").trim().toUpperCase();
+      if (!code) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "This hackathon is invite-only. Enter the invite code you received after payment.",
+        });
+      }
+      const userResult = await pool.query(
+        `SELECT email FROM users WHERE id = $1`,
+        [req.user.id]
+      );
+      const userEmail = String(userResult.rows[0]?.email || "").toLowerCase();
+      const codeResult = await pool.query(
+        `
+        SELECT id, email, used_by
+        FROM event_invite_codes
+        WHERE hackathon_id = $1 AND UPPER(code) = $2
+        `,
+        [id, code]
+      );
+      const codeRow = codeResult.rows[0];
+      if (!codeRow) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Invalid invite code. You are not eligible for this event.",
+        });
+      }
+      if (String(codeRow.email || "").toLowerCase() !== userEmail) {
+        return res.status(403).json({
+          success: false,
+          message: "This invite code belongs to another email.",
+        });
+      }
+      if (codeRow.used_by) {
+        return res.status(403).json({
+          success: false,
+          message: "This invite code has already been used.",
+        });
+      }
+      inviteCodeRow = codeRow;
+    }
+
     // v6.17 — quiz participant cap (hackathon joins stay uncapped,
     // exactly as before). Cap lives in settings, falls back to
     // max_teams which the create endpoint fills from the cap.
@@ -241,6 +350,19 @@ export async function joinHackathon(req, res) {
       `,
       [id, req.user.id]
     );
+
+    // v6.38 — mark the invite code used only now that the join
+    // actually succeeded, so a failed join never burns a code.
+    if (inviteCodeRow) {
+      await pool.query(
+        `
+        UPDATE event_invite_codes
+        SET used_by = $2, used_at = NOW()
+        WHERE id = $1 AND used_by IS NULL
+        `,
+        [inviteCodeRow.id, req.user.id]
+      );
+    }
 
     return res.status(201).json({
       success: true,
@@ -757,6 +879,10 @@ export async function getHackathons(req, res) {
         h.approval_status,
         h.publication_status,
         h.current_round,
+        h.event_type,
+        h.banner_web_url,
+        h.banner_mobile_url,
+        h.invite_only,
         h.created_at,
         h.updated_at
       FROM hackathons h
@@ -1034,6 +1160,8 @@ export async function getHackathonById(req, res) {
         h.settings,
         h.banner_web_url,
         h.banner_mobile_url,
+        h.show_timer,
+        h.invite_only,
         h.status,
         h.approval_status,
         h.approval_feedback,
@@ -1634,6 +1762,8 @@ export async function getOrganizerHackathons(req, res) {
         h.settings,
         h.banner_web_url,
         h.banner_mobile_url,
+        h.show_timer,
+        h.invite_only,
         h.created_at,
         h.updated_at,
         (
@@ -1873,10 +2003,10 @@ export async function scheduleHackathonRounds(req, res) {
     const { id } = req.params;
     const { rounds } = req.body;
 
-    if (!Array.isArray(rounds) || rounds.length !== 3) {
+    if (!Array.isArray(rounds) || rounds.length < 1 || rounds.length > 3) {
       return res.status(400).json({
         success: false,
-        message: "Exactly 3 rounds must be provided",
+        message: "1 to 3 rounds must be provided",
       });
     }
 
@@ -1930,10 +2060,17 @@ export async function scheduleHackathonRounds(req, res) {
           round.title || `Round ${round.round_number}`,
         start_at: round.start_at || null,
         end_at: round.end_at || null,
+        requirement:
+          round.requirement && String(round.requirement).trim()
+            ? String(round.requirement).trim()
+            : null,
+        ai_usage_required:
+          round.ai_usage_required === true ||
+          round.ai_usage_required === "true",
       }))
       .sort((a, b) => a.round_number - b.round_number);
 
-    const expectedNumbers = [1, 2, 3];
+    const expectedNumbers = normalizedRounds.map((_, i) => i + 1);
 
     for (let i = 0; i < expectedNumbers.length; i++) {
       if (
@@ -1942,7 +2079,7 @@ export async function scheduleHackathonRounds(req, res) {
       ) {
         return res.status(400).json({
           success: false,
-          message: "Round numbers must be 1, 2 and 3",
+          message: "Round numbers must be 1, 2 and 3 in order",
         });
       }
     }
@@ -1973,14 +2110,18 @@ export async function scheduleHackathonRounds(req, res) {
           title,
           start_at,
           end_at,
+          requirement,
+          ai_usage_required,
           status
         )
-        VALUES ($1,$2,$3,$4,$5,'SCHEDULED')
+        VALUES ($1,$2,$3,$4,$5,$6,$7,'SCHEDULED')
         ON CONFLICT (hackathon_id,round_number)
         DO UPDATE SET
           title = EXCLUDED.title,
           start_at = EXCLUDED.start_at,
           end_at = EXCLUDED.end_at,
+          requirement = EXCLUDED.requirement,
+          ai_usage_required = EXCLUDED.ai_usage_required,
           updated_at = NOW()
         `,
         [
@@ -1989,9 +2130,24 @@ export async function scheduleHackathonRounds(req, res) {
           round.title,
           round.start_at,
           round.end_at,
+          round.requirement,
+          round.ai_usage_required,
         ]
       );
     }
+
+    // v6.38 — shrinking the round count only removes rounds that
+    // were never activated (no submissions can exist for them);
+    // rounds that already ran are kept, never deleted.
+    await client.query(
+      `
+      DELETE FROM hackathon_rounds
+      WHERE hackathon_id = $1
+        AND round_number > $2
+        AND status = 'SCHEDULED'
+      `,
+      [id, normalizedRounds.length]
+    );
 
     const saved = await client.query(
       `
@@ -2002,6 +2158,8 @@ export async function scheduleHackathonRounds(req, res) {
         title,
         start_at,
         end_at,
+        requirement,
+        ai_usage_required,
         status,
         activated_at,
         activated_by,
@@ -2074,6 +2232,8 @@ export async function getHackathonRounds(req, res) {
         title,
         start_at,
         end_at,
+        requirement,
+        ai_usage_required,
         status,
         activated_at,
         activated_by,
@@ -2429,5 +2589,170 @@ export async function completeHackathonRound(req, res) {
       message:
         "Unable to complete hackathon round",
     });
+  }
+}
+/* ============================================================
+   v6.38 — INVITE CODES + EVENT SETTINGS
+   Invite-code-only events: the organizer generates one code per
+   paid email; the student enters it at join time (see
+   joinHackathon). Codes are email-tied, so sharing a code does
+   not help anyone else.
+   ============================================================ */
+
+const INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function makeInviteCode() {
+  let code = "RB-";
+  for (let i = 0; i < 6; i++) {
+    code += INVITE_ALPHABET[Math.floor(Math.random() * INVITE_ALPHABET.length)];
+  }
+  return code;
+}
+
+async function ownedHackathonOrNull(id, user) {
+  const r = await pool.query(
+    `SELECT id, organizer_id FROM hackathons WHERE id = $1`,
+    [id]
+  );
+  if (r.rows.length === 0) return { status: 404, message: "Hackathon not found" };
+  if (user.role !== "ADMIN" && r.rows[0].organizer_id !== user.id) {
+    return { status: 403, message: "You can only manage your own hackathons" };
+  }
+  return { hackathon: r.rows[0] };
+}
+
+export async function generateInviteCodes(req, res) {
+  try {
+    const { id } = req.params;
+    const chk = await ownedHackathonOrNull(id, req.user);
+    if (chk.status) {
+      return res.status(chk.status).json({ success: false, message: chk.message });
+    }
+    const raw = req.body?.emails;
+    const list = Array.isArray(raw)
+      ? raw
+      : String(raw || "").split(/[\n,]+/);
+    const emails = [...new Set(
+      list.map((e) => String(e || "").trim().toLowerCase()).filter((e) => e.includes("@"))
+    )].slice(0, 200);
+    if (emails.length === 0) {
+      return res.status(400).json({ success: false, message: "No valid emails provided" });
+    }
+    for (const email of emails) {
+      for (let attempt = 0; attempt < 10; attempt++) {
+        try {
+          await pool.query(
+            `
+            INSERT INTO event_invite_codes (hackathon_id, email, code, created_by)
+            VALUES ($1,$2,$3,$4)
+            ON CONFLICT (hackathon_id, email) DO NOTHING
+            `,
+            [id, email, makeInviteCode(), req.user.id]
+          );
+          break;
+        } catch (e) {
+          // Code collision (same code twice): regenerate and retry.
+          if (e.code !== "23505") throw e;
+        }
+      }
+    }
+    const all = await pool.query(
+      `
+      SELECT c.id, c.email, c.code, c.used_by, c.used_at, c.created_at,
+             u.name AS used_by_name
+      FROM event_invite_codes c
+      LEFT JOIN users u ON u.id = c.used_by
+      WHERE c.hackathon_id = $1
+      ORDER BY c.created_at ASC
+      `,
+      [id]
+    );
+    return res.json({ success: true, codes: all.rows });
+  } catch (error) {
+    console.error("GENERATE INVITE CODES ERROR:", error);
+    return res.status(500).json({ success: false, message: "Unable to generate invite codes" });
+  }
+}
+
+export async function listInviteCodes(req, res) {
+  try {
+    const { id } = req.params;
+    const chk = await ownedHackathonOrNull(id, req.user);
+    if (chk.status) {
+      return res.status(chk.status).json({ success: false, message: chk.message });
+    }
+    const all = await pool.query(
+      `
+      SELECT c.id, c.email, c.code, c.used_by, c.used_at, c.created_at,
+             u.name AS used_by_name
+      FROM event_invite_codes c
+      LEFT JOIN users u ON u.id = c.used_by
+      WHERE c.hackathon_id = $1
+      ORDER BY c.created_at ASC
+      `,
+      [id]
+    );
+    return res.json({ success: true, codes: all.rows });
+  } catch (error) {
+    console.error("LIST INVITE CODES ERROR:", error);
+    return res.status(500).json({ success: false, message: "Unable to list invite codes" });
+  }
+}
+
+export async function revokeInviteCode(req, res) {
+  try {
+    const { id, codeId } = req.params;
+    const chk = await ownedHackathonOrNull(id, req.user);
+    if (chk.status) {
+      return res.status(chk.status).json({ success: false, message: chk.message });
+    }
+    const found = await pool.query(
+      `SELECT used_by FROM event_invite_codes WHERE id = $1 AND hackathon_id = $2`,
+      [codeId, id]
+    );
+    if (found.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Invite code not found" });
+    }
+    if (found.rows[0].used_by) {
+      return res.status(400).json({ success: false, message: "Used codes cannot be revoked" });
+    }
+    await pool.query(
+      `DELETE FROM event_invite_codes WHERE id = $1 AND hackathon_id = $2`,
+      [codeId, id]
+    );
+    return res.json({ success: true, message: "Invite code revoked" });
+  } catch (error) {
+    console.error("REVOKE INVITE CODE ERROR:", error);
+    return res.status(500).json({ success: false, message: "Unable to revoke invite code" });
+  }
+}
+
+export async function updateHackathonSettings(req, res) {
+  try {
+    const { id } = req.params;
+    const chk = await ownedHackathonOrNull(id, req.user);
+    if (chk.status) {
+      return res.status(chk.status).json({ success: false, message: chk.message });
+    }
+    const showTimer = req.body?.show_timer === undefined ? null : !!req.body.show_timer;
+    const inviteOnly = req.body?.invite_only === undefined ? null : !!req.body.invite_only;
+    if (showTimer === null && inviteOnly === null) {
+      return res.status(400).json({ success: false, message: "Nothing to update" });
+    }
+    const updated = await pool.query(
+      `
+      UPDATE hackathons
+      SET show_timer = COALESCE($2, show_timer),
+          invite_only = COALESCE($3, invite_only),
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING id, show_timer, invite_only
+      `,
+      [id, showTimer, inviteOnly]
+    );
+    return res.json({ success: true, hackathon: updated.rows[0] });
+  } catch (error) {
+    console.error("UPDATE HACKATHON SETTINGS ERROR:", error);
+    return res.status(500).json({ success: false, message: "Unable to update settings" });
   }
 }

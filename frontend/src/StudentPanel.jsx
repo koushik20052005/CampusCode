@@ -187,6 +187,79 @@ function EventBanner({ web, mobile, title }) {
   );
 }
 
+/* v6.38 — big round countdown, in the student panel's own
+   language: white panel card, DM Mono labels, Inter black
+   numbers, lime submit button. Ticks every second; at zero it
+   reads TIME UP. Only rendered when the organizer switched the
+   event timer on. */
+function RoundTimer({ endAt }) {
+  const target = endAt ? new Date(endAt).getTime() : NaN;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!Number.isFinite(target)) return undefined;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [endAt]);
+  if (!Number.isFinite(target)) return null;
+  const diff = Math.max(0, target - now);
+  const totalSeconds = Math.floor(diff / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  const clock = days > 0
+    ? `${days}d ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+    : `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  return (
+    <div className="student-panel-card" style={{ marginBottom: 16 }}>
+      <div className="student-panel-title">
+        <span>TIME LEFT</span>
+        <span>{diff <= 0 ? "ROUND ENDED" : `ENDS ${new Date(target).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).toUpperCase()}`}</span>
+      </div>
+      <div style={{ fontSize: 56, fontWeight: 900, letterSpacing: "-0.05em", lineHeight: 1, color: diff <= 0 ? "#991b1b" : "#111" }}>
+        {diff <= 0 ? "TIME UP" : clock}
+      </div>
+      {diff > 0 && (
+        <div style={{ marginTop: 12, fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.15em", color: "#888" }}>
+          {days > 0 ? "DAYS  HOURS  MINUTES  SECONDS" : "HOURS  MINUTES  SECONDS"}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* v6.38 — what a round asks for: shown when the student clicks
+   a round row. Requirement is the organizer's own text; the AI
+   line states the round's AI rule plainly. */
+function RoundDetailCard({ round, showTimer }) {
+  if (!round) return null;
+  const n = Number(round.round_number);
+  const aiRequired = round.ai_usage_required === true || round.ai_usage_required === "true";
+  return (
+    <div className="student-panel-card" style={{ marginBottom: 16 }}>
+      <div className="student-panel-title">
+        <span>ROUND {Number.isFinite(n) ? n : ""} DETAILS</span>
+        <span>{String(round.status || "SCHEDULED").toUpperCase()}</span>
+      </div>
+      <h3 style={{ fontSize: 26, letterSpacing: "-0.045em", margin: "0 0 12px" }}>{round.title || `Round ${n}`}</h3>
+      {showTimer && round.end_at && <RoundTimer endAt={round.end_at} />}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.15em", color: "#888", marginBottom: 6 }}>WHAT YOU NEED TO SUBMIT</div>
+        <p style={{ margin: 0, lineHeight: 1.7, color: "#444" }}>{round.requirement || "No requirement set for this round yet — check back after the organizer publishes it."}</p>
+      </div>
+      {round.end_at && (
+        <p style={{ margin: "0 0 8px", fontSize: 13, color: "#666" }}>
+          Deadline: {new Date(round.end_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })}
+        </p>
+      )}
+      <p style={{ margin: 0, fontSize: 13, color: "#666" }}>
+        AI usage: {aiRequired ? "Required for this round" : "Not required for this round"}
+      </p>
+    </div>
+  );
+}
+
 /* v6.1 — member avatar: initials circle with stable gradient */
 function MemberAvatar({ name, size = 34 }) {
   const [from, to] = gradientFor(name);
@@ -512,6 +585,9 @@ function DashboardDiscover({ navigate }) {
   const [joining, setJoining] = useState("");
   const [justJoined, setJustJoined] = useState("");
   const [loading, setLoading] = useState(true);
+  // v6.38 — invite-code-only events ask for the code on the card.
+  const [codeInputs, setCodeInputs] = useState({});
+  const [joinError, setJoinError] = useState("");
   useEffect(() => {
     Promise.allSettled([apiFetch("/hackathons"), apiFetch("/student/hackathons/my-hackathons")]).then(([all, mine]) => {
       if (all.status === "fulfilled") setItems(dedupeHackathons(unwrapList(all.value, ["hackathons", "events", "items"])).slice(0, 3));
@@ -521,13 +597,19 @@ function DashboardDiscover({ navigate }) {
   const join = async (item) => {
     const id = String(item.id || "");
     if (!id || joined.has(id)) return;
-    setJoining(id);
-    try { await apiFetch(`/hackathons/${encodeURIComponent(id)}/join`, { method: "POST" }); setJoined((current) => new Set([...current, id])); setJustJoined(id); setTimeout(() => setJustJoined(""), 3000); }
-    catch {} finally { setJoining(""); }
+    setJoining(id); setJoinError("");
+    try {
+      const opts = { method: "POST" };
+      if (item.invite_only) opts.body = JSON.stringify({ invite_code: (codeInputs[id] || "").trim() });
+      await apiFetch(`/hackathons/${encodeURIComponent(id)}/join`, opts);
+      setJoined((current) => new Set([...current, id])); setJustJoined(id); setTimeout(() => setJustJoined(""), 3000);
+    }
+    catch (e) { setJoinError(e.message || "Could not join this event."); } finally { setJoining(""); }
   };
   return <div className="student-dashboard-discover">
     <div className="student-panel-title"><span>03 / DISCOVER EVENTS</span><button onClick={() => navigate("Events")}>VIEW ALL ↗</button></div>
-    {loading ? <div className="student-discover-loading">Loading available hackathons...</div> : items.length ? <div className="student-discover-grid">{items.map((item) => { const id=String(item.id||""); const isJoined=joined.has(id); return <div className={`student-discover-card ${justJoined === id ? "join-celebrate" : ""}`} key={id}>{justJoined === id && (<><span className="join-confetti"><i /><i /><i /><i /><i /><i /><i /><i /></span><span className="join-stamp">YOU'RE IN ✓</span></>)}<div className="student-discover-head"><HackathonMark title={value(item.title, item.name, item.hackathon_name)} size={40} /><div><span>{value(item.track, item.category, "HACKATHON")}</span><strong>{value(item.title, item.name, item.hackathon_name)}</strong><small>{formatDate(item.start_date || item.startDate)}</small></div></div><button disabled={isJoined || joining===id} onClick={() => join(item)}>{isJoined ? "JOINED" : joining===id ? "JOINING" : "JOIN NOW ↗"}</button></div>; })}</div> : <EmptyState title="NO OPEN HACKATHONS" text="Explore the Hackathons section when organizers publish new events." />}
+    {loading ? <div className="student-discover-loading">Loading available hackathons...</div> : items.length ? <div className="student-discover-grid">{items.map((item) => { const id=String(item.id||""); const isJoined=joined.has(id); return <div className={`student-discover-card ${justJoined === id ? "join-celebrate" : ""}`} key={id}>{justJoined === id && (<><span className="join-confetti"><i /><i /><i /><i /><i /><i /><i /><i /></span><span className="join-stamp">YOU'RE IN ✓</span></>)}<div className="student-discover-head"><HackathonMark title={value(item.title, item.name, item.hackathon_name)} size={40} /><div><span>{value(item.track, item.category, "HACKATHON")}</span><strong>{value(item.title, item.name, item.hackathon_name)}</strong><small>{formatDate(item.start_date || item.startDate)}</small></div></div>{item.invite_only && !isJoined && (<input style={{ width: "100%", padding: "10px 12px", marginBottom: 8, border: "1px solid #deded8", borderRadius: 7, fontSize: 13 }} value={codeInputs[id] || ""} onChange={(e) => setCodeInputs((current) => ({ ...current, [id]: e.target.value }))} placeholder="Invite code (from your payment)" />)}<button disabled={isJoined || joining===id || (item.invite_only && !(codeInputs[id] || "").trim())} onClick={() => join(item)}>{isJoined ? "JOINED" : joining===id ? "JOINING" : item.invite_only ? "JOIN WITH CODE ↗" : "JOIN NOW ↗"}</button></div>; })}</div> : <EmptyState title="NO OPEN HACKATHONS" text="Explore the Hackathons section when organizers publish new events." />}
+    {joinError && <p style={{ color: "#991b1b", fontSize: 13, marginTop: 8 }}>{joinError}</p>}
   </div>;
 }
 
@@ -541,6 +623,8 @@ function HackathonsPage({ onOpen, onJoined }) {
   const [justJoinedId, setJustJoinedId] = useState("");
   // v6.17 — event-type filter (works once the backend returns event_type).
   const [typeFilter, setTypeFilter] = useState("all");
+  // v6.38 — invite-code-only events ask for the code on the card.
+  const [codeInputs, setCodeInputs] = useState({});
   const load = async () => {
     setLoading(true); setError("");
     try {
@@ -568,7 +652,9 @@ function HackathonsPage({ onOpen, onJoined }) {
     if (!id || joining || joinedIds.has(String(id))) return;
     setJoining(String(id)); setError(""); setMessage("");
     try {
-      const result = await apiFetch(`/hackathons/${encodeURIComponent(id)}/join`, { method: "POST" });
+      const opts = { method: "POST" };
+      if (item.invite_only) opts.body = JSON.stringify({ invite_code: (codeInputs[String(id)] || "").trim() });
+      const result = await apiFetch(`/hackathons/${encodeURIComponent(id)}/join`, opts);
       setJoinedIds((current) => new Set([...current, String(id)]));
       setMessage(result?.message || "Hackathon joined successfully.");
       setJustJoinedId(String(id)); setTimeout(() => setJustJoinedId(""), 3000);
@@ -631,12 +717,20 @@ function HackathonsPage({ onOpen, onJoined }) {
                   <button onClick={() => onOpen(item)} className="student-outline-btn">VIEW DETAILS <b>↗</b></button>
                   <button
                     onClick={() => join(item)}
-                    disabled={joined || joining === id}
+                    disabled={joined || joining === id || (item.invite_only && !(codeInputs[id] || "").trim())}
                     className={`student-join-btn ${joined ? "joined" : ""}`}
                   >
-                    {joined ? "✓ JOINED" : joining === id ? "JOINING..." : isQuiz ? "REGISTER FOR QUIZ ↗" : "JOIN HACKATHON ↗"}
+                    {joined ? "✓ JOINED" : joining === id ? "JOINING..." : isQuiz ? "REGISTER FOR QUIZ ↗" : item.invite_only ? "JOIN WITH CODE ↗" : "JOIN HACKATHON ↗"}
                   </button>
                 </div>
+                {item.invite_only && !joined && (
+                  <input
+                    style={{ width: "100%", padding: "10px 12px", marginTop: 8, border: "1px solid #deded8", borderRadius: 7, fontSize: 13 }}
+                    value={codeInputs[id] || ""}
+                    onChange={(e) => setCodeInputs((current) => ({ ...current, [id]: e.target.value }))}
+                    placeholder="Invite code (from your payment)"
+                  />
+                )}
               </article>
             );
           })}
@@ -701,6 +795,8 @@ function RegistrationDetail({ registration, onBack, bare }) {
   const [team, setTeam] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // v6.38 — the student clicks a round row to see its detail.
+  const [selectedRound, setSelectedRound] = useState(null);
 
   const load = async () => {
     if (!id) { setLoading(false); return; }
@@ -743,11 +839,13 @@ function RegistrationDetail({ registration, onBack, bare }) {
       {loading && <LoadingState />}
       {!loading && error && <ErrorState message={error} retry={load} />}
       {!loading && !error && (
+        <>
         <div className="student-two-col">
           <div className="student-panel-card">
             <div className="student-panel-title"><span>ROUND PIPELINE</span></div>
+            <p style={{ fontSize: 12, color: "#888", margin: "0 0 8px" }}>Click a round to see what you need to submit.</p>
             {rounds.length ? rounds.map((round, index) => (
-              <div className="round-row" key={round.id || round.round_number || index}>
+              <div className="round-row" key={round.id || round.round_number || index} onClick={() => setSelectedRound(round)} style={{ cursor: "pointer" }} title="View round details">
                 <div className="round-number">{value(round.round_number, round.roundNumber, index + 1)}</div>
                 <div><strong>{value(round.name, round.title, `ROUND ${index + 1}`)}</strong><span>{value(round.status, round.round_status)}</span></div>
                 <b>{value(round.result, round.selection_status)}</b>
@@ -761,6 +859,13 @@ function RegistrationDetail({ registration, onBack, bare }) {
             ) : <EmptyState title="NO TEAM DATA" text="No team record was returned for this registration." />}
           </div>
         </div>
+        {selectedRound && (
+          <RoundDetailCard
+            round={selectedRound}
+            showTimer={registration?.show_timer === true || registration?.hackathon?.show_timer === true}
+          />
+        )}
+        </>
       )}
     </section>
   );
@@ -3931,43 +4036,83 @@ function HelpSupportPage() {
   return <section><PageHeading eyebrow="HELP / SUPPORT" title="HELP & SUPPORT." text="Start with the guide and FAQs. If you still need help, use the official communication channel or contact your organizer." /><div className="student-support-grid"><div className="student-support-card"><span>01</span><h3>Student Guide</h3><p>Learn how the CampusCode workflow works from joining a hackathon through results.</p><button className="student-outline-btn" onClick={() => window.dispatchEvent(new CustomEvent("campuscode:navigate", { detail: "Student Guide" }))}>OPEN GUIDE →</button></div><div className="student-support-card"><span>02</span><h3>FAQs</h3><p>Find answers about teams, rounds, submissions, AI assistance and communication.</p><button className="student-outline-btn" onClick={() => window.dispatchEvent(new CustomEvent("campuscode:navigate", { detail: "Student Guide" }))}>VIEW FAQ →</button></div><div className="student-support-card"><span>03</span><h3>Official WhatsApp</h3><p>Follow the official CampusCode channel for announcements and important updates.</p><a className="student-outline-btn" href="https://whatsapp.com/channel/0029Vb8gR7TEVccLc1pW4O2d" target="_blank" rel="noreferrer">OPEN CHANNEL →</a></div></div></section>;
 }
 
-function StudentRoundsPage() {
-  const [tab, setTab] = useState(1);
-  const tabs = [
-    { id: 1, label: "ROUND 1", sub: "Problem statement" },
-    { id: 2, label: "ROUND 2", sub: "Project build" },
-    { id: 3, label: "ROUND 3", sub: "Final submission" },
-  ];
+function StudentRoundsPage({ hackathonId, event }) {
+  // v6.38 — tabs come from the event's actual rounds (1-3), not a
+  // hardcoded three. Each tab opens with the round detail — what
+  // to submit, the deadline, the AI rule and the big timer when
+  // the organizer switched it on — above the existing submission
+  // page for that round.
+  const [synced] = useSyncedHackathon();
+  const id = hackathonId || synced || "";
+  const [rounds, setRounds] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [tab, setTab] = useState(null);
+
+  useEffect(() => {
+    if (!id) { setLoading(false); return; }
+    setLoading(true); setError("");
+    apiFetch(`/hackathons/${encodeURIComponent(id)}/rounds`)
+      .then((data) => {
+        const list = unwrapList(data, ["rounds", "data", "items"])
+          .slice()
+          .sort((a, b) => Number(a.round_number) - Number(b.round_number));
+        setRounds(list);
+        if (list.length) setTab(Number(list[0].round_number));
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const selected = rounds.find((r) => Number(r.round_number) === Number(tab)) || null;
+  const showTimer = event?.show_timer === true || event?.hackathon?.show_timer === true;
+  const bannerWeb = event?.banner_web_url || event?.hackathon?.banner_web_url;
+  const bannerMobile = event?.banner_mobile_url || event?.hackathon?.banner_mobile_url;
+
   return (
     <section>
       <PageHeading
         eyebrow="BUILD / ROUNDS"
         title="ROUNDS."
-        text="All three rounds on one page. Switch tabs to submit, track status, or review AI analysis."
+        text={rounds.length ? `All ${rounds.length} round${rounds.length === 1 ? "" : "s"} on one page. Click a round to see what you need to submit, then submit below.` : "Rounds for this event."}
       />
-      <div className="rounds-tabs" role="tablist" aria-label="Hackathon rounds">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            className={`rounds-tab ${tab === t.id ? "active" : ""}`}
-            onClick={() => setTab(t.id)}
-          >
-            <span className="rounds-tab-num">0{t.id}</span>
-            <span className="rounds-tab-text">
-              <strong>{t.label}</strong>
-              <small>{t.sub}</small>
-            </span>
-          </button>
-        ))}
-      </div>
-      <div className="rounds-panel" key={tab} role="tabpanel">
-        {tab === 1 && <StudentRoundOnePage />}
-        {tab === 2 && <StudentRoundTwoPage />}
-        {tab === 3 && <StudentRoundThreePage />}
-      </div>
+      <EventBanner web={bannerWeb} mobile={bannerMobile} title={event?.title || event?.hackathon?.title} />
+      {loading && <LoadingState />}
+      {!loading && error && <ErrorState message={error} />}
+      {!loading && !error && rounds.length === 0 && (
+        <EmptyState title="NO ROUNDS YET" text="The organizer has not configured rounds for this event yet." />
+      )}
+      {!loading && !error && rounds.length > 0 && (
+        <>
+          <div className="rounds-tabs" role="tablist" aria-label="Hackathon rounds">
+            {rounds.map((r) => {
+              const n = Number(r.round_number);
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === n}
+                  className={`rounds-tab ${tab === n ? "active" : ""}`}
+                  onClick={() => setTab(n)}
+                >
+                  <span className="rounds-tab-num">0{n}</span>
+                  <span className="rounds-tab-text">
+                    <strong>{String(r.title || `ROUND ${n}`).toUpperCase()}</strong>
+                    <small>{String(r.status || "SCHEDULED")}</small>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="rounds-panel" key={tab} role="tabpanel">
+            <RoundDetailCard round={selected} showTimer={showTimer} />
+            {tab === 1 && <StudentRoundOnePage />}
+            {tab === 2 && <StudentRoundTwoPage />}
+            {tab === 3 && <StudentRoundThreePage />}
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -4666,7 +4811,7 @@ function EventHub({ event, tab, setTab, onBack }) {
               ? <QuizOverview event={resolved} onGoToQuiz={() => setTab("quiz")} />
               : <RegistrationDetail registration={resolved} onBack={onBack} bare />
           )}
-          {tab === "rounds" && <StudentRoundsPage />}
+          {tab === "rounds" && <StudentRoundsPage hackathonId={id} event={resolved} />}
           {tab === "team" && !isQuiz && <StudentMyTeamPage lockedHackathonId={id} />}
           {tab === "results" && <StudentResultsPage />}
           {tab === "quiz" && <StudentQuizPage eventId={id} />}

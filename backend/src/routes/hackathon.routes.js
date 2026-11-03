@@ -25,6 +25,11 @@ import {
   scheduleHackathonRounds,
   getHackathonRounds,
 
+  generateInviteCodes,
+  listInviteCodes,
+  revokeInviteCode,
+  updateHackathonSettings,
+
   activateHackathonRound,
   completeHackathonRound,
 
@@ -212,6 +217,44 @@ router.get(
   "/:id/rounds",
   requireAuth,
   getHackathonRounds
+);
+
+/*
+|--------------------------------------------------------------------------
+| INVITE CODES + EVENT SETTINGS (v6.38)
+|--------------------------------------------------------------------------
+| POST   /api/hackathons/:id/invite-codes  (generate, organizer/admin)
+| GET    /api/hackathons/:id/invite-codes  (list, organizer/admin)
+| DELETE /api/hackathons/:id/invite-codes/:codeId (revoke unused)
+| PUT    /api/hackathons/:id/settings      (show_timer, invite_only)
+*/
+
+router.post(
+  "/:id/invite-codes",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  generateInviteCodes
+);
+
+router.get(
+  "/:id/invite-codes",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  listInviteCodes
+);
+
+router.delete(
+  "/:id/invite-codes/:codeId",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  revokeInviteCode
+);
+
+router.put(
+  "/:id/settings",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  updateHackathonSettings
 );
 
 /*

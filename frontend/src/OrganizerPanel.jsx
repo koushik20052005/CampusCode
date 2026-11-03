@@ -137,6 +137,7 @@ const NAV = [
   ["quiz", "Quiz Builder", CheckCircle2],
   ["quiz-manager", "Quiz Manager", ClipboardCheck],
   ["rounds", "Rounds & Schedule", Clock3],
+  ["invite-codes", "Invite Codes", Code2],
   ["participants", "Participants", Users],
   ["teams", "Teams", Users],
   ["submissions", "Submissions", Send],
@@ -233,7 +234,7 @@ function OrganizerPanel({
   // organizer to Quiz Manager instead of leaving them on a dead
   // section. Certificates is quiz-aware since v6.26, so it stays.
   useEffect(() => {
-    if (selected?.event_type === "quiz" && ["rounds", "teams", "submissions", "result-request", "leaderboard"].includes(section)) {
+    if (selected?.event_type === "quiz" && ["rounds", "invite-codes", "teams", "submissions", "result-request", "leaderboard"].includes(section)) {
       navigate("quiz-manager");
     }
   }, [selected?.event_type, section]);
@@ -375,6 +376,10 @@ function OrganizerPanel({
                 />
               )}
 
+              {section === "invite-codes" && selected?.event_type !== "quiz" && (
+                <InviteCodes hackathon={selected} onRefresh={load} />
+              )}
+
               {section === "participants" && (
                 <Participants
                   hackathon={selected}
@@ -497,7 +502,7 @@ function OrganizerSidebar({ section, navigate, open, onClose, user, onLogout, se
           // Leaderboard; Quiz Manager covers quiz results and
           // Certificates is quiz-aware since v6.26, so it stays.
           if (selectedEventType !== "quiz") return true;
-          return !["rounds", "teams", "submissions", "result-request", "leaderboard"].includes(key);
+          return !["rounds", "invite-codes", "teams", "submissions", "result-request", "leaderboard"].includes(key);
         }).map(([key, label, Icon]) => (
           <button
             key={key}
@@ -1103,6 +1108,28 @@ function CreateHackathon({ onCancel, onCreate }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // v6.38 — rounds chosen at creation: 1-3 rounds, each with a
+  // name, a requirement (what students must submit) and an
+  // AI-usage flag, plus the timer switch and banner URLs.
+  const [roundCount, setRoundCount] = useState(3);
+  const [createRounds, setCreateRounds] = useState([
+    { title: "", requirement: "", ai: false },
+    { title: "", requirement: "", ai: false },
+    { title: "", requirement: "", ai: false },
+  ]);
+  const [showTimer, setShowTimer] = useState(false);
+  const [bannerWeb, setBannerWeb] = useState("");
+  const [bannerMobile, setBannerMobile] = useState("");
+
+  const changeRoundCount = (n) => {
+    setRoundCount(n);
+    setCreateRounds((current) => {
+      const next = current.slice(0, n);
+      while (next.length < n) next.push({ title: "", requirement: "", ai: false });
+      return next;
+    });
+  };
+
   const update = (key, value) => setForm((x) => ({ ...x, [key]: value }));
   const isQuiz = form.event_type === "quiz";
 
@@ -1176,6 +1203,16 @@ function CreateHackathon({ onCancel, onCreate }) {
           location: form.location.trim(),
           expected_date: form.expected_date || null,
           max_teams: Number(form.max_teams),
+          // v6.38 — rounds, timer and banners chosen at creation.
+          rounds: createRounds.slice(0, roundCount).map((r, i) => ({
+            round_number: i + 1,
+            title: r.title.trim() || `Round ${i + 1}`,
+            requirement: r.requirement.trim() || null,
+            ai_usage_required: !!r.ai,
+          })),
+          show_timer: showTimer,
+          banner_web_url: bannerWeb.trim() || null,
+          banner_mobile_url: bannerMobile.trim() || null,
         });
       }
     } catch (err) {
@@ -1255,6 +1292,45 @@ function CreateHackathon({ onCancel, onCreate }) {
         <Field label="Description" required full>
           <textarea className="org-input textarea" rows={7} value={form.description} onChange={(e) => update("description", e.target.value)} placeholder={isQuiz ? "Explain the quiz, syllabus, eligibility and rules..." : "Explain the hackathon, challenge, eligibility and what participants should build..."} />
         </Field>
+
+        {!isQuiz && (
+          <>
+            <Field label="Number of rounds" required>
+              <select className="org-input" value={roundCount} onChange={(e) => changeRoundCount(Number(e.target.value))}>
+                <option value={1}>1 round</option>
+                <option value={2}>2 rounds</option>
+                <option value={3}>3 rounds</option>
+              </select>
+            </Field>
+            {createRounds.slice(0, roundCount).map((r, i) => (
+              <div key={i} style={{ border: "1px solid #222", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                <b>Round {i + 1}</b>
+                <Field label="Round name">
+                  <input className="org-input" value={r.title} onChange={(e) => setCreateRounds((current) => current.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder={`e.g. Round ${i + 1} — Dashboard Recreation`} />
+                </Field>
+                <Field label="Requirement — what students must submit" full>
+                  <textarea className="org-input textarea" rows={3} value={r.requirement} onChange={(e) => setCreateRounds((current) => current.map((x, j) => j === i ? { ...x, requirement: e.target.value } : x))} placeholder="e.g. Recreate the dashboard + Login + Register pages and submit the demo link." />
+                </Field>
+                <Field label="AI usage">
+                  <select className="org-input" value={r.ai ? "yes" : "no"} onChange={(e) => setCreateRounds((current) => current.map((x, j) => j === i ? { ...x, ai: e.target.value === "yes" } : x))}>
+                    <option value="no">AI usage not required</option>
+                    <option value="yes">AI usage required</option>
+                  </select>
+                </Field>
+              </div>
+            ))}
+            <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
+              <input type="checkbox" checked={showTimer} onChange={(e) => setShowTimer(e.target.checked)} />
+              <span>Show countdown timer on the student round page</span>
+            </label>
+            <Field label="Banner — web image URL">
+              <input className="org-input" value={bannerWeb} onChange={(e) => setBannerWeb(e.target.value)} placeholder="https://…/banner-web.png" />
+            </Field>
+            <Field label="Banner — mobile image URL">
+              <input className="org-input" value={bannerMobile} onChange={(e) => setBannerMobile(e.target.value)} placeholder="https://…/banner-mobile.png" />
+            </Field>
+          </>
+        )}
 
         {error && <div className="form-error">{error}</div>}
 
@@ -1859,6 +1935,9 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  // v6.38 — timer switch, synced from the event, saved with rounds.
+  const [showTimer, setShowTimer] = useState(false);
+  useEffect(() => { setShowTimer(!!hackathon?.show_timer); }, [hackathon?.id]);
 
   const load = async () => {
     if (!hackathon?.id) {
@@ -1869,14 +1948,17 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
     setError("");
     try {
       const data = await apiFetch(`/hackathons/${hackathon.id}/rounds`);
-      const fetched = arr(data, "rounds", "data");
-      setRounds([1, 2, 3].map((n) =>
-        fetched.find((r) => Number(r.round_number) === n) || {
-          round_number: n,
-          title: `Round ${n}`,
-          status: "SCHEDULED",
-        }
-      ));
+      const fetched = arr(data, "rounds", "data")
+        .slice()
+        .sort((a, b) => Number(a.round_number) - Number(b.round_number));
+      // v6.38 — rounds are whatever the event actually has (1-3);
+      // only events created before rounds existed fall back to
+      // three empty placeholders.
+      setRounds(fetched.length ? fetched : [1, 2, 3].map((n) => ({
+        round_number: n,
+        title: `Round ${n}`,
+        status: "SCHEDULED",
+      })));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1902,16 +1984,24 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
       await apiFetch(`/hackathons/${hackathon.id}/rounds/schedule`, {
         method: "PUT",
         body: JSON.stringify({
-          rounds: [1, 2, 3].map((n) => {
-            const r = rounds.find((x) => Number(x.round_number) === n);
+          rounds: rounds.map((r) => {
+            const n = Number(r.round_number);
             return {
               round_number: n,
               title: r?.title?.trim() || `Round ${n}`,
-              start_at: null,
-              end_at: null,
+              start_at: r?.start_at || null,
+              end_at: r?.end_at || null,
+              requirement: r?.requirement?.trim() || null,
+              ai_usage_required: !!r?.ai_usage_required,
             };
           }),
         }),
+      });
+      // v6.38 — the timer switch lives with the rounds: students
+      // see the big countdown on a round page only when it is on.
+      await apiFetch(`/hackathons/${hackathon.id}/settings`, {
+        method: "PUT",
+        body: JSON.stringify({ show_timer: showTimer }),
       });
       setMessage("Round configuration saved.");
       await load();
@@ -2010,6 +2100,30 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
                     </div>
                     <span className={`status-pill ${statusClass(st)}`}>{st}</span>
                   </div>
+                  <textarea
+                    className="org-input textarea"
+                    rows={3}
+                    placeholder="Requirement — what students must submit for this round"
+                    value={r.requirement || ""}
+                    disabled={st === "LIVE" || st === "COMPLETED"}
+                    onChange={(e) => setRounds((current) => current.map((x) =>
+                      Number(x.round_number) === n ? { ...x, requirement: e.target.value } : x
+                    ))}
+                  />
+                  <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span>AI usage</span>
+                    <select
+                      className="org-input"
+                      value={r.ai_usage_required ? "yes" : "no"}
+                      disabled={st === "LIVE" || st === "COMPLETED"}
+                      onChange={(e) => setRounds((current) => current.map((x) =>
+                        Number(x.round_number) === n ? { ...x, ai_usage_required: e.target.value === "yes" } : x
+                      ))}
+                    >
+                      <option value="no">AI usage not required</option>
+                      <option value="yes">AI usage required</option>
+                    </select>
+                  </label>
                   <button className="live-btn wide" disabled={!canActivate || !!busy} onClick={() => roundAction(n, "activate")}>
                     {busy === `activate-${n}` ? <LoaderCircle className="spin" size={14}/> : <Zap size={14}/>}
                     Activate Round {n}
@@ -2025,12 +2139,146 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
           </div>
 
           <div className="round-save-row">
+            <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
+              <input type="checkbox" checked={showTimer} onChange={(e) => setShowTimer(e.target.checked)} />
+              <span>Show countdown timer on student round pages</span>
+            </label>
             <span>Save round names before operating the lifecycle.</span>
             <button className="primary-btn" disabled={!!busy || isHackathonCompleted(hackathon)} onClick={save}>
               {busy === "save" ? <LoaderCircle size={14} className="spin"/> : <Settings2 size={14}/>}
               Save configuration
             </button>
           </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+/* =========================================================
+   v6.38 — INVITE CODES (organizer panel)
+   Paid events: the organizer pastes the paid-student emails
+   (from the Unstop paid list) and generates one code per email.
+   A code works only for its own email, so sharing a code does
+   not let anyone else in. Students already on the portal are
+   NOT grandfathered — they need a code too, same as everyone.
+========================================================= */
+function InviteCodes({ hackathon, onRefresh }) {
+  const [codes, setCodes] = useState([]);
+  const [emails, setEmails] = useState("");
+  const [inviteOnly, setInviteOnly] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [copiedId, setCopiedId] = useState("");
+
+  const load = async () => {
+    if (!hackathon?.id) { setCodes([]); return; }
+    setLoading(true); setError("");
+    try {
+      const data = await apiFetch(`/hackathons/${hackathon.id}/invite-codes`);
+      setCodes(arr(data, "codes", "data"));
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    setInviteOnly(!!hackathon?.invite_only);
+    load();
+  }, [hackathon?.id]);
+
+  const toggleInviteOnly = async (value) => {
+    if (!hackathon) return;
+    setBusy("toggle"); setError(""); setMessage("");
+    try {
+      await apiFetch(`/hackathons/${hackathon.id}/settings`, {
+        method: "PUT",
+        body: JSON.stringify({ invite_only: value }),
+      });
+      setInviteOnly(value);
+      setMessage(value
+        ? "Invite-code-only is ON — only students with a code can join."
+        : "Invite-code-only is OFF — anyone can join.");
+      await onRefresh?.();
+    } catch (e) { setError(e.message); }
+    finally { setBusy(""); }
+  };
+
+  const generate = async () => {
+    if (!hackathon) return;
+    setBusy("generate"); setError(""); setMessage("");
+    try {
+      const data = await apiFetch(`/hackathons/${hackathon.id}/invite-codes`, {
+        method: "POST",
+        body: JSON.stringify({ emails }),
+      });
+      setCodes(arr(data, "codes", "data"));
+      setEmails("");
+      setMessage("Codes generated. Send each student their own code — a code works only for its email.");
+    } catch (e) { setError(e.message); }
+    finally { setBusy(""); }
+  };
+
+  const revoke = async (codeId) => {
+    if (!hackathon) return;
+    setBusy(`revoke-${codeId}`); setError("");
+    try {
+      await apiFetch(`/hackathons/${hackathon.id}/invite-codes/${codeId}`, { method: "DELETE" });
+      setCodes((current) => current.filter((c) => c.id !== codeId));
+    } catch (e) { setError(e.message); }
+    finally { setBusy(""); }
+  };
+
+  const copy = async (code) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedId(code);
+      setTimeout(() => setCopiedId(""), 1500);
+    } catch {}
+  };
+
+  return (
+    <Panel
+      eyebrow="Event operations"
+      title="Invite Codes"
+      description="For paid events: issue a code only to students who paid. The student enters it when joining — a code works only for its own email, so a shared code cannot be reused by someone else."
+    >
+      {!hackathon ? (
+        <p>Select an event from My Hackathons first.</p>
+      ) : (
+        <>
+          <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer", marginBottom: 16 }}>
+            <input type="checkbox" checked={inviteOnly} disabled={!!busy} onChange={(e) => toggleInviteOnly(e.target.checked)} />
+            <span><b>Invite-code-only event</b> — students without a code cannot join</span>
+          </label>
+          <Field label="Paid student emails — one per line" full>
+            <textarea className="org-input textarea" rows={5} value={emails} onChange={(e) => setEmails(e.target.value)} placeholder={"student1@college.edu\nstudent2@college.edu"} />
+          </Field>
+          <div style={{ marginBottom: 20 }}>
+            <button className="primary-btn" disabled={!!busy || !emails.trim()} onClick={generate}>
+              {busy === "generate" ? "GENERATING…" : "Generate codes"}
+            </button>
+          </div>
+          {error && <div className="form-error">{error}</div>}
+          {message && <p style={{ color: "#82b91a" }}>{message}</p>}
+          {loading ? <p>Loading codes…</p> : codes.length === 0 ? (
+            <p>No invite codes yet. Paste the paid list from Unstop and generate.</p>
+          ) : (
+            <div>
+              {codes.map((c) => (
+                <div key={c.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: "1px solid #222", flexWrap: "wrap" }}>
+                  <span style={{ flex: 1, minWidth: 180 }}>{c.email}</span>
+                  <b>{c.code}</b>
+                  <span>{c.used_by ? `Used by ${c.used_by_name || "student"}` : "Unused"}</span>
+                  <button className="outline-btn" onClick={() => copy(c.code)}>{copiedId === c.code ? "Copied ✓" : "Copy"}</button>
+                  {!c.used_by && (
+                    <button className="outline-btn" disabled={busy === `revoke-${c.id}`} onClick={() => revoke(c.id)}>Revoke</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </Panel>
