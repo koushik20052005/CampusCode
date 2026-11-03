@@ -377,7 +377,7 @@ function OrganizerPanel({
               )}
 
               {section === "invite-codes" && selected?.event_type !== "quiz" && (
-                <InviteCodes hackathon={selected} onRefresh={load} />
+                <InviteCodes hackathon={selected} hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId} onRefresh={load} />
               )}
 
               {section === "participants" && (
@@ -2187,7 +2187,7 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
    not let anyone else in. Students already on the portal are
    NOT grandfathered — they need a code too, same as everyone.
 ========================================================= */
-function InviteCodes({ hackathon, onRefresh }) {
+function InviteCodes({ hackathon, hackathons, selectedId, setSelectedId, onRefresh }) {
   const [codes, setCodes] = useState([]);
   const [emails, setEmails] = useState("");
   const [inviteOnly, setInviteOnly] = useState(false);
@@ -2267,9 +2267,10 @@ function InviteCodes({ hackathon, onRefresh }) {
       eyebrow="Event operations"
       title="Invite Codes"
       description="For paid events: issue a code only to students who paid. The student enters it when joining — a code works only for its own email, so a shared code cannot be reused by someone else."
+      action={<Picker hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId} />}
     >
       {!hackathon ? (
-        <p>Select an event from My Hackathons first.</p>
+        <p>Pick an event from the dropdown above, then the invite-code tools appear here.</p>
       ) : (
         <>
           <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer", marginBottom: 16 }}>
