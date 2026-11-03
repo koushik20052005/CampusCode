@@ -608,7 +608,7 @@ function DashboardDiscover({ navigate }) {
   };
   return <div className="student-dashboard-discover">
     <div className="student-panel-title"><span>03 / DISCOVER EVENTS</span><button onClick={() => navigate("Events")}>VIEW ALL ↗</button></div>
-    {loading ? <div className="student-discover-loading">Loading available hackathons...</div> : items.length ? <div className="student-discover-grid">{items.map((item) => { const id=String(item.id||""); const isJoined=joined.has(id); return <div className={`student-discover-card ${justJoined === id ? "join-celebrate" : ""}`} key={id}>{justJoined === id && (<><span className="join-confetti"><i /><i /><i /><i /><i /><i /><i /><i /></span><span className="join-stamp">YOU'RE IN ✓</span></>)}<div className="student-discover-head"><HackathonMark title={value(item.title, item.name, item.hackathon_name)} size={40} /><div><span>{value(item.track, item.category, "HACKATHON")}</span><strong>{value(item.title, item.name, item.hackathon_name)}</strong><small>{formatDate(item.start_date || item.startDate)}</small></div></div>{item.invite_only && !isJoined && (<input style={{ width: "100%", padding: "10px 12px", marginBottom: 8, border: "1px solid #deded8", borderRadius: 7, fontSize: 13 }} value={codeInputs[id] || ""} onChange={(e) => setCodeInputs((current) => ({ ...current, [id]: e.target.value }))} placeholder="Invite code (from your payment)" />)}<button disabled={isJoined || joining===id || (item.invite_only && !(codeInputs[id] || "").trim())} onClick={() => join(item)}>{isJoined ? "JOINED" : joining===id ? "JOINING" : item.invite_only ? "JOIN WITH CODE ↗" : "JOIN NOW ↗"}</button></div>; })}</div> : <EmptyState title="NO OPEN HACKATHONS" text="Explore the Hackathons section when organizers publish new events." />}
+    {loading ? <div className="student-discover-loading">Loading available hackathons...</div> : items.length ? <div className="student-discover-grid">{items.map((item) => { const id=String(item.id||""); const isJoined=joined.has(id); return <div className={`student-discover-card ${justJoined === id ? "join-celebrate" : ""}`} key={id}>{justJoined === id && (<><span className="join-confetti"><i /><i /><i /><i /><i /><i /><i /><i /></span><span className="join-stamp">YOU'RE IN ✓</span></>)}<div className="student-discover-head"><HackathonMark title={value(item.title, item.name, item.hackathon_name)} size={40} /><div><span>{value(item.track, item.category, "HACKATHON")}</span><strong>{value(item.title, item.name, item.hackathon_name)}</strong><small>{formatDate(item.start_date || item.startDate)}</small>{item.event_type !== "quiz" && (Number(item.max_team_size) === 1 ? <small>Individual participation</small> : item.max_team_size ? <small>Team · up to {item.max_team_size}</small> : null)}</div></div>{item.invite_only && !isJoined && (<input style={{ width: "100%", padding: "10px 12px", marginBottom: 8, border: "1px solid #deded8", borderRadius: 7, fontSize: 13 }} value={codeInputs[id] || ""} onChange={(e) => setCodeInputs((current) => ({ ...current, [id]: e.target.value }))} placeholder="Invite code (from your payment)" />)}<button disabled={isJoined || joining===id || (item.invite_only && !(codeInputs[id] || "").trim())} onClick={() => join(item)}>{isJoined ? "JOINED" : joining===id ? "JOINING" : item.invite_only ? "JOIN WITH CODE ↗" : "JOIN NOW ↗"}</button></div>; })}</div> : <EmptyState title="NO OPEN HACKATHONS" text="Explore the Hackathons section when organizers publish new events." />}
     {joinError && <p style={{ color: "#991b1b", fontSize: 13, marginTop: 8 }}>{joinError}</p>}
   </div>;
 }
@@ -2518,6 +2518,7 @@ function StudentMyTeamPage({ lockedHackathonId }) {
     );
   const isBuilding = String(team?.status || "BUILDING").toUpperCase() === "BUILDING";
   const canModifyTeam = Boolean(team && !hackathonCompleted && isBuilding);
+  const isSoloEvent = Number(selectedRegistration?.max_team_size) === 1;
 
   const normalizeTeams = (result) =>
     unwrapList(result, ["teams", "data", "items"]);
@@ -2751,16 +2752,18 @@ function StudentMyTeamPage({ lockedHackathonId }) {
         <div className="student-team-create-layout">
           <div className="student-feature-card student-team-create-card">
             <span className="student-feature-label">02 / NO TEAM</span>
-            <h2>{hackathonCompleted ? "HACKATHON COMPLETED" : "CREATE YOUR TEAM"}</h2>
+            <h2>{hackathonCompleted ? "HACKATHON COMPLETED" : isSoloEvent ? "INDIVIDUAL PARTICIPATION" : "CREATE YOUR TEAM"}</h2>
             <p>
               {hackathonCompleted
                 ? "This hackathon is completed. No team changes are available."
-                : `You are not part of a team for ${getHackathonTitle(selectedRegistration)} yet.`}
+                : isSoloEvent
+                  ? "This event is individual — you participate alone. Enter a team name for tracking; it will be used on your registration, portal, and submissions."
+                  : `You are not part of a team for ${getHackathonTitle(selectedRegistration)} yet.`}
             </p>
 
             {!hackathonCompleted && (
               <div className="student-team-create-form">
-                <label>TEAM NAME</label>
+                <label>{isSoloEvent ? "TEAM NAME (FOR TRACKING)" : "TEAM NAME"}</label>
                 <input
                   value={teamName}
                   onChange={(e) => setTeamName(e.target.value)}
@@ -2774,7 +2777,7 @@ function StudentMyTeamPage({ lockedHackathonId }) {
                   onClick={createTeam}
                   disabled={creating || !selectedHackathonId || !teamName.trim()}
                 >
-                  {creating ? "CREATING TEAM..." : "CREATE TEAM ↗"}
+                  {creating ? (isSoloEvent ? "CREATING..." : "CREATING TEAM...") : (isSoloEvent ? "CREATE MY ENTRY ↗" : "CREATE TEAM ↗")}
                 </button>
               </div>
             )}
@@ -2789,9 +2792,19 @@ function StudentMyTeamPage({ lockedHackathonId }) {
               </>
             ) : (
               <>
-                <strong>CREATE</strong><p>The student who creates the team becomes the leader automatically.</p>
-                <strong>LEADER</strong><p>The leader can update or delete the team while it is BUILDING.</p>
-                <strong>MEMBER</strong><p>Members can leave the team while it is BUILDING.</p>
+                {isSoloEvent ? (
+                  <>
+                    <strong>INDIVIDUAL</strong><p>You participate alone in this event.</p>
+                    <strong>TEAM NAME</strong><p>Your team name is for tracking only — it is used on your registration, portal, and submissions.</p>
+                    <strong>NO MEMBERS</strong><p>Nobody else can join this entry. The event allows one participant per entry.</p>
+                  </>
+                ) : (
+                  <>
+                    <strong>CREATE</strong><p>The student who creates the team becomes the leader automatically.</p>
+                    <strong>LEADER</strong><p>The leader can update or delete the team while it is BUILDING.</p>
+                    <strong>MEMBER</strong><p>Members can leave the team while it is BUILDING.</p>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -2809,7 +2822,7 @@ function StudentMyTeamPage({ lockedHackathonId }) {
 
             <div className="student-team-head">
               <div>
-                <span className="student-feature-label">{hackathonCompleted ? "PAST TEAM / HISTORY" : "CURRENT TEAM"}</span>
+                <span className="student-feature-label">{hackathonCompleted ? "PAST TEAM / HISTORY" : isSoloEvent ? "INDIVIDUAL PARTICIPATION" : "CURRENT TEAM"}</span>
                 <h2>{value(team.name, team.team_name)}</h2>
                 <p>{getHackathonTitle(selectedRegistration)}</p>
               </div>
@@ -2819,13 +2832,13 @@ function StudentMyTeamPage({ lockedHackathonId }) {
             </div>
 
             <div className="student-info-list">
-              <div><span>TEAM LEADER</span><strong>{isLeader ? "YOU" : value(team.leader_name, team.leader?.name, "Team leader")}</strong></div>
-              <div><span>MEMBERS</span><strong>{members.length || value(team.member_count, 0)}</strong></div>
+              <div><span>{isSoloEvent ? "PARTICIPANT" : "TEAM LEADER"}</span><strong>{isLeader ? "YOU" : value(team.leader_name, team.leader?.name, "Team leader")}</strong></div>
+              <div><span>{isSoloEvent ? "PARTICIPATION" : "MEMBERS"}</span><strong>{isSoloEvent ? "Individual" : members.length || value(team.member_count, 0)}</strong></div>
               <div><span>PROJECT</span><strong>{value(team.project_title, team.project?.title, "No project yet")}</strong></div>
             </div>
 
             <div className={`student-team-members ${justCreated ? "team-just-created" : ""}`}>
-              <span className="student-feature-label">TEAM MEMBERS</span>
+              <span className="student-feature-label">{isSoloEvent ? "PARTICIPANT" : "TEAM MEMBERS"}</span>
               {members.length ? members.map((member, index) => {
                 const memberId = String(member.user_id || member.id || "");
                 const memberIsLeader = memberId === leaderId || String(member.role || "").toUpperCase() === "LEADER";
@@ -2846,16 +2859,18 @@ function StudentMyTeamPage({ lockedHackathonId }) {
           {!hackathonCompleted && (
             <div className="student-feature-card student-team-next-card">
               <span className="student-feature-label">TEAM MANAGEMENT</span>
-              <h3>{isLeader ? "Leader controls" : "Member controls"}</h3>
+              <h3>{isSoloEvent ? "Entry controls" : isLeader ? "Leader controls" : "Member controls"}</h3>
               <p>
-                {isLeader
+                {isSoloEvent
+                  ? "This is your individual entry. Update the tracking name or delete the entry while it is BUILDING."
+                  : isLeader
                   ? "You created this team, so you are the leader. Update or delete it while it is BUILDING."
                   : "You are a team member. You can leave the team while it is BUILDING."}
               </p>
 
               {isLeader && (
                 <div className="student-team-control-form">
-                  <label>TEAM NAME</label>
+                  <label>{isSoloEvent ? "TEAM NAME (FOR TRACKING)" : "TEAM NAME"}</label>
                   <input
                     value={teamName}
                     onChange={(e) => setTeamName(e.target.value)}
