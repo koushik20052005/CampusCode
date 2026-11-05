@@ -2147,7 +2147,7 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
                 st !== "COMPLETED" &&
                 (n === 1 || String(previous?.status).toUpperCase() === "COMPLETED");
               const canComplete = st === "LIVE";
-              const canReopen = st === "COMPLETED";
+              const canReopen = st === "COMPLETED" || st === "LIVE";
 
               return (
                 <div className="round-card" key={n}>
