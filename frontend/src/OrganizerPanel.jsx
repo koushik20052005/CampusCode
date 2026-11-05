@@ -2081,7 +2081,9 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
     try {
       const endpoint = action === "activate"
         ? `/hackathons/${hackathon.id}/rounds/${number}/activate`
-        : `/hackathons/${hackathon.id}/rounds/${number}/complete`;
+        : action === "reopen"
+          ? `/hackathons/${hackathon.id}/rounds/${number}/lifecycle/reopen`
+          : `/hackathons/${hackathon.id}/rounds/${number}/complete`;
       const data = await apiFetch(endpoint, { method: "POST" });
       setMessage(data?.message || `Round ${number} updated.`);
       await load();
@@ -2145,6 +2147,7 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
                 st !== "COMPLETED" &&
                 (n === 1 || String(previous?.status).toUpperCase() === "COMPLETED");
               const canComplete = st === "LIVE";
+              const canReopen = st === "COMPLETED";
 
               return (
                 <div className="round-card" key={n}>
@@ -2243,6 +2246,10 @@ function Rounds({ hackathon, hackathons, selectedId, setSelectedId, onRefresh, o
                   <button className="outline-btn wide" disabled={!canComplete || !!busy} onClick={() => roundAction(n, "complete")}>
                     {busy === `complete-${n}` ? <LoaderCircle className="spin" size={14}/> : <CheckCircle2 size={14}/>}
                     Complete Round {n}
+                  </button>
+                  <button className="outline-btn wide" disabled={!canReopen || !!busy} onClick={() => roundAction(n, "reopen")}>
+                    {busy === `reopen-${n}` ? <LoaderCircle className="spin" size={14}/> : <RefreshCw size={14}/>}
+                    Reopen Round {n}
                   </button>
                   <p>{n === 1 ? "Available when the hackathon is LIVE." : `Available after Round ${n - 1} is completed.`}</p>
                 </div>
