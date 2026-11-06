@@ -327,6 +327,13 @@ export async function getRound1Submissions(req, res) {
           impact_score: submission.impact_score !== null ? Number(submission.impact_score) : null,
         },
 
+        // v6.53 — top-level timestamps too: the organizer
+        // panel reads s.submitted_at / s.created_at directly,
+        // and the nested-only shape rendered "Submitted: —".
+        submitted_at: submission.submitted_at,
+        created_at: submission.created_at,
+        updated_at: submission.updated_at,
+
         submission: {
           submitted_at: submission.submitted_at,
           created_at: submission.created_at,

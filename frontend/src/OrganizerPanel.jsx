@@ -2954,13 +2954,22 @@ function OrganizerSubmissions({
             </div>
             <span>{decision || "SUBMITTED"}</span>
           </div>
-          <div className="organizer-submission-problem">
-            <label>PROBLEM STATEMENT</label>
-            <p>{s.problem_statement || "No problem statement provided."}</p>
-          </div>
+          {s.problem_statement ? (
+            <div className="organizer-submission-problem">
+              <label>PROBLEM STATEMENT</label>
+              <p>{s.problem_statement}</p>
+            </div>
+          ) : (
+            <div className="organizer-submission-problem">
+              <label>DEMO SUBMISSION</label>
+              <p>GitHub + live demo links — open the submission to review them.</p>
+            </div>
+          )}
           <div className="submission-meta organizer-submission-meta">
             <span>AI score: <b>{aiScore ?? "Not analyzed"}</b></span>
             <span>AI: <b>{(s.ai_analyzed_at || s.ai_score != null) ? "Analyzed" : "Pending"}</b></span>
+            <span>GitHub: <b>{s.github_url ? "Provided" : "Missing"}</b></span>
+            <span>Demo: <b>{s.demo_url ? "Provided" : "Not provided"}</b></span>
             <span>Submitted: {dateText(s.submitted_at || s.created_at)}</span>
           </div>
           {(s.ai?.novelty_score != null || s.ai?.impact_score != null) && (
@@ -3671,125 +3680,118 @@ function OrganizerSubmissionModal({
 
 
         {/* SUBMISSION DETAILS */}
+        {/* v6.53 — Round 1 demo submissions carry GitHub /
+            demo / PDF / note, not a problem statement. The
+            link cards used to render only for rounds 2–3, so
+            a demo Round 1 submission showed "No problem
+            statement provided." and no links at all. They now
+            render for every round whenever the data exists;
+            the statement / description cards only render when
+            there is text to show. */}
         <div className="organizer-review-details">
-          {round === 1 ? (
-            <>
-              <div className="organizer-review-detail-card organizer-review-detail-wide">
-                <span>
-                  PROBLEM STATEMENT
-                </span>
+          {round === 1 && submission?.problem_statement && (
+            <div className="organizer-review-detail-card organizer-review-detail-wide">
+              <span>
+                PROBLEM STATEMENT
+              </span>
 
-                <p>
-                  {submission?.problem_statement ||
-                    "No problem statement provided."}
-                </p>
-              </div>
+              <p>
+                {submission.problem_statement}
+              </p>
+            </div>
+          )}
 
-              <div className="organizer-review-detail-card organizer-review-detail-wide">
-                <span>
-                  PROJECT DESCRIPTION
-                </span>
+          {(submission?.project_description ||
+            submission?.description ||
+            submission?.problem_statement) && (
+            <div className="organizer-review-detail-card organizer-review-detail-wide">
+              <span>
+                PROJECT DESCRIPTION
+              </span>
 
-                <p>
-                  {submission?.project_description ||
-                    submission?.description ||
-                    submission?.problem_statement ||
-                    "No project description provided."}
-                </p>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="organizer-review-detail-card organizer-review-detail-wide">
-                <span>
-                  PROJECT DESCRIPTION
-                </span>
+              <p>
+                {submission?.project_description ||
+                  submission?.description ||
+                  submission?.problem_statement}
+              </p>
+            </div>
+          )}
 
-                <p>
-                  {submission?.project_description ||
-                    submission?.description ||
-                    submission?.problem_statement ||
-                    "No project description provided."}
-                </p>
-              </div>
+          {submission?.github_url && (
+            <div className="organizer-review-detail-card">
+              <span>
+                GITHUB REPOSITORY
+              </span>
 
-              {submission?.github_url && (
-                <div className="organizer-review-detail-card">
-                  <span>
-                    GITHUB REPOSITORY
-                  </span>
+              <a
+                href={
+                  submission.github_url
+                }
+                target="_blank"
+                rel="noreferrer"
+              >
+                <FolderGit2 size={15} />
+                Open GitHub repository ↗
+              </a>
+            </div>
+          )}
 
-                  <a
-                    href={
-                      submission.github_url
-                    }
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <FolderGit2 size={15} />
-                    Open GitHub repository ↗
-                  </a>
-                </div>
-              )}
+          {(submission?.demo_url ||
+            submission?.demo) && (
+            <div className="organizer-review-detail-card">
+              <span>
+                LIVE DEMO
+              </span>
 
-              {(submission?.demo_url ||
-                submission?.demo) && (
-                <div className="organizer-review-detail-card">
-                  <span>
-                    LIVE DEMO
-                  </span>
+              <a
+                href={
+                  submission.demo_url ||
+                  submission.demo
+                }
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ArrowRight size={15} />
+                Open live demo ↗
+              </a>
+            </div>
+          )}
 
-                  <a
-                    href={
-                      submission.demo_url ||
-                      submission.demo
-                    }
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <ArrowRight size={15} />
-                    Open live demo ↗
-                  </a>
-                </div>
-              )}
+          {(submission?.pdf_url ||
+            submission?.pdf_file_url ||
+            submission?.pdf) && (
+            <div className="organizer-review-detail-card organizer-review-detail-wide">
+              <span>
+                PDF / DOCUMENT
+              </span>
 
-              {(submission?.pdf_url ||
-                submission?.pdf_file_url ||
-                submission?.pdf) && (
-                <div className="organizer-review-detail-card organizer-review-detail-wide">
-                  <span>
-                    PDF / DOCUMENT
-                  </span>
+              <a
+                href={
+                  submission.pdf_url ||
+                  submission.pdf_file_url ||
+                  (typeof submission.pdf === "string"
+                    ? submission.pdf
+                    : submission.pdf?.url)
+                }
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Send size={15} />
+                Open submitted PDF ↗
+              </a>
+            </div>
+          )}
 
-                  <a
-                    href={
-                      submission.pdf_url ||
-                      submission.pdf_file_url ||
-                      (typeof submission.pdf === "string"
-                        ? submission.pdf
-                        : submission.pdf?.url)
-                    }
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <Send size={15} />
-                    Open submitted PDF ↗
-                  </a>
-                </div>
-              )}
+          {submission?.organizer_note && (
+            <div className="organizer-review-detail-card organizer-review-detail-wide">
+              <span>
+                NOTE FOR ORGANIZER
+              </span>
 
-              {submission?.organizer_note && (
-                <div className="organizer-review-detail-card organizer-review-detail-wide">
-                  <span>
-                    NOTE FOR ORGANIZER
-                  </span>
-
-                  <p>
-                    {safeText(submission.organizer_note)}
-                  </p>
-                </div>
-              )}
-            </>
+              <p>
+                {safeText(submission.organizer_note)}
+              </p>
+            </div>
           )}
         </div>
 
