@@ -1146,7 +1146,6 @@ export async function decideRound1(req, res) {
         hackathon_id,
         team_id,
         submission_id,
-        round1_submission_id,
         decision,
         decided_by,
         organizer_feedback,
@@ -1156,7 +1155,6 @@ export async function decideRound1(req, res) {
       VALUES (
         $1,
         $2,
-        NULL,
         $3,
         $4,
         $5,
@@ -1170,10 +1168,8 @@ export async function decideRound1(req, res) {
       )
 
       DO UPDATE SET
-        submission_id = NULL,
-
-        round1_submission_id =
-          EXCLUDED.round1_submission_id,
+        submission_id =
+          EXCLUDED.submission_id,
 
         decision =
           EXCLUDED.decision,
@@ -1192,7 +1188,6 @@ export async function decideRound1(req, res) {
         hackathon_id,
         team_id,
         submission_id,
-        round1_submission_id,
         decision,
         decided_by,
         organizer_feedback,
@@ -1388,7 +1383,6 @@ export async function getRound1Decision(req, res) {
         d.hackathon_id,
         d.team_id,
         d.submission_id,
-        d.round1_submission_id,
         d.decision,
         d.organizer_feedback,
         d.decided_by,

@@ -228,7 +228,7 @@ export async function getRound1Status(req, res) {
           d.id,
           d.hackathon_id,
           d.team_id,
-          d.round1_submission_id,
+          d.submission_id AS round1_submission_id,
           d.decision,
           d.organizer_feedback,
           d.decided_by,
@@ -334,9 +334,14 @@ export async function getRound1Status(req, res) {
       error
     );
 
+    // v6.52 — same ref-code aid as the submit catch, so a
+    // future status-load failure names its DB error.
+    const dbCode =
+      error?.code ? ` (ref ${error.code})` : "";
+
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch Round 1 status",
+      message: `Failed to fetch Round 1 status${dbCode}`,
     });
   }
 }
