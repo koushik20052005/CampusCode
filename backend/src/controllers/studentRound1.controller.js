@@ -354,6 +354,9 @@ export async function getRound1Status(req, res) {
 ========================================================= */
 
 export async function submitRound1(req, res) {
+  // v6.50 — kept outside try so the catch can name the round type.
+  let isDemoRound = false;
+
   try {
     const studentId = req.user.id;
     const { hackathonId } = req.params;
@@ -472,7 +475,7 @@ export async function submitRound1(req, res) {
     // v6.45 — 'demo' rounds take links, not a statement.
     // -----------------------------------------------------
 
-    const isDemoRound =
+    isDemoRound =
       round.submission_type === "demo";
 
     const cleanGithub =
@@ -625,12 +628,33 @@ export async function submitRound1(req, res) {
       });
     }
 
+    // v6.50 — a decided submission (organizer already picked
+    // SELECTED / REJECTED) must not fall through to INSERT:
+    // the UNIQUE (hackathon_id, team_id) row already exists,
+    // so INSERT would throw a 500 instead of a clear answer.
+    if (
+      existing?.status === "SELECTED" ||
+      existing?.status === "REJECTED"
+    ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Round 1 has already been decided for your team",
+
+        submission: existing,
+      });
+    }
+
     // DRAFT (leader asked for changes): re-propose the same row.
+    // v6.50 — any other existing row is UPDATED too, never
+    // INSERTed: the UNIQUE (hackathon_id, team_id) row already
+    // exists, so a fresh INSERT would throw a 500 ("Failed to
+    // submit Round 1 idea") instead of saving the submission.
     // Otherwise: create a fresh proposal / direct submission.
 
     let submission;
 
-    if (existing?.status === "DRAFT") {
+    if (existing) {
       const updatedResult = isDemoRound
         ? await pool.query(
           `
@@ -876,10 +900,19 @@ export async function submitRound1(req, res) {
       error
     );
 
+    // v6.50 — the old message always said "idea" even for demo
+    // rounds, which hid what actually failed. Name the round
+    // type, and append the Postgres error code (e.g. 23505
+    // unique violation, 23502 not-null, 42703 missing column)
+    // so the next screenshot tells support exactly what broke.
+    // The full error stays in the server log only.
+    const dbCode =
+      error?.code ? ` (ref ${error.code})` : "";
+
     return res.status(500).json({
       success: false,
       message:
-        "Failed to submit Round 1 idea",
+        `Failed to submit Round 1 ${isDemoRound ? "demo" : "idea"}${dbCode}. Please try again — if it keeps failing, mail your links to hello@campuscode.co.in.`,
     });
   }
 }
