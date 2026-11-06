@@ -601,6 +601,20 @@ export async function submitRound1(req, res) {
     const isLeader =
       team.leader_id === studentId;
 
+    // v6.51 — the status / timestamp / approver for this save,
+    // computed in JS, not in SQL. The old queries used
+    // `CASE WHEN $n = 'SUBMITTED' THEN ...` inside the SQL, and
+    // Postgres could not determine those parameters' types
+    // (error 42P08, "ambiguous parameter"), so EVERY Round 1
+    // submit failed with a 500. Plain values + COALESCE keep
+    // every parameter's type inferable from its column.
+    const newStatus =
+      isLeader ? "SUBMITTED" : "PENDING_APPROVAL";
+    const newSubmittedAt =
+      isLeader ? new Date() : null;
+    const newApprovedBy =
+      isLeader ? studentId : null;
+
     const existing =
       existingResult.rows.length > 0
         ? existingResult.rows[0]
@@ -666,8 +680,8 @@ export async function submitRound1(req, res) {
             organizer_note = $4,
             status = $5,
             leader_note = NULL,
-            approved_by = CASE WHEN $5 = 'SUBMITTED' THEN $7 ELSE approved_by END,
-            submitted_at = CASE WHEN $5 = 'SUBMITTED' THEN NOW() ELSE submitted_at END,
+            approved_by = COALESCE($7, approved_by),
+            submitted_at = COALESCE($8, submitted_at),
             updated_at = NOW()
           WHERE id = $6
           RETURNING
@@ -690,9 +704,10 @@ export async function submitRound1(req, res) {
             cleanDemo,
             cleanPdf || null,
             cleanOrganizerNote,
-            isLeader ? "SUBMITTED" : "PENDING_APPROVAL",
+            newStatus,
             existing.id,
-            studentId,
+            newApprovedBy,
+            newSubmittedAt,
           ]
         )
         : await pool.query(
@@ -702,8 +717,8 @@ export async function submitRound1(req, res) {
             problem_statement = $1,
             status = $2,
             leader_note = NULL,
-            approved_by = CASE WHEN $2 = 'SUBMITTED' THEN $4 ELSE approved_by END,
-            submitted_at = CASE WHEN $2 = 'SUBMITTED' THEN NOW() ELSE submitted_at END,
+            approved_by = COALESCE($4, approved_by),
+            submitted_at = COALESCE($5, submitted_at),
             updated_at = NOW()
           WHERE id = $3
           RETURNING
@@ -723,9 +738,10 @@ export async function submitRound1(req, res) {
           `,
           [
             cleanProblemStatement,
-            isLeader ? "SUBMITTED" : "PENDING_APPROVAL",
+            newStatus,
             existing.id,
-            studentId,
+            newApprovedBy,
+            newSubmittedAt,
           ]
         );
 
@@ -755,7 +771,7 @@ export async function submitRound1(req, res) {
             $6,
             $7,
             $8,
-            CASE WHEN $8 = 'SUBMITTED' THEN NOW() ELSE NULL END
+            $9
           )
 
           RETURNING
@@ -781,7 +797,8 @@ export async function submitRound1(req, res) {
             cleanDemo,
             cleanPdf || null,
             cleanOrganizerNote,
-            isLeader ? "SUBMITTED" : "PENDING_APPROVAL",
+            newStatus,
+            newSubmittedAt,
           ]
         )
         : await pool.query(
@@ -801,7 +818,7 @@ export async function submitRound1(req, res) {
             $3,
             $4,
             $5,
-            CASE WHEN $5 = 'SUBMITTED' THEN NOW() ELSE NULL END
+            $6
           )
 
           RETURNING
@@ -824,7 +841,8 @@ export async function submitRound1(req, res) {
             team.team_id,
             studentId,
             cleanProblemStatement,
-            isLeader ? "SUBMITTED" : "PENDING_APPROVAL",
+            newStatus,
+            newSubmittedAt,
           ]
         );
 
