@@ -1135,11 +1135,11 @@ export async function decideRound1(req, res) {
 
     const round = roundResult.rows[0];
 
-    if (round.status !== "LIVE") {
+    if (round.status !== "LIVE" && round.status !== "COMPLETED") {
       return res.status(400).json({
         success: false,
         message:
-          "Round 1 must be LIVE before reviewing submissions",
+          "Round 1 must be LIVE or COMPLETED before reviewing submissions",
       });
     }
 
