@@ -642,11 +642,16 @@ export const getRound2Status = async (
       hackathon,
       team,
 
-      // Round 2 decision if available,
-      // otherwise Round 1 decision.
+      // Round 2 decision ONLY.
+      // Do NOT fall back to the Round 1 decision here:
+      // the student panel renders this as the Round 2
+      // decision, so the fallback showed Round 1's
+      // SELECTED + "Proceed to Round2" feedback in the
+      // Round 2 card and students thought Round 2 was
+      // already decided. Round 1's decision stays
+      // available as round1_decision for the access gate.
       decision:
-        round2Decision ||
-        round1Decision,
+        round2Decision,
 
       round1_decision:
         round1Decision,
