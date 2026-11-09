@@ -4250,6 +4250,7 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
   const [issued, setIssued] = useState([]);
   const [teams, setTeams] = useState([]);
   const [students, setStudents] = useState([]);
+  const [recipients, setRecipients] = useState([]);
   const [partDesign, setPartDesign] = useState("participation");
   const [placeDesigns, setPlaceDesigns] = useState({ 1: "winner", 2: "runnerup", 3: "third" });
   const [partnerLogo, setPartnerLogo] = useState(false);
@@ -4269,19 +4270,22 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
       setIssued([]);
       setTeams([]);
       setStudents([]);
+      setRecipients([]);
       return;
     }
     setLoading(true);
     setError("");
     setWinnerPicks({ 1: "", 2: "", 3: "" });
     try {
-      const [certData, otherData] = await Promise.all([
+      const [certData, otherData, recipData] = await Promise.all([
         apiFetch(`/certificates/hackathons/${hackathon.id}`),
         isQuiz
           ? apiFetch(`/quizzes/${hackathon.id}/submissions`)
           : apiFetch(`/hackathons/${hackathon.id}/teams`),
+        apiFetch(`/certificates/hackathons/${hackathon.id}/participation-recipients`),
       ]);
       setIssued(Array.isArray(certData?.certificates) ? certData.certificates : []);
+      setRecipients(Array.isArray(recipData?.recipients) ? recipData.recipients : []);
       if (isQuiz) {
         setTeams([]);
         setStudents(Array.isArray(otherData?.submissions) ? otherData.submissions : []);
@@ -4362,7 +4366,7 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
   };
 
   return (
-    <Panel eyebrow="Certificates" title="Issue certificates" description={isQuiz ? "Participation goes to every student who submitted the quiz. Winners go to the students you pick below. Re-issuing is safe — nobody gets a duplicate." : "Pick a design for each level, then issue. Participation goes to every member of a team that submitted Round 1. Winners go to the teams you pick below. Re-issuing is safe — nobody gets a duplicate."} action={<Picker hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId} />}>
+    <Panel eyebrow="Certificates" title="Issue certificates" description={isQuiz ? "Participation goes to every student who submitted the quiz. Winners go to the students you pick below. Re-issuing is safe — nobody gets a duplicate." : "Pick a design for each level, then issue. Participation goes to every member of a team that submitted Round 1 \u2014 including teams already judged SELECTED or REJECTED. Winners go to the teams you pick below. Re-issuing is safe — nobody gets a duplicate."} action={<Picker hackathons={hackathons} selectedId={selectedId} setSelectedId={setSelectedId} />}>
       {error && <div className="form-error">{error}</div>}
       {message && <AlertBox type="success" message={message} onClose={() => setMessage("")} />}
 
@@ -4402,6 +4406,31 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
           {busy === "participation" ? "ISSUING…" : "ISSUE PARTICIPATION CERTIFICATES"}
         </button>
       </div>
+
+      {hackathon && !loading && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>
+            Who gets a participation certificate — {recipients.length} {recipients.length === 1 ? "person" : "people"}
+          </div>
+          {recipients.length ? (
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Name</th><th>Email</th><th>Team</th><th>Status</th></tr></thead>
+                <tbody>{recipients.map((r, i) => (
+                  <tr key={r.user_id || i}>
+                    <td><b>{r.user_name || "—"}</b></td>
+                    <td>{r.user_email || "—"}</td>
+                    <td>{r.team_name || "—"}</td>
+                    <td>{r.already_has ? "Already has certificate" : "Will receive"}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          ) : (
+            <p style={{ margin: 0 }}>No one is eligible yet — no team has a submitted Round 1 entry for this event.</p>
+          )}
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end", marginBottom: 24 }}>
         {[1, 2, 3].map((place) => (

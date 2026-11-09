@@ -13,6 +13,14 @@
    organizer picker is finalized later, per Koushik 2026-10-26.
    v6.27: issuance uses autocommit inserts + a post-write
    persistence re-read (persisted count in the response).
+   v6.57: participation eligibility counts SELECTED and
+   REJECTED Round 1 submissions as submitted — the organizer
+   Accept/Reject decision overwrites the submission status,
+   so a SUBMITTED-only check found nobody after judging.
+   submitted_at IS NOT NULL keeps drafts and never-approved
+   proposals out. A recipients list endpoint lets the
+   organizer see who will receive a certificate before
+   issuing.
 ========================================================= */
 
 import pool from "../config/db.js";
@@ -270,6 +278,91 @@ export async function listHackathonCertificates(req, res) {
 
 
 /* =========================================================
+   PARTICIPATION ELIGIBILITY (shared by issue + recipients)
+   Non-quiz: every member of a team with a Round 1
+   submission that was actually submitted. The organizer
+   decision overwrites status to SELECTED / REJECTED, so
+   those count too — submitted_at IS NOT NULL proves the
+   submission went in (drafts and never-approved proposals
+   have submitted_at NULL).
+   Quiz: every student with a SUBMITTED quiz attempt.
+   Each row also says whether the person already has a
+   participation certificate for this hackathon.
+========================================================= */
+
+async function getParticipationEligible(pool, hackathon) {
+  if (hackathon.event_type === "quiz") {
+    const result = await pool.query(
+      `
+      SELECT DISTINCT
+        NULL::uuid AS team_id,
+        qa.user_id AS user_id,
+        u.name AS user_name,
+        u.email AS user_email,
+        NULL::text AS team_name,
+        EXISTS (
+          SELECT 1
+          FROM certificates c
+          WHERE c.hackathon_id = $1
+            AND c.user_id = qa.user_id
+            AND c.type = 'PARTICIPATION'
+        ) AS already_has
+
+      FROM quiz_attempts qa
+
+      JOIN users u
+        ON u.id = qa.user_id
+
+      WHERE qa.hackathon_id = $1
+        AND qa.status = 'SUBMITTED'
+
+      ORDER BY u.name
+      `,
+      [hackathon.id]
+    );
+    return result.rows;
+  }
+
+  const result = await pool.query(
+    `
+    SELECT DISTINCT
+      t.id AS team_id,
+      tm.user_id AS user_id,
+      u.name AS user_name,
+      u.email AS user_email,
+      t.name AS team_name,
+      EXISTS (
+        SELECT 1
+        FROM certificates c
+        WHERE c.hackathon_id = $1
+          AND c.user_id = tm.user_id
+          AND c.type = 'PARTICIPATION'
+      ) AS already_has
+
+    FROM teams t
+
+    INNER JOIN team_members tm
+      ON tm.team_id = t.id
+
+    INNER JOIN users u
+      ON u.id = tm.user_id
+
+    INNER JOIN round1_submissions r1
+      ON r1.team_id = t.id
+      AND r1.status IN ('SUBMITTED', 'SELECTED', 'REJECTED')
+      AND r1.submitted_at IS NOT NULL
+
+    WHERE t.hackathon_id = $1
+
+    ORDER BY t.name, u.name
+    `,
+    [hackathon.id]
+  );
+  return result.rows;
+}
+
+
+/* =========================================================
    ORGANIZER: ISSUE PARTICIPATION CERTIFICATES
    POST /api/certificates/hackathons/:hackathonId/issue-participation
    Body: { theme }
@@ -283,44 +376,7 @@ export async function issueParticipation(req, res) {
     const theme = validTheme(req.body?.theme);
     const partnerLogo = req.body?.partnerLogo === true;
 
-    /* Quiz events have no teams and no Round 1: eligibility is
-       every student with a SUBMITTED attempt for this quiz. */
-    const eligible =
-      hackathon.event_type === "quiz"
-        ? await pool.query(
-            `
-            SELECT DISTINCT
-              NULL::uuid AS team_id,
-              user_id
-
-            FROM quiz_attempts
-
-            WHERE hackathon_id = $1
-              AND status = 'SUBMITTED'
-            `,
-            [hackathon.id]
-          )
-        : await pool.query(
-            `
-      SELECT DISTINCT
-        t.id AS team_id,
-        tm.user_id AS user_id
-
-      FROM teams t
-
-      INNER JOIN team_members tm
-        ON tm.team_id = t.id
-
-      INNER JOIN round1_submissions r1
-        ON r1.team_id = t.id
-        AND r1.status = 'SUBMITTED'
-
-      WHERE t.hackathon_id = $1
-      `,
-            [hackathon.id]
-          );
-
-    const rows = eligible.rows;
+    const rows = await getParticipationEligible(pool, hackathon);
     const codes = await generateUniqueCodes(pool, rows.length);
     /* v6.27: no explicit transaction here — each INSERT below
        auto-commits, and persistence is verified with a fresh
@@ -373,6 +429,37 @@ export async function issueParticipation(req, res) {
     return res.status(500).json({
       success: false,
       message: "Failed to issue participation certificates",
+    });
+  }
+}
+
+
+/* =========================================================
+   ORGANIZER: LIST PARTICIPATION RECIPIENTS
+   GET /api/certificates/hackathons/:hackathonId/participation-recipients
+   Same eligibility as issuing — lets the organizer see who
+   will receive a certificate before clicking issue, and who
+   already has one.
+========================================================= */
+
+export async function listParticipationRecipients(req, res) {
+  try {
+    const hackathon = await loadOwnedHackathon(req, res, req.params.hackathonId);
+    if (!hackathon) return;
+
+    const recipients = await getParticipationEligible(pool, hackathon);
+
+    return res.status(200).json({
+      success: true,
+      hackathon: { id: hackathon.id, title: hackathon.title },
+      recipients,
+      count: recipients.length,
+    });
+  } catch (error) {
+    console.error("LIST PARTICIPATION RECIPIENTS ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load participation recipients",
     });
   }
 }

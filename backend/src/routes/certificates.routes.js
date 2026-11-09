@@ -5,6 +5,7 @@ import {
   listMyCertificates,
   listHackathonCertificates,
   issueParticipation,
+  listParticipationRecipients,
   issueWinners,
   downloadCertificate,
 } from "../controllers/certificates.controller.js";
@@ -61,6 +62,13 @@ router.get(
   requireAuth,
   requireRole("ORGANIZER", "ADMIN"),
   listHackathonCertificates
+);
+
+router.get(
+  "/hackathons/:hackathonId/participation-recipients",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  listParticipationRecipients
 );
 
 router.post(
