@@ -691,7 +691,7 @@ async function loadInviteTeam(client, teamId) {
       ON leader.id = t.leader_id
 
     WHERE t.id = $1
-    FOR UPDATE
+    FOR UPDATE OF t
     `,
     [teamId]
   );
