@@ -656,6 +656,121 @@ export async function issueWinners(req, res) {
 
 
 /* =========================================================
+   ORGANIZER: DELETE ONE CERTIFICATE
+   DELETE /api/certificates/:id
+   Only the hackathon's organizer (or ADMIN). Deleting frees
+   the UNIQUE (hackathon_id, user_id, type) slot, so the
+   certificate can be re-issued — e.g. with the right theme
+   after a wrong-theme issue. The old verify code and PDF
+   stop working.
+========================================================= */
+
+export async function deleteCertificate(req, res) {
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        c.id,
+        c.user_id,
+        c.type,
+        c.code,
+        h.organizer_id,
+        h.title AS hackathon_title,
+        u.name AS holder_name
+
+      FROM certificates c
+
+      JOIN hackathons h
+        ON h.id = c.hackathon_id
+
+      JOIN users u
+        ON u.id = c.user_id
+
+      WHERE c.id = $1
+
+      LIMIT 1
+      `,
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Certificate not found",
+      });
+    }
+
+    const cert = result.rows[0];
+    const isAdmin = req.user?.role === "ADMIN";
+
+    if (!isAdmin && String(cert.organizer_id) !== String(req.user.id)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete certificates for your own hackathons",
+      });
+    }
+
+    await pool.query(
+      `DELETE FROM certificates WHERE id = $1`,
+      [cert.id]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Certificate deleted",
+      id: cert.id,
+      holder_name: cert.holder_name,
+      type: cert.type,
+    });
+  } catch (error) {
+    console.error("DELETE CERTIFICATE ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete certificate",
+    });
+  }
+}
+
+
+/* =========================================================
+   ORGANIZER: DELETE ALL PARTICIPATION CERTIFICATES
+   DELETE /api/certificates/hackathons/:hackathonId/participation
+   Only PARTICIPATION rows for this hackathon — winner
+   certificates are untouched. Used to redo a wrong-theme
+   participation issue: delete all, then re-issue.
+========================================================= */
+
+export async function deleteParticipationCertificates(req, res) {
+  try {
+    const hackathon = await loadOwnedHackathon(req, res, req.params.hackathonId);
+    if (!hackathon) return;
+
+    const result = await pool.query(
+      `
+      DELETE FROM certificates
+      WHERE hackathon_id = $1
+        AND type = 'PARTICIPATION'
+      RETURNING id
+      `,
+      [hackathon.id]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Participation certificates deleted",
+      deleted: result.rows.length,
+    });
+  } catch (error) {
+    console.error("DELETE PARTICIPATION CERTIFICATES ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete participation certificates",
+    });
+  }
+}
+
+
+/* =========================================================
    DOWNLOAD PDF — owner, or the hackathon's organizer, or ADMIN
    GET /api/certificates/:id/download
 ========================================================= */

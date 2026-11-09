@@ -4354,6 +4354,45 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
     }
   };
 
+  /* v6.58 — delete a wrong-theme issue and re-issue. Deleting
+     frees the slot, so issuing again no longer says "already
+     had one". The old verify code and PDF stop working. */
+  const participationIssued = issued.filter((c) => c.type === "PARTICIPATION").length;
+
+  const deleteCertificate = async (cert) => {
+    if (!cert?.id) return;
+    if (!window.confirm(`Delete the ${cert.type || "certificate"} for ${cert.holder_name || "this student"} (${cert.code || ""})?\n\nThey will no longer be able to download or verify it. You can re-issue it afterwards.`)) return;
+    setBusy("delete");
+    setError("");
+    setMessage("");
+    try {
+      await apiFetch(`/certificates/${cert.id}`, { method: "DELETE" });
+      setMessage("Certificate deleted. You can re-issue it with the right theme.");
+      load();
+    } catch (e) {
+      setError(e.message || "Failed to delete certificate.");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const deleteAllParticipation = async () => {
+    if (!hackathon || participationIssued === 0) return;
+    if (!window.confirm(`Delete all ${participationIssued} participation certificates for ${hackathon.title}?\n\nStudents will no longer be able to download or verify them. Winner certificates are not touched. You can re-issue participation with the right theme after.`)) return;
+    setBusy("delete-all");
+    setError("");
+    setMessage("");
+    try {
+      const data = await apiFetch(`/certificates/hackathons/${hackathon.id}/participation`, { method: "DELETE" });
+      setMessage(`Deleted ${data?.deleted ?? 0} participation certificates. Pick the right theme and issue again.`);
+      load();
+    } catch (e) {
+      setError(e.message || "Failed to delete participation certificates.");
+    } finally {
+      setBusy("");
+    }
+  };
+
   const formatDate = (value) => {
     if (!value) return "—";
     const parsed = new Date(value);
@@ -4404,6 +4443,9 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
         <button className="primary-btn" disabled={busy !== "" || !hackathon} onClick={issueParticipation}>
           {busy === "participation" ? "ISSUING…" : "ISSUE PARTICIPATION CERTIFICATES"}
+        </button>
+        <button className="outline-btn" disabled={busy !== "" || !hackathon || participationIssued === 0} onClick={deleteAllParticipation}>
+          {busy === "delete-all" ? "DELETING…" : "DELETE ALL PARTICIPATION CERTIFICATES"}
         </button>
       </div>
 
@@ -4464,7 +4506,7 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
       {loading ? <Loading /> : issued.length ? (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Holder</th><th>Team</th><th>Type</th><th>Place</th><th>Code</th><th>Issued</th></tr></thead>
+            <thead><tr><th>Holder</th><th>Team</th><th>Type</th><th>Place</th><th>Code</th><th>Issued</th><th></th></tr></thead>
             <tbody>{issued.map((c, i) => (
               <tr key={c.id || i}>
                 <td><b>{c.holder_name || "—"}</b></td>
@@ -4473,6 +4515,7 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
                 <td>{c.place || "—"}</td>
                 <td>{c.code}</td>
                 <td>{formatDate(c.issued_at)}</td>
+                <td><button className="outline-btn" style={{ padding: "4px 10px", fontSize: 12 }} disabled={busy !== ""} onClick={() => deleteCertificate(c)}>Delete</button></td>
               </tr>
             ))}</tbody>
           </table>

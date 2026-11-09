@@ -7,6 +7,8 @@ import {
   issueParticipation,
   listParticipationRecipients,
   issueWinners,
+  deleteCertificate,
+  deleteParticipationCertificates,
   downloadCertificate,
 } from "../controllers/certificates.controller.js";
 
@@ -83,6 +85,20 @@ router.post(
   requireAuth,
   requireRole("ORGANIZER", "ADMIN"),
   issueWinners
+);
+
+router.delete(
+  "/hackathons/:hackathonId/participation",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  deleteParticipationCertificates
+);
+
+router.delete(
+  "/:id",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  deleteCertificate
 );
 
 
