@@ -15,6 +15,7 @@ export async function getMyProfile(req, res) {
         role,
         bio,
         skills,
+        college_name,
         avatar_url,
         is_active,
         created_at
@@ -113,18 +114,39 @@ export async function updateMyProfile(req, res) {
       bio,
       skills,
       avatar_url,
+      college_name,
     } = req.body;
 
     if (
       name === undefined &&
       bio === undefined &&
       skills === undefined &&
-      avatar_url === undefined
+      avatar_url === undefined &&
+      college_name === undefined
     ) {
       return res.status(400).json({
         success: false,
         message: "No profile fields provided",
       });
+    }
+
+    // College name: optional string, max 200 chars. Empty
+    // string or null clears it (stored as empty string,
+    // shown as "Not set" in the profile tab).
+    if (college_name !== undefined && college_name !== null) {
+      if (typeof college_name !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "College name must be a string",
+        });
+      }
+
+      if (college_name.trim().length > 200) {
+        return res.status(400).json({
+          success: false,
+          message: "College name must be 200 characters or less",
+        });
+      }
     }
 
     const result = await pool.query(
@@ -134,8 +156,9 @@ export async function updateMyProfile(req, res) {
         bio = COALESCE($2, bio),
         skills = COALESCE($3, skills),
         avatar_url = COALESCE($4, avatar_url),
+        college_name = COALESCE($5, college_name),
         updated_at = NOW()
-       WHERE id = $5
+       WHERE id = $6
        RETURNING
         id,
         campus_code_id,
@@ -144,6 +167,7 @@ export async function updateMyProfile(req, res) {
         role,
         bio,
         skills,
+        college_name,
         avatar_url,
         is_active,
         created_at,
@@ -153,6 +177,11 @@ export async function updateMyProfile(req, res) {
         bio ?? null,
         skills ?? null,
         avatar_url ?? null,
+        college_name === undefined
+          ? null
+          : college_name === null
+            ? ""
+            : college_name.trim(),
         req.user.id,
       ]
     );

@@ -919,6 +919,11 @@ function Hackathons({
     );
   };
 
+  const closeHackathon = (h) => {
+    if (!window.confirm(`Close "${h.title}"?\n\nStudents will no longer see it as live. Certificates and results stay available.`)) return;
+    status(h.id, "COMPLETED");
+  };
+
   const remove = async (h) => {
     if (!window.confirm(`Delete "${h.title}"?\n\nThis action cannot be undone.`)) return;
     await action(`delete-${h.id}`, () =>
@@ -1002,7 +1007,12 @@ function Hackathons({
                       <>
                         <button className="live-btn small" onClick={() => status(h.id, "LIVE")}><Zap size={13}/> Go LIVE</button>
                         <button className="outline-btn small" onClick={() => status(h.id, "PAUSED")}>Pause</button>
+                        <button className="danger-btn small" onClick={() => closeHackathon(h)}>Close Hackathon</button>
                       </>
+                    )}
+
+                    {publication === "PUBLISHED" && state === "LIVE" && (
+                      <button className="danger-btn small" onClick={() => closeHackathon(h)}>Close Hackathon</button>
                     )}
 
                     {publication === "PUBLISHED" && state === "PAUSED" && (

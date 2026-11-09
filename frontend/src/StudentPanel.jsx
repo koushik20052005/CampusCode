@@ -778,6 +778,9 @@ function RegistrationsPage({ onOpen }) {
                 <HackathonMark title={value(item.hackathon?.title, item.title, item.name, item.hackathon_name)} />
                 <h2>{value(item.hackathon?.title, item.title, item.name, item.hackathon_name)}</h2>
               </div>
+              {["COMPLETED", "COMPLETE", "FINISHED", "CLOSED", "ARCHIVED"].includes(String(item.hackathon?.status || item.hackathon_status || "").toUpperCase()) && (
+                <span className="student-round-status">CLOSED</span>
+              )}
               <p>STATUS: <strong>{value(item.registration_status, item.status, "REGISTERED")}</strong></p>
               <p>TEAM: <strong>{value(item.team?.name, item.team_name, "NOT ASSIGNED")}</strong></p>
               <button onClick={() => onOpen(item)} className="student-primary-btn">OPEN JOURNEY ↗</button>
@@ -810,7 +813,7 @@ function formatDateTime(date) {
   });
 }
 
-function StudentRoundFlow({ rounds, roundStates, onGoToRound }) {
+function StudentRoundFlow({ rounds, roundStates, onGoToRound, eventCompleted }) {
   if (!Array.isArray(rounds) || rounds.length === 0) return null;
   const sorted = rounds.slice().sort((a, b) => Number(a.round_number) - Number(b.round_number));
   return (
@@ -821,8 +824,10 @@ function StudentRoundFlow({ rounds, roundStates, onGoToRound }) {
         {sorted.map((round, index) => {
           const n = Number(round.round_number) || index + 1;
           const status = String(round.status || "SCHEDULED").toUpperCase();
-          const isLive = status === "LIVE";
-          const isCompleted = status === "COMPLETED";
+          // v6.57 — a closed event never shows a live round: its
+          // rounds render completed and the submit jump is gone.
+          const isLive = status === "LIVE" && !eventCompleted;
+          const isCompleted = status === "COMPLETED" || eventCompleted;
           const title = String(round.title || `ROUND ${n}`).toUpperCase();
           const state = roundStates?.[n] || null;
           const sub = state?.submission || null;
@@ -884,6 +889,10 @@ function StudentRoundFlow({ rounds, roundStates, onGoToRound }) {
 
 function RegistrationDetail({ registration, onBack, bare, onGoToRounds }) {
   const id = registration?.hackathon_id || registration?.hackathonId || registration?.id;
+  // v6.57 — a closed event never shows a live round: the flow
+  // tracker and pipeline render its rounds completed.
+  const eventStatus = String(registration?.hackathon?.status || registration?.hackathon_status || "").toUpperCase();
+  const eventCompleted = ["COMPLETED", "COMPLETE", "FINISHED", "CLOSED", "ARCHIVED"].includes(eventStatus);
   const [rounds, setRounds] = useState([]);
   const [team, setTeam] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -962,7 +971,7 @@ function RegistrationDetail({ registration, onBack, bare, onGoToRounds }) {
       {!loading && error && <ErrorState message={error} retry={load} />}
       {!loading && !error && (
         <>
-        <StudentRoundFlow rounds={rounds} roundStates={roundStates} onGoToRound={onGoToRounds} />
+        <StudentRoundFlow rounds={rounds} roundStates={roundStates} onGoToRound={onGoToRounds} eventCompleted={eventCompleted} />
         <div className="student-two-col">
           <div className="student-panel-card">
             <div className="student-panel-title"><span>ROUND PIPELINE</span></div>
@@ -970,7 +979,7 @@ function RegistrationDetail({ registration, onBack, bare, onGoToRounds }) {
             {rounds.length ? rounds.map((round, index) => (
               <div className="round-row" key={round.id || round.round_number || index} onClick={() => setSelectedRound(round)} style={{ cursor: "pointer" }} title="View round details">
                 <div className="round-number">{value(round.round_number, round.roundNumber, index + 1)}</div>
-                <div><strong>{value(round.name, round.title, `ROUND ${index + 1}`)}</strong><span>{value(round.status, round.round_status)}</span></div>
+                <div><strong>{value(round.name, round.title, `ROUND ${index + 1}`)}</strong><span>{eventCompleted ? "COMPLETED" : value(round.status, round.round_status)}</span></div>
                 <b>{value(round.result, round.selection_status)}</b>
               </div>
             )) : <EmptyState title="NO ROUND DATA" text="No round records were returned for this hackathon." />}
@@ -1188,7 +1197,7 @@ function CertificatesPage({ hackathonId }) {
 
 function ProfilePage() {
   const [profile, setProfile] = useState(null);
-  const [form, setForm] = useState({ name: "", bio: "", skills: "" });
+  const [form, setForm] = useState({ name: "", bio: "", skills: "", college_name: "" });
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1207,6 +1216,7 @@ function ProfilePage() {
           name: next.name || "",
           bio: next.bio || "",
           skills: Array.isArray(next.skills) ? next.skills.join(", ") : (next.skills || ""),
+          college_name: next.college_name || "",
         });
       }
     } catch (err) {
@@ -1270,6 +1280,7 @@ function ProfilePage() {
           name: form.name.trim(),
           bio: form.bio.trim(),
           skills,
+          college_name: form.college_name.trim(),
         }),
       });
 
@@ -1280,6 +1291,7 @@ function ProfilePage() {
           name: updated.name || "",
           bio: updated.bio || "",
           skills: Array.isArray(updated.skills) ? updated.skills.join(", ") : (updated.skills || ""),
+          college_name: updated.college_name || "",
         });
         localStorage.setItem("user", JSON.stringify({
           ...JSON.parse(localStorage.getItem("user") || "{}"),
@@ -1305,6 +1317,7 @@ function ProfilePage() {
     ["EMAIL", profile.email],
     ["ROLE", profile.role],
     ["CAMPUSCODE ID", profile.campus_code_id],
+    ["COLLEGE", profile.college_name || "Not set"],
     ["BIO", profile.bio],
     ["SKILLS", Array.isArray(profile.skills) ? profile.skills.join(", ") : profile.skills],
   ];
@@ -1349,6 +1362,15 @@ function ProfilePage() {
             <div className="profile-edit-field">
               <label>EMAIL · READ ONLY</label>
               <input value={profile.email || ""} disabled />
+            </div>
+
+            <div className="profile-edit-field">
+              <label>COLLEGE</label>
+              <input
+                value={form.college_name}
+                onChange={(e) => setForm((current) => ({ ...current, college_name: e.target.value }))}
+                placeholder="Enter your college name"
+              />
             </div>
 
             <div className="profile-edit-field full">
@@ -1396,6 +1418,7 @@ function ProfilePage() {
                   name: profile.name || "",
                   bio: profile.bio || "",
                   skills: Array.isArray(profile.skills) ? profile.skills.join(", ") : (profile.skills || ""),
+                  college_name: profile.college_name || "",
                 });
               }}
             >

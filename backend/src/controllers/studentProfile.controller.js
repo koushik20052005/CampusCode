@@ -19,6 +19,7 @@ export const getStudentProfile = async (req, res) => {
         avatar_url,
         bio,
         skills,
+        college_name,
         is_active,
         created_at,
         updated_at
@@ -63,6 +64,8 @@ export const getStudentProfile = async (req, res) => {
   - avatar_url
   - bio
   - skills
+  - college_name (optional string, max 200 chars; empty string
+    or null clears it)
 */
 export const updateStudentProfile = async (req, res) => {
   try {
@@ -73,6 +76,7 @@ export const updateStudentProfile = async (req, res) => {
       avatar_url,
       bio,
       skills,
+      college_name,
     } = req.body;
 
     // --------------------------------------------------
@@ -127,6 +131,28 @@ export const updateStudentProfile = async (req, res) => {
     }
 
     // --------------------------------------------------
+    // Validate college_name if provided:
+    // optional string, max 200 chars. Empty string or
+    // null clears it (stored as empty string, shown as
+    // "Not set" in the profile tab).
+    // --------------------------------------------------
+    if (college_name !== undefined && college_name !== null) {
+      if (typeof college_name !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "College name must be a string",
+        });
+      }
+
+      if (college_name.trim().length > 200) {
+        return res.status(400).json({
+          success: false,
+          message: "College name must be 200 characters or less",
+        });
+      }
+    }
+
+    // --------------------------------------------------
     // Update only student-editable fields
     // --------------------------------------------------
     const result = await pool.query(
@@ -137,8 +163,9 @@ export const updateStudentProfile = async (req, res) => {
         avatar_url = COALESCE($2, avatar_url),
         bio = COALESCE($3, bio),
         skills = COALESCE($4, skills),
+        college_name = COALESCE($5, college_name),
         updated_at = NOW()
-      WHERE id = $5
+      WHERE id = $6
         AND role = 'STUDENT'
       RETURNING
         id,
@@ -148,6 +175,7 @@ export const updateStudentProfile = async (req, res) => {
         avatar_url,
         bio,
         skills,
+        college_name,
         is_active,
         created_at,
         updated_at
@@ -157,6 +185,11 @@ export const updateStudentProfile = async (req, res) => {
         avatar_url !== undefined ? avatar_url : null,
         bio !== undefined ? bio : null,
         skills !== undefined ? skills : null,
+        college_name === undefined
+          ? null
+          : college_name === null
+            ? ""
+            : college_name.trim(),
         studentId,
       ]
     );
