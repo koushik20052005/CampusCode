@@ -39,7 +39,7 @@ const FONTS = {
   Serif: path.join(ASSETS, "fonts", "DejaVuSerif.ttf"),
 };
 
-export const CERT_THEMES = ["sidebar", "constellation", "blueprint", "light-clean", "minimal", "classic-ivory", "midnight-gold", "royal-purple", "ocean-blue", "emerald-classic", "rose-blush", "sunset-glow", "mono-grid", "forest-line", "crimson-award", "skyline-blue", "charcoal-lime", "teal-ribbon"];
+export const CERT_THEMES = ["sidebar", "constellation", "blueprint", "light-clean", "minimal", "classic-ivory", "midnight-gold", "royal-purple", "ocean-blue", "emerald-classic", "rose-blush", "sunset-glow", "mono-grid", "forest-line", "crimson-award", "skyline-blue", "charcoal-lime", "teal-ribbon", "mint-rebuild"];
 
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
@@ -392,6 +392,7 @@ const THEME_DRAWERS = {
   "skyline-blue": drawSkylineBlue,
   "charcoal-lime": drawCharcoalLime,
   "teal-ribbon": drawTealRibbon,
+  "mint-rebuild": drawMintRebuild,
 };
 
 /* ---------------- LIGHT CLEAN (quiz participation pick, 2026-10-30)
@@ -580,6 +581,86 @@ function drawCrimsonAward(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, 
 function drawSkylineBlue(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#dbeafe", frame: "#1e4e79", layout: "left", titleFont: "InterBlack", titleColor: "#16324f", nameColor: "#1e4e79", subColor: "#5a7a9a", accent: "#1e4e79", qr: "left" }); }
 function drawCharcoalLime(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#262626", barLeft: "#a8e62e", frame: "#a8e62e", layout: "left", titleFont: "InterBlack", titleColor: "#f5f5f5", nameColor: "#a8e62e", subColor: "#aaaaaa", accent: "#a8e62e", qr: "right" }); }
 function drawTealRibbon(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#0f5257", bandTop: "#ffffff", frame: "#ffffff", layout: "center", titleFont: "InterBlack", titleColor: "#ffffff", nameColor: "#a8e62e", subColor: "#9db8ba", accent: "#a8e62e", presented: "This certificate is proudly presented to", qr: "left" }); }
+
+/* ---------------- MINT REBUILD (ReBuild '26 participation, 2026-11-09)
+   Koushik's picked sample: soft pastel diagonal gradient (lavender ->
+   mint -> peach), thin white rounded border, big bold CAMPUSCODE ·
+   REBUILD '26 header, serif holder name, gradient rule centred under
+   the name, rounds line + EVENT/DATE/MODE strip, issued block
+   bottom-left, QR bottom-right.
+   Rules locked by Koushik: NO name, NO signature/sign anywhere, NO
+   circular seal. The issued date comes from the certificate row
+   (issuedAt); the rounds line and strip values are ReBuild-specific,
+   matching the theme name. */
+function drawMintRebuild(doc, W, H, d, qr) {
+  const cx = W / 2;
+  // Pastel diagonal gradient background.
+  const bg = doc.linearGradient(0, 0, W, H);
+  bg.stop(0, "#e8e4ff").stop(0.5, "#dcf5e6").stop(1, "#fff0dc");
+  doc.fillColor(bg).rect(0, 0, W, H).fill();
+  // Thin white rounded border frame.
+  doc.strokeColor("#ffffff").lineWidth(1.5);
+  doc.roundedRect(35, 35, W - 70, H - 70, 12).stroke();
+  // Header mark + big bold platform/event line.
+  doc.image(LOGO_BARS, cx - 35, 62, { width: 70, height: 58 });
+  doc.font("DMMono").fontSize(15).fillColor("#7665ff");
+  doc.text("CAMPUSCODE  \u00b7  REBUILD '26", 0, 132, { align: "center" });
+  doc.font("InterBlack").fontSize(38).fillColor("#111111");
+  doc.text(d.title, 0, 168, { align: "center" });
+  doc.font("InterBold").fontSize(12).fillColor("#777770");
+  doc.text("This certificate is proudly presented to", 0, 222, { align: "center" });
+  doc.font("SerifBold").fontSize(42).fillColor("#111111");
+  doc.text(d.holderName, 0, 248, { align: "center" });
+  // Gradient rule centred under the name.
+  const strip = doc.linearGradient(cx - 80, 0, cx + 80, 0);
+  strip.stop(0, "#7566ff").stop(0.5, "#ec4899").stop(1, "#8bcf19");
+  doc.fillColor(strip).rect(cx - 80, 306, 160, 3).fill();
+  // Description (wraps to two lines).
+  doc.font("Inter").fontSize(12.5).fillColor("#444444");
+  doc.text(
+    `for successfully participating in ${d.hackathonTitle}, organised by CampusCode on ${d.eventDate}.`,
+    cx - 260, 326, { width: 520, align: "center" }
+  );
+  // Rounds line.
+  doc.font("Inter").fontSize(11).fillColor("#777770");
+  doc.text("Round 1  \u00b7  Recreated the CampusCode platform        Round 2  \u00b7  Built a complete new UI", 0, 372, { align: "center" });
+  // EVENT / DATE / MODE strip.
+  const cols = [
+    { label: "EVENT", value: "ReBuild '26" },
+    { label: "DATE", value: d.eventDate },
+    { label: "MODE", value: "Online" },
+  ];
+  cols.forEach((c, i) => {
+    const ccx = cx + (i - 1) * 150;
+    doc.font("DMMono").fontSize(8.5).fillColor("#9686e6");
+    doc.text(c.label, ccx - 75, 392, { width: 150, align: "center" });
+    doc.font("InterBold").fontSize(13).fillColor("#444444");
+    doc.text(c.value, ccx - 75, 408, { width: 150, align: "center" });
+  });
+  doc.strokeColor("#d2d2d2").lineWidth(1);
+  doc.moveTo(cx - 75, 396).lineTo(cx - 75, 420).stroke();
+  doc.moveTo(cx + 75, 396).lineTo(cx + 75, 420).stroke();
+  // Issued block, bottom-left (plain text, no line, no signature).
+  const issued = d.issuedAt ? formatCertDate(d.issuedAt) : "10 November 2026";
+  doc.font("InterBold").fontSize(12).fillColor("#444444");
+  doc.text(`Issued on ${issued}`, 244 - 150, 458, { width: 300, align: "center" });
+  doc.font("Inter").fontSize(10).fillColor("#777770");
+  doc.text("Issued by CampusCode", 244 - 150, 476, { width: 300, align: "center" });
+  // QR bottom-right with caption below.
+  const qx = W - 211;
+  const qy = 407;
+  const qs = 80;
+  doc.save();
+  doc.fillColor("#ffffff");
+  doc.roundedRect(qx - 6, qy - 6, qs + 12, qs + 12, 6).fill();
+  doc.restore();
+  doc.image(qr, qx, qy, { width: qs, height: qs });
+  doc.font("InterBold").fontSize(10).fillColor("#444444");
+  doc.text("Scan to verify", qx - 6, qy + qs + 10, { width: qs + 12, align: "center" });
+  doc.font("DMMono").fontSize(9).fillColor("#777770");
+  doc.text(d.code, qx - 6, qy + qs + 26, { width: qs + 12, align: "center" });
+  drawFooter(doc, W, H, d.code, "#777770");
+}
 
 
 /* ---------------- v6.46 — partner logo strip (Adaption)

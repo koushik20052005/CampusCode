@@ -4228,10 +4228,12 @@ function RuleBot({ hackathons, selectedId, setSelectedId }) {
 
 /* =========================================================
    v6 — CERTIFICATES (Module 8, organizer issue section)
-   Theme picker offers ONLY the 3 quiz designs picked 2026-10-30.
-   The v2 launch themes (sidebar, constellation, blueprint) are NOT
-   listed here anymore — but they stay renderable in the backend, so
-   certificates already issued with them still download unchanged.
+   Theme picker offers the 3 quiz designs picked 2026-10-30, plus
+   "Mint ReBuild" (2026-11-09) — Koushik's picked ReBuild '26
+   participation design. The v2 launch themes (sidebar,
+   constellation, blueprint) are NOT listed here anymore — but they
+   stay renderable in the backend, so certificates already issued
+   with them still download unchanged.
    Issuing is idempotent — re-running never duplicates a certificate.
 ========================================================= */
 
@@ -4240,6 +4242,7 @@ const CERT_DESIGNS = [
   { key: "winner", theme: "classic-ivory", name: "Winner · 1st Place" },
   { key: "runnerup", theme: "minimal", name: "Runner-up · 2nd Place" },
   { key: "third", theme: "minimal", name: "3rd Place" },
+  { key: "mint-rebuild", theme: "mint-rebuild", name: "Mint ReBuild" },
 ];
 const themeForDesign = (key) => CERT_DESIGNS.find((d) => d.key === key)?.theme || "light-clean";
 

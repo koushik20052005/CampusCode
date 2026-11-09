@@ -644,6 +644,7 @@ export async function downloadCertificate(req, res) {
       type: cert.type,
       place: cert.place,
       theme: cert.theme,
+      issuedAt: cert.issued_at,
       partnerLogo: !!cert.partner_logo,
     });
 
