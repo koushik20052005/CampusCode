@@ -8,7 +8,12 @@ import {
   updateTeam,
   leaveTeam,
   deleteTeam,
-  addMemberToTeam,
+  inviteMemberToTeam,
+  listTeamInvites,
+  listMyInvites,
+  acceptTeamInvite,
+  declineTeamInvite,
+  cancelTeamInvite,
 } from "../controllers/team.controller.js";
 
 import {
@@ -47,13 +52,45 @@ router.post(
 );
 
 /* =========================================================
-   ADD MEMBER TO TEAM - HACKMATE
+   TEAM INVITES — invite-by-CC-ID + accept/decline (v6.56)
+   Replaces the old silent direct-add. The leader invites,
+   the invitee accepts before joining.
 ========================================================= */
 
 router.post(
-  "/:teamId/members/:userId",
+  "/:teamId/invite",
   requireAuth,
-  addMemberToTeam
+  inviteMemberToTeam
+);
+
+router.get(
+  "/:teamId/invites",
+  requireAuth,
+  listTeamInvites
+);
+
+router.get(
+  "/invites/mine",
+  requireAuth,
+  listMyInvites
+);
+
+router.post(
+  "/invites/:inviteId/accept",
+  requireAuth,
+  acceptTeamInvite
+);
+
+router.post(
+  "/invites/:inviteId/decline",
+  requireAuth,
+  declineTeamInvite
+);
+
+router.post(
+  "/invites/:inviteId/cancel",
+  requireAuth,
+  cancelTeamInvite
 );
 
 /* =========================================================

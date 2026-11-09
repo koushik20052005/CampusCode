@@ -369,6 +369,25 @@ export async function getHackMateRecommendations(
         membersResult.rows;
     }
 
+    /* v6.56 — PENDING invites hold seats too, so the leader
+       cannot over-invite a team that is already full on
+       invites alone. */
+    let pendingInviteCount = 0;
+
+    if (currentTeam) {
+      const pendingResult = await pool.query(
+        `
+        SELECT COUNT(*)::int AS count
+        FROM team_invites
+        WHERE team_id = $1
+          AND status = 'PENDING'
+        `,
+        [currentTeam.id]
+      );
+
+      pendingInviteCount = pendingResult.rows[0].count;
+    }
+
 
     /* -----------------------------------------------------
        CALCULATE CURRENT TEAM SKILLS
@@ -483,11 +502,12 @@ export async function getHackMateRecommendations(
 
     // v6.39 — recommendations respect the event's team cap, so a
     // solo event shows zero available slots.
+    // v6.56 — PENDING invites hold seats too.
     const maxTeamSize = Number(hackathon.max_team_size) || 4;
 
     const availableSlots = currentTeam
       ? Math.max(
-          maxTeamSize - teamSize,
+          maxTeamSize - teamSize - pendingInviteCount,
           0
         )
       : 0;

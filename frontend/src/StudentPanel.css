@@ -2120,6 +2120,32 @@ html, body, #root {
   color: #557216;
 }
 
+/* v6.56 — ROUND FLOW TRACKER (student EventHub Overview).
+   Horizontal flowchart on desktop, vertical stack on mobile. */
+.student-round-flow-card{margin-bottom:16px}
+.student-round-flow-hint{font-size:12px;color:#888;margin:0 0 14px;line-height:1.6}
+.student-round-flow{display:flex;align-items:stretch}
+.student-round-flow-wrap{flex:1;min-width:0;display:flex;align-items:stretch}
+.student-round-flow-node{flex:1;min-width:0;border:1px solid #deded8;background:#fff;padding:14px;display:flex;flex-direction:column;gap:8px}
+.student-round-flow-node.live{border-color:#a7d94b;box-shadow:0 0 0 1px #a7d94b inset}
+.student-round-flow-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.student-round-flow-num{font:700 10px 'DM Mono',monospace;letter-spacing:.08em;color:#555}
+.student-round-flow-node .student-round-status.live::before{content:"";width:7px;height:7px;border-radius:50%;background:#82b91a;margin-right:6px;animation:student-live-pulse 1.6s infinite}
+@keyframes student-live-pulse{0%,100%{box-shadow:0 0 0 0 rgba(130,185,26,.45)}50%{box-shadow:0 0 0 5px rgba(130,185,26,0)}}
+.student-round-flow-title{font-size:16px;line-height:1.2;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.student-round-flow-dates{font:500 10px 'DM Mono',monospace;color:#888}
+.student-round-flow-sub{font:700 10px 'DM Mono',monospace;letter-spacing:.06em;color:#555}
+.student-round-flow-sub.selected{color:#557216}
+.student-round-flow-lock{font-size:11px;color:#888;line-height:1.5}
+.student-round-flow-cta{margin-top:auto;width:100%}
+.student-round-flow-arrow{align-self:center;flex:0 0 auto;padding:0 8px;font-size:18px;color:#999}
+@media (max-width: 720px){
+  .student-round-flow{flex-direction:column}
+  .student-round-flow-wrap{flex-direction:column}
+  .student-round-flow-node{width:100%}
+  .student-round-flow-arrow{align-self:center;transform:rotate(90deg);padding:2px 0}
+}
+
 .student-info-list {
   margin-top: 18px;
   border-top: 1px solid #e3e3dd;

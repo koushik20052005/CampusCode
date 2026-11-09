@@ -789,7 +789,100 @@ function RegistrationsPage({ onOpen }) {
   );
 }
 
-function RegistrationDetail({ registration, onBack, bare }) {
+/* ============================================================
+   v6.56 — ROUND FLOW TRACKER (student EventHub Overview)
+   Students open an event and see round details, but miss the
+   top tab bar. This flowchart sits at the top of the Overview
+   so the live round — and its submit jump — is unmissable.
+   Data: the rounds list RegistrationDetail already fetches,
+   plus the exact per-round status calls the round pages use
+   (/student/roundN/hackathons/:id) for the submission state.
+============================================================ */
+function formatDateTime(date) {
+  if (!date) return "—";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return String(date);
+  return parsed.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function StudentRoundFlow({ rounds, roundStates, onGoToRound }) {
+  if (!Array.isArray(rounds) || rounds.length === 0) return null;
+  const sorted = rounds.slice().sort((a, b) => Number(a.round_number) - Number(b.round_number));
+  return (
+    <div className="student-panel-card student-round-flow-card">
+      <div className="student-panel-title"><span>ROUND FLOW — LIVE STATUS</span></div>
+      <p className="student-round-flow-hint">Follow the flow. The live round is where you submit — tap it to jump straight there.</p>
+      <div className="student-round-flow">
+        {sorted.map((round, index) => {
+          const n = Number(round.round_number) || index + 1;
+          const status = String(round.status || "SCHEDULED").toUpperCase();
+          const isLive = status === "LIVE";
+          const isCompleted = status === "COMPLETED";
+          const title = String(round.title || `ROUND ${n}`).toUpperCase();
+          const state = roundStates?.[n] || null;
+          const sub = state?.submission || null;
+          const decision = state?.decision || null;
+          const isSelected = decision === "SELECTED" || decision === "SELECT";
+          const subLabel = !state
+            ? null
+            : isSelected
+              ? "SELECTED"
+              : sub === "SUBMITTED"
+                ? "SUBMITTED"
+                : sub === "PENDING_APPROVAL"
+                  ? "AWAITING LEADER APPROVAL"
+                  : sub === "DRAFT"
+                    ? "DRAFT"
+                    : "NOT SUBMITTED";
+          const startLabel = round.start_at ? formatDateTime(round.start_at) : null;
+          const endLabel = round.end_at ? formatDateTime(round.end_at) : null;
+          return (
+            <div key={round.id || n} className="student-round-flow-wrap">
+              <div className={`student-round-flow-node ${isLive ? "live" : isCompleted ? "completed" : "locked"}`}>
+                <div className="student-round-flow-top">
+                  <span className="student-round-flow-num">ROUND {n}</span>
+                  <span className={`student-round-status ${isLive ? "live" : ""}`}>{isLive ? "LIVE" : isCompleted ? "COMPLETED" : "LOCKED"}</span>
+                </div>
+                <strong className="student-round-flow-title" title={title}>{title}</strong>
+                {(startLabel || endLabel) && (
+                  <span className="student-round-flow-dates">{startLabel || "—"} → {endLabel || "—"}</span>
+                )}
+                {subLabel && (
+                  <span className={`student-round-flow-sub ${isSelected ? "selected" : ""}`}>SUBMISSION: {subLabel}</span>
+                )}
+                {isLive && onGoToRound && (
+                  <button type="button" className="student-primary-btn student-round-flow-cta" onClick={() => onGoToRound(n)}>
+                    SUBMIT ROUND {n} ↗
+                  </button>
+                )}
+                {isCompleted && sub === "SUBMITTED" && onGoToRound && (
+                  <button type="button" className="student-outline-btn student-round-flow-cta" onClick={() => onGoToRound(n)}>
+                    VIEW SUBMISSION ↗
+                  </button>
+                )}
+                {!isLive && !isCompleted && (
+                  <span className="student-round-flow-lock">
+                    {startLabel ? `Opens ${startLabel}` : "Not opened by the organizer yet"}
+                  </span>
+                )}
+              </div>
+              {index < sorted.length - 1 && (
+                <div className="student-round-flow-arrow" aria-hidden="true">→</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function RegistrationDetail({ registration, onBack, bare, onGoToRounds }) {
   const id = registration?.hackathon_id || registration?.hackathonId || registration?.id;
   const [rounds, setRounds] = useState([]);
   const [team, setTeam] = useState(null);
@@ -797,6 +890,9 @@ function RegistrationDetail({ registration, onBack, bare }) {
   const [error, setError] = useState("");
   // v6.38 — the student clicks a round row to see its detail.
   const [selectedRound, setSelectedRound] = useState(null);
+  // v6.56 — per-round submission state for the flow tracker, from
+  // the exact status calls the round pages already use.
+  const [roundStates, setRoundStates] = useState({});
 
   const load = async () => {
     if (!id) { setLoading(false); return; }
@@ -806,7 +902,33 @@ function RegistrationDetail({ registration, onBack, bare }) {
         apiFetch(`/hackathons/${encodeURIComponent(id)}/rounds`),
         apiFetch(`/hackathons/${encodeURIComponent(id)}/teams`),
       ]);
-      if (roundResult.status === "fulfilled") setRounds(unwrapList(roundResult.value, ["rounds", "data", "items"]));
+      if (roundResult.status === "fulfilled") {
+        const list = unwrapList(roundResult.value, ["rounds", "data", "items"]);
+        setRounds(list);
+        // v6.56 — submission state per round, same endpoints the
+        // round pages load. Failures are swallowed per round so a
+        // locked later round never breaks the flowchart.
+        const nums = list.map((r) => Number(r.round_number)).filter((n) => [1, 2, 3].includes(n));
+        const settled = await Promise.allSettled(
+          nums.map((n) => apiFetch(`/student/round${n}/hackathons/${encodeURIComponent(id)}`))
+        );
+        const states = {};
+        settled.forEach((entry, i) => {
+          if (entry.status !== "fulfilled" || entry.value?.success === false) return;
+          const n = nums[i];
+          const payload = n === 3 ? (entry.value?.round3 || entry.value?.data || entry.value) : entry.value;
+          if (!payload || typeof payload !== "object") return;
+          const hasShape = payload.submission !== undefined || payload.round || payload.round1 || payload.round3 || payload.hackathon || payload.accessible !== undefined;
+          if (!hasShape) return;
+          const submission = payload.submission || null;
+          const decision = submission?.decision || payload.decision?.decision || payload.decision || null;
+          states[n] = {
+            submission: submission?.status ? String(submission.status).toUpperCase() : null,
+            decision: decision ? String(decision).toUpperCase() : null,
+          };
+        });
+        setRoundStates(states);
+      }
       if (teamResult.status === "fulfilled") {
         const teams = unwrapList(teamResult.value, ["teams", "data", "items"]);
         setTeam(teams[0] || teamResult.value?.team || null);
@@ -840,6 +962,7 @@ function RegistrationDetail({ registration, onBack, bare }) {
       {!loading && error && <ErrorState message={error} retry={load} />}
       {!loading && !error && (
         <>
+        <StudentRoundFlow rounds={rounds} roundStates={roundStates} onGoToRound={onGoToRounds} />
         <div className="student-two-col">
           <div className="student-panel-card">
             <div className="student-panel-title"><span>ROUND PIPELINE</span></div>
@@ -1408,6 +1531,8 @@ function HackMatePage({ onGoToMyTeam }) {
       window.matchMedia("(max-width: 780px)").matches
   );
   const scannerRef = useRef(null);
+  const [teamInvites, setTeamInvites] = useState([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 780px)");
@@ -1481,7 +1606,9 @@ function HackMatePage({ onGoToMyTeam }) {
     if (selectedId) loadMatches(selectedId);
   }, [selectedId]);
 
-  const addMemberToTeam = async (candidate) => {
+  /* v6.56 — invite-by-CC-ID: the leader invites, the invitee must
+     accept before joining. Like Unstop uses email, we use the CC-ID. */
+  const inviteMemberToTeam = async (candidate) => {
     const teamId = data?.my_team?.id;
 
     if (!teamId) {
@@ -1499,16 +1626,54 @@ function HackMatePage({ onGoToMyTeam }) {
     setSuccess("");
 
     try {
-      await apiFetch(`/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(candidate.user_id)}`, {
+      /* Found-by-ID / QR carry a CC-ID; recommendations carry only
+         a user id, so they invite by user id instead. */
+      const body = candidate.campus_code_id
+        ? { campus_code_id: candidate.campus_code_id }
+        : { user_id: candidate.user_id };
+
+      await apiFetch(`/teams/${encodeURIComponent(teamId)}/invite`, {
         method: "POST",
+        body: JSON.stringify(body),
       });
 
-      setSuccess(`${candidate.name || "Student"} was added to your team.`);
+      setSuccess(`Invite sent to ${candidate.name || "the student"}. They need to accept before joining your team.`);
       await loadMatches(selectedId);
+      await loadTeamInvites(teamId);
     } catch (err) {
       setError(err.message);
     } finally {
       setAddingMember("");
+    }
+  };
+
+  const loadTeamInvites = async (teamId = data?.my_team?.id) => {
+    if (!teamId || !isTeamLeaderForFind) {
+      setTeamInvites([]);
+      return;
+    }
+    setInvitesLoading(true);
+    try {
+      const result = await apiFetch(`/teams/${encodeURIComponent(teamId)}/invites`);
+      setTeamInvites(Array.isArray(result?.invites) ? result.invites : []);
+    } catch {
+      setTeamInvites([]);
+    } finally {
+      setInvitesLoading(false);
+    }
+  };
+
+  const cancelInvite = async (inviteId) => {
+    setError("");
+    setSuccess("");
+    try {
+      await apiFetch(`/teams/invites/${encodeURIComponent(inviteId)}/cancel`, {
+        method: "POST",
+      });
+      setSuccess("Invite cancelled.");
+      await loadTeamInvites();
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -1536,6 +1701,10 @@ function HackMatePage({ onGoToMyTeam }) {
       Number(currentTeamForFind.available_slots ?? 0) > 0 &&
       isTeamLeaderForFind
   );
+
+  useEffect(() => {
+    loadTeamInvites();
+  }, [data?.my_team?.id, isTeamLeaderForFind]);
 
   const myPublicUrl = myCampusId
     ? `${import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin}/u/${encodeURIComponent(myCampusId)}`
@@ -1843,7 +2012,8 @@ function HackMatePage({ onGoToMyTeam }) {
               <h2>ADD TO YOUR TEAM.</h2>
               <p>
                 Your team needs a leader seat first — create it in My Team,
-                then add friends here. Team size is capped at 4.
+                then invite friends here. Invited students must accept
+                before they join. Team size is capped at 4.
               </p>
 
               <div className="hackmate-find-tabs">
@@ -1928,12 +2098,12 @@ function HackMatePage({ onGoToMyTeam }) {
                           !canAddMemberForFind ||
                           addingMember === String(foundStudent.user_id)
                         }
-                        onClick={() => addMemberToTeam(foundStudent)}
+                        onClick={() => inviteMemberToTeam(foundStudent)}
                       >
                         {addingMember === String(foundStudent.user_id)
-                          ? "ADDING..."
+                          ? "INVITING..."
                           : canAddMemberForFind
-                            ? "ADD TO TEAM"
+                            ? "INVITE TO TEAM"
                             : currentTeamForFind
                               ? "TEAM FULL"
                               : "CREATE TEAM FIRST"}
@@ -1979,12 +2149,12 @@ function HackMatePage({ onGoToMyTeam }) {
                                 !canAddMemberForFind ||
                                 addingMember === String(candidate.user_id)
                               }
-                              onClick={() => addMemberToTeam(candidate)}
+                              onClick={() => inviteMemberToTeam(candidate)}
                             >
                               {addingMember === String(candidate.user_id)
-                                ? "ADDING..."
+                                ? "INVITING..."
                                 : canAddMemberForFind
-                                  ? "ADD"
+                                  ? "INVITE"
                                   : "FULL"}
                             </button>
                           </div>
@@ -2022,12 +2192,12 @@ function HackMatePage({ onGoToMyTeam }) {
                               !canAddMemberForFind ||
                               addingMember === String(foundStudent.user_id)
                             }
-                            onClick={() => addMemberToTeam(foundStudent)}
+                            onClick={() => inviteMemberToTeam(foundStudent)}
                           >
                             {addingMember === String(foundStudent.user_id)
-                              ? "ADDING..."
+                              ? "INVITING..."
                               : canAddMemberForFind
-                                ? "ADD TO TEAM"
+                                ? "INVITE TO TEAM"
                                 : currentTeamForFind
                                   ? "TEAM FULL"
                                   : "CREATE TEAM FIRST"}
@@ -2039,6 +2209,53 @@ function HackMatePage({ onGoToMyTeam }) {
                 </>
               )}
             </div>
+
+            {currentTeamForFind && isTeamLeaderForFind && (
+              <div className="hackmate-find-card">
+                <span>TEAM INVITES</span>
+                <h2>INVITES SENT.</h2>
+                <p>
+                  Invited students must accept before they join. Cancel a
+                  pending invite to free the seat.
+                </p>
+                {invitesLoading ? (
+                  <p className="hackmate-find-note">Loading invites…</p>
+                ) : !teamInvites.length ? (
+                  <p className="hackmate-find-note">
+                    No invites sent yet for this team.
+                  </p>
+                ) : (
+                  teamInvites.map((invite) => (
+                    <div className="hackmate-find-row" key={invite.id}>
+                      <div className="hackmate-candidate-avatar">
+                        {String(invite.invited_name || "U")
+                          .split(" ")
+                          .map((part) => part[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
+                      <div className="hackmate-find-row-info">
+                        <strong>{value(invite.invited_name)}</strong>
+                        <small>
+                          {value(invite.invited_campus_code_id)} ·{" "}
+                          {value(invite.status)}
+                        </small>
+                      </div>
+                      {invite.status === "PENDING" && (
+                        <button
+                          type="button"
+                          className="student-outline-btn"
+                          onClick={() => cancelInvite(invite.id)}
+                        >
+                          CANCEL
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </section>
 
           <section className="hackmate-matches-section">
@@ -2135,12 +2352,12 @@ function HackMatePage({ onGoToMyTeam }) {
                           type="button"
                           className="hackmate-add-btn"
                           disabled={!canAdd || addingMember === String(candidate.user_id)}
-                          onClick={() => addMemberToTeam(candidate)}
+                          onClick={() => inviteMemberToTeam(candidate)}
                         >
                           {addingMember === String(candidate.user_id)
-                            ? "ADDING..."
+                            ? "INVITING..."
                             : canAdd
-                              ? "ADD TO TEAM"
+                              ? "INVITE TO TEAM"
                               : currentTeam
                                 ? "TEAM FULL"
                                 : "CREATE TEAM FIRST"}
@@ -2479,6 +2696,9 @@ function StudentMyTeamPage({ lockedHackathonId }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [myInvites, setMyInvites] = useState([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [respondingInvite, setRespondingInvite] = useState("");
 
   const currentUserId = String(storedUser?.id || storedUser?.user_id || "");
 
@@ -2607,7 +2827,42 @@ function StudentMyTeamPage({ lockedHackathonId }) {
 
   useEffect(() => {
     load();
+    loadMyInvites();
   }, []);
+
+  /* v6.56 — team invites sent to me by CC-ID. */
+  const loadMyInvites = async () => {
+    setInvitesLoading(true);
+    try {
+      const result = await apiFetch("/teams/invites/mine");
+      setMyInvites(Array.isArray(result?.invites) ? result.invites : []);
+    } catch {
+      setMyInvites([]);
+    } finally {
+      setInvitesLoading(false);
+    }
+  };
+
+  const respondToInvite = async (invite, accept) => {
+    setRespondingInvite(String(invite.id));
+    setError("");
+    setMessage("");
+    try {
+      const result = await apiFetch(
+        `/teams/invites/${encodeURIComponent(invite.id)}/${accept ? "accept" : "decline"}`,
+        { method: "POST" }
+      );
+      setMessage(result?.message || (accept ? "Invite accepted." : "Invite declined."));
+      await loadMyInvites();
+      if (accept && String(invite.hackathon_id || "") === String(selectedHackathonId)) {
+        await loadTeamForHackathon(selectedHackathonId, registrations);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRespondingInvite("");
+    }
+  };
 
   const handleHackathonChange = async (nextId) => {
     setSelectedHackathonId(nextId);
@@ -2740,6 +2995,47 @@ function StudentMyTeamPage({ lockedHackathonId }) {
           </select>
         )}
       </div>
+
+      {!invitesLoading && myInvites.length > 0 && (
+        <div className="student-feature-card">
+          <span className="student-feature-label">TEAM REQUESTS</span>
+          <h2>TEAM REQUESTS.</h2>
+          <p>
+            Team leaders invited you by your CampusCode ID. Accept to join
+            — nothing happens until you say yes.
+          </p>
+          {myInvites.map((invite) => (
+            <div className="student-member-row" key={invite.id}>
+              <StudentAvatar name={value(invite.leader_name, "L")} size={40} />
+              <div>
+                <strong>{value(invite.team_name)}</strong>
+                <span>
+                  {value(invite.hackathon_title)} · invited by{" "}
+                  {value(invite.leader_name)}
+                </span>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  className="student-primary-btn"
+                  disabled={respondingInvite === String(invite.id)}
+                  onClick={() => respondToInvite(invite, true)}
+                >
+                  {respondingInvite === String(invite.id) ? "…" : "ACCEPT"}
+                </button>
+                <button
+                  type="button"
+                  className="student-outline-btn"
+                  disabled={respondingInvite === String(invite.id)}
+                  onClick={() => respondToInvite(invite, false)}
+                >
+                  DECLINE
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {error && <ErrorState message={error} retry={() => loadTeamForHackathon(selectedHackathonId, registrations)} />}
       {message && <div className="student-inline-success">{message}</div>}
@@ -4137,7 +4433,7 @@ function HelpSupportPage() {
   return <section><PageHeading eyebrow="HELP / SUPPORT" title="HELP & SUPPORT." text="Start with the guide and FAQs. If you still need help, use the official communication channel or contact your organizer." /><div className="student-support-grid"><div className="student-support-card"><span>01</span><h3>Student Guide</h3><p>Learn how the CampusCode workflow works from joining a hackathon through results.</p><button className="student-outline-btn" onClick={() => window.dispatchEvent(new CustomEvent("campuscode:navigate", { detail: "Student Guide" }))}>OPEN GUIDE →</button></div><div className="student-support-card"><span>02</span><h3>FAQs</h3><p>Find answers about teams, rounds, submissions, AI assistance and communication.</p><button className="student-outline-btn" onClick={() => window.dispatchEvent(new CustomEvent("campuscode:navigate", { detail: "Student Guide" }))}>VIEW FAQ →</button></div><div className="student-support-card"><span>03</span><h3>Official WhatsApp</h3><p>Follow the official CampusCode channel for announcements and important updates.</p><a className="student-outline-btn" href="https://whatsapp.com/channel/0029Vb8gR7TEVccLc1pW4O2d" target="_blank" rel="noreferrer">OPEN CHANNEL →</a></div></div></section>;
 }
 
-function StudentRoundsPage({ hackathonId, event }) {
+function StudentRoundsPage({ hackathonId, event, initialRound }) {
   // v6.38 — tabs come from the event's actual rounds (1-3), not a
   // hardcoded three. Each tab opens with the round detail — what
   // to submit, the deadline, the AI rule and the big timer when
@@ -4148,7 +4444,8 @@ function StudentRoundsPage({ hackathonId, event }) {
   const [rounds, setRounds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState(null);
+  // v6.56 — the Overview flowchart can deep-link a round.
+  const [tab, setTab] = useState(initialRound ? Number(initialRound) : null);
 
   useEffect(() => {
     if (!id) { setLoading(false); return; }
@@ -4159,7 +4456,10 @@ function StudentRoundsPage({ hackathonId, event }) {
           .slice()
           .sort((a, b) => Number(a.round_number) - Number(b.round_number));
         setRounds(list);
-        if (list.length) setTab(Number(list[0].round_number));
+        if (list.length) {
+          const wanted = Number(initialRound);
+          setTab(list.some((r) => Number(r.round_number) === wanted) ? wanted : Number(list[0].round_number));
+        }
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -4795,6 +5095,8 @@ function StudentQuizPage({ eventId }) {
 
 function EventHub({ event, tab, setTab, onBack }) {
   const [resolved, setResolved] = useState(event);
+  // v6.56 — round the Overview flowchart jumped to (null = default first round).
+  const [hubRound, setHubRound] = useState(null);
   // Id-only opens start in resolving state; no sync setState in the effect.
   const [resolving, setResolving] = useState(
     () =>
@@ -4898,7 +5200,7 @@ function EventHub({ event, tab, setTab, onBack }) {
             role="tab"
             aria-selected={tab === key}
             className={`event-hub-tab ${tab === key ? "active" : ""}`}
-            onClick={() => setTab(key)}
+            onClick={() => { if (key === "rounds") setHubRound(null); setTab(key); }}
           >
             {label}
           </button>
@@ -4910,9 +5212,9 @@ function EventHub({ event, tab, setTab, onBack }) {
           {tab === "overview" && (
             isQuiz
               ? <QuizOverview event={resolved} onGoToQuiz={() => setTab("quiz")} />
-              : <RegistrationDetail registration={resolved} onBack={onBack} bare />
+              : <RegistrationDetail registration={resolved} onBack={onBack} bare onGoToRounds={(n) => { setHubRound(n); setTab("rounds"); }} />
           )}
-          {tab === "rounds" && <StudentRoundsPage hackathonId={id} event={resolved} />}
+          {tab === "rounds" && <StudentRoundsPage hackathonId={id} event={resolved} initialRound={hubRound} />}
           {tab === "team" && !isQuiz && <StudentMyTeamPage lockedHackathonId={id} />}
           {tab === "results" && <StudentResultsPage />}
           {tab === "quiz" && <StudentQuizPage eventId={id} />}
