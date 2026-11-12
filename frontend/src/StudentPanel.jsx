@@ -887,12 +887,13 @@ function StudentRoundFlow({ rounds, roundStates, onGoToRound, eventCompleted }) 
   );
 }
 
-function RegistrationDetail({ registration, onBack, bare, onGoToRounds }) {
+function RegistrationDetail({ registration, onBack, bare, onGoToRounds, onGoToTeam, onGoToHackMate }) {
   const id = registration?.hackathon_id || registration?.hackathonId || registration?.id;
   // v6.57 — a closed event never shows a live round: the flow
   // tracker and pipeline render its rounds completed.
   const eventStatus = String(registration?.hackathon?.status || registration?.hackathon_status || "").toUpperCase();
   const eventCompleted = ["COMPLETED", "COMPLETE", "FINISHED", "CLOSED", "ARCHIVED"].includes(eventStatus);
+  const isSoloEvent = Number(registration?.max_team_size ?? registration?.hackathon?.max_team_size) === 1;
   const [rounds, setRounds] = useState([]);
   const [team, setTeam] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -987,8 +988,20 @@ function RegistrationDetail({ registration, onBack, bare, onGoToRounds }) {
           <div className="student-panel-card">
             <div className="student-panel-title"><span>TEAM RECORD</span></div>
             {team ? (
-              <div className="team-detail"><span>TEAM</span><h3>{value(team.name, team.team_name)}</h3><p>ID: {value(team.id, team.team_id)}</p><p>STATUS: {value(team.status)}</p></div>
-            ) : <EmptyState title="NO TEAM DATA" text="No team record was returned for this registration." />}
+              <>
+                <div className="team-detail"><span>TEAM</span><h3>{value(team.name, team.team_name)}</h3><p>ID: {value(team.id, team.team_id)}</p><p>STATUS: {value(team.status)}</p></div>
+                {!eventCompleted && !isSoloEvent && onGoToHackMate && (
+                  <button type="button" className="student-primary-btn" style={{ marginTop: 12 }} onClick={onGoToHackMate}>ADD TEAMMATES ON HACKMATE ↗</button>
+                )}
+              </>
+            ) : (
+              <>
+                <EmptyState title="NO TEAM YET" text="You have not created a team for this event yet." />
+                {!eventCompleted && onGoToTeam && (
+                  <button type="button" className="student-primary-btn" style={{ marginTop: 12 }} onClick={onGoToTeam}>{isSoloEvent ? "CREATE MY ENTRY ↗" : "CREATE TEAM ↗"}</button>
+                )}
+              </>
+            )}
           </div>
         </div>
         {selectedRound && (
@@ -2700,7 +2713,7 @@ function RoundLock({ round = 2, reason }) {
   );
 }
 
-function StudentMyTeamPage({ lockedHackathonId }) {
+function StudentMyTeamPage({ lockedHackathonId, onGoToHackMate }) {
   const storedUser = useMemo(() => {
     try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
   }, []);
@@ -2762,6 +2775,8 @@ function StudentMyTeamPage({ lockedHackathonId }) {
   const isBuilding = String(team?.status || "BUILDING").toUpperCase() === "BUILDING";
   const canModifyTeam = Boolean(team && !hackathonCompleted && isBuilding);
   const isSoloEvent = Number(selectedRegistration?.max_team_size) === 1;
+  const maxTeamSize = Number(selectedRegistration?.max_team_size) || 0;
+  const teamFull = maxTeamSize > 0 && members.length >= maxTeamSize;
 
   const normalizeTeams = (result) =>
     unwrapList(result, ["teams", "data", "items"]);
@@ -3098,6 +3113,11 @@ function StudentMyTeamPage({ lockedHackathonId }) {
                 >
                   {creating ? (isSoloEvent ? "CREATING..." : "CREATING TEAM...") : (isSoloEvent ? "CREATE MY ENTRY ↗" : "CREATE TEAM ↗")}
                 </button>
+                {!isSoloEvent && (
+                  <p className="student-muted" style={{ marginTop: 12 }}>
+                    After creating your team, add teammates from HackMate AI — find them by CampusCode ID or scan their QR, then send an invite.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -3173,6 +3193,25 @@ function StudentMyTeamPage({ lockedHackathonId }) {
                 );
               }) : <p className="student-muted">No team members returned.</p>}
             </div>
+
+            {!isSoloEvent && !hackathonCompleted && (
+              <div style={{ borderTop: "1px solid #deded8", marginTop: 16, paddingTop: 16 }}>
+                <span className="student-feature-label">ADD TEAMMATES</span>
+                <h3 style={{ fontSize: 18, margin: "8px 0" }}>Do you want to add teammates?</h3>
+                <p className="student-muted">Find them on HackMate AI by CampusCode ID or QR scan, then send an invite. They join once they accept.</p>
+                {isLeader ? (
+                  teamFull ? (
+                    <p className="student-muted">Your team is full — cancel a pending invite on HackMate to free a seat.</p>
+                  ) : (
+                    onGoToHackMate && (
+                      <button type="button" className="student-primary-btn" onClick={onGoToHackMate}>ADD TEAMMATES ON HACKMATE ↗</button>
+                    )
+                  )
+                ) : (
+                  <p className="student-muted">Only the team leader can add teammates — ask your leader to invite from HackMate AI.</p>
+                )}
+              </div>
+            )}
           </div>
 
           {!hackathonCompleted && (
@@ -5116,7 +5155,7 @@ function StudentQuizPage({ eventId }) {
   );
 }
 
-function EventHub({ event, tab, setTab, onBack }) {
+function EventHub({ event, tab, setTab, onBack, onGoToHackMate }) {
   const [resolved, setResolved] = useState(event);
   // v6.56 — round the Overview flowchart jumped to (null = default first round).
   const [hubRound, setHubRound] = useState(null);
@@ -5235,10 +5274,10 @@ function EventHub({ event, tab, setTab, onBack }) {
           {tab === "overview" && (
             isQuiz
               ? <QuizOverview event={resolved} onGoToQuiz={() => setTab("quiz")} />
-              : <RegistrationDetail registration={resolved} onBack={onBack} bare onGoToRounds={(n) => { setHubRound(n); setTab("rounds"); }} />
+              : <RegistrationDetail registration={resolved} onBack={onBack} bare onGoToRounds={(n) => { setHubRound(n); setTab("rounds"); }} onGoToTeam={() => setTab("team")} onGoToHackMate={onGoToHackMate} />
           )}
           {tab === "rounds" && <StudentRoundsPage hackathonId={id} event={resolved} initialRound={hubRound} />}
-          {tab === "team" && !isQuiz && <StudentMyTeamPage lockedHackathonId={id} />}
+          {tab === "team" && !isQuiz && <StudentMyTeamPage lockedHackathonId={id} onGoToHackMate={onGoToHackMate} />}
           {tab === "results" && <StudentResultsPage />}
           {tab === "quiz" && <StudentQuizPage eventId={id} />}
           {tab === "leaderboard" && (
@@ -5311,7 +5350,7 @@ function StudentPanel() {
   let content = <OverviewPage navigate={handleNav} studentName={displayName} />;
   if (activeNav === "Events") content = <HackathonsPage onOpen={(item) => openHub(item)} onJoined={(payload) => showMilestone("registered", payload)} />;
   if (activeNav === "My Events") content = <RegistrationsPage onOpen={(item) => openHub(item)} />;
-  if (activeNav === "EventHub") content = selectedHackathon ? <EventHub event={selectedHackathon} tab={hubTab} setTab={setHubTab} onBack={closeHub} /> : <RegistrationsPage onOpen={(item) => openHub(item)} />;
+  if (activeNav === "EventHub") content = selectedHackathon ? <EventHub event={selectedHackathon} tab={hubTab} setTab={setHubTab} onBack={closeHub} onGoToHackMate={() => handleNav("HackMate AI")} /> : <RegistrationsPage onOpen={(item) => openHub(item)} />;
   if (activeNav === "HackMate AI") content = <HackMatePage onGoToMyTeam={openHubTeam} />;
   if (activeNav === "IdeaCheck AI") content = <IdeaCheckAIPage />;
   if (activeNav === "RuleBot AI") content = <RuleBotPage />;
