@@ -959,6 +959,54 @@ export async function getHackathons(req, res) {
     });
   }
 }
+/*
+|--------------------------------------------------------------------------
+| PUBLIC - LIVE HACKATHONS (LANDING PAGE)
+|--------------------------------------------------------------------------
+|
+| GET /api/hackathons/public — no auth. The public landing page lists
+| live events here. Only published, open/live hackathons, and only
+| public fields (no organizer emails, no invite codes, no internals).
+*/
+export async function getPublicHackathons(req, res) {
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        h.id,
+        h.title,
+        h.description,
+        h.track,
+        h.location,
+        h.start_date,
+        h.end_date,
+        h.status,
+        h.event_type,
+        h.max_team_size,
+        h.banner_web_url
+      FROM hackathons h
+      WHERE h.publication_status = 'PUBLISHED'
+        AND h.status IN ('OPEN', 'LIVE')
+        AND h.event_type = 'hackathon'
+      ORDER BY h.created_at DESC
+      LIMIT 6
+      `
+    );
+
+    return res.json({
+      success: true,
+      count: result.rows.length,
+      hackathons: result.rows,
+    });
+  } catch (error) {
+    console.error("GET PUBLIC HACKATHONS ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to fetch hackathons",
+    });
+  }
+}
 
 /* ============================================================
    UPDATE EVENT BANNERS (v6.18 — banner system)

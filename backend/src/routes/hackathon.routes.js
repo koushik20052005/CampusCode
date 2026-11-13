@@ -9,6 +9,7 @@ import express from "express";
 import {
   createHackathon,
   getHackathons,
+  getPublicHackathons,
   getOrganizerHackathons,
   getHackathonById,
   updateHackathon,
@@ -81,6 +82,23 @@ router.get(
   "/",
   requireAuth,
   getHackathons
+);
+
+/*
+|--------------------------------------------------------------------------
+| PUBLIC - LIVE HACKATHONS (LANDING PAGE)
+|--------------------------------------------------------------------------
+|
+| GET /api/hackathons/public
+|
+| No auth: the public landing page lists live events. Only published,
+| open/live hackathons, public fields only. Registered here, before
+| the /:id route below, so "public" is never read as an id.
+*/
+
+router.get(
+  "/public",
+  getPublicHackathons
 );
 
 /*

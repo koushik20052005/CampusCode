@@ -1255,11 +1255,8 @@ a {
   display: grid;
 
   grid-template-columns:
-    80px
-    1.5fr
-    1.3fr
-    120px
-    30px;
+    1fr
+    auto;
 
   gap: 20px;
 
@@ -1355,6 +1352,36 @@ a {
   color: var(--purple);
 
   transform: translate(3px,-3px);
+}
+
+.hack-join-btn {
+  background: var(--lime);
+
+  color: #0b0b0b;
+
+  border: none;
+
+  border-radius: 999px;
+
+  padding: 12px 20px;
+
+  font-family: "DM Mono", monospace;
+
+  font-size: 11px;
+
+  letter-spacing: 1px;
+
+  cursor: pointer;
+
+  white-space: nowrap;
+
+  transition: .25s;
+}
+
+.hack-join-btn:hover {
+  background: var(--lime-dark);
+
+  color: #fff;
 }
 
 /* =========================================================
@@ -2083,11 +2110,8 @@ a {
 
   .hackathon-row {
     grid-template-columns:
-      60px
-      1.5fr
       1fr
-      100px
-      25px;
+      auto;
   }
 
   .footer-main {
@@ -2323,9 +2347,8 @@ a {
 
   .hackathon-row {
     grid-template-columns:
-      35px
       1fr
-      25px;
+      auto;
 
     gap: 12px;
 

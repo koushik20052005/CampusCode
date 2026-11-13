@@ -1,31 +1,10 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import "./LandingPage.css";
+import { apiFetch } from "./api";
 
-const hackathons = [
-  {
-    number: "01",
-    category: "ARTIFICIAL INTELLIGENCE",
-    title: "AI INNOVATION",
-    description: "Build intelligent solutions for problems that matter.",
-    status: "LIVE",
-  },
-  {
-    number: "02",
-    category: "WEB DEVELOPMENT",
-    title: "FUTURE WEB",
-    description:
-      "Design and ship the next generation of digital experiences.",
-    status: "OPEN",
-  },
-  {
-    number: "03",
-    category: "SMART TECHNOLOGY",
-    title: "CAMPUS TECH",
-    description: "Create technology that makes student life better.",
-    status: "UPCOMING",
-  },
-];
+// ENTER THE ARENA lists real published events from GET /hackathons/public.
+// No hardcoded events here — the section shows what is actually live.
 
 const steps = [
   {
@@ -56,6 +35,28 @@ export default function LandingPage() {
   const videoSectionRef = useRef(null);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [videoMuted, setVideoMuted] = useState(true);
+  const [arenaEvents, setArenaEvents] = useState(null);
+  const [arenaFailed, setArenaFailed] = useState(false);
+
+  // ENTER THE ARENA — real published events from the public endpoint.
+  // null = loading; [] = none live (or fetch failed — never fake events).
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch("/hackathons/public")
+      .then((data) => {
+        if (cancelled) return;
+        const list = Array.isArray(data?.hackathons) ? data.hackathons : [];
+        setArenaEvents(list);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setArenaFailed(true);
+        setArenaEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Autoplay the film (muted) when the Experience section
   // scrolls into view; pause when it scrolls away.
@@ -453,41 +454,56 @@ export default function LandingPage() {
             <h2>ENTER THE ARENA</h2>
           </div>
 
-          <button type="button">VIEW ALL ↗</button>
+          <button type="button" onClick={() => goTo("/register")}>VIEW ALL ↗</button>
         </div>
 
         <div className="hackathon-list">
-          {hackathons.map((hackathon) => (
-            <article
-              className="hackathon-row"
-              key={hackathon.number}
+          {arenaEvents === null ? (
+            <p
+              style={{
+                padding: "40px 0",
+                color: "#888",
+                fontFamily: "'DM Mono', monospace",
+                fontSize: 11,
+                letterSpacing: 1,
+              }}
             >
-              <div className="hack-number">
-                {hackathon.number}
-              </div>
+              LOADING LIVE EVENTS…
+            </p>
+          ) : arenaEvents.length === 0 ? (
+            <p
+              style={{
+                padding: "40px 0",
+                color: "#888",
+                fontFamily: "'DM Mono', monospace",
+                fontSize: 11,
+                letterSpacing: 1,
+              }}
+            >
+              {arenaFailed
+                ? "COULD NOT LOAD LIVE EVENTS — CHECK BACK SOON."
+                : "NO LIVE EVENTS RIGHT NOW — CHECK BACK SOON."}
+            </p>
+          ) : (
+            arenaEvents.map((event, index) => (
+              <article className="hackathon-row" key={event.id || index}>
+                <div className="hack-title">
+                  <small>
+                    {String(event.track || "HACKATHON").toUpperCase()}
+                  </small>
+                  <h3>{String(event.title || "").toUpperCase()}</h3>
+                </div>
 
-              <div className="hack-title">
-                <small>{hackathon.category}</small>
-                <h3>{hackathon.title}</h3>
-              </div>
-
-              <p>{hackathon.description}</p>
-
-              <div className="hack-status">
-                <i
-                  className={
-                    hackathon.status === "LIVE"
-                      ? "active"
-                      : ""
-                  }
-                />
-
-                {hackathon.status}
-              </div>
-
-              <span className="hack-arrow">↗</span>
-            </article>
-          ))}
+                <button
+                  type="button"
+                  className="hack-join-btn"
+                  onClick={() => goTo("/register")}
+                >
+                  JOIN EVENT ↗
+                </button>
+              </article>
+            ))
+          )}
         </div>
       </section>
 
