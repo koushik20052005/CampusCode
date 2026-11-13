@@ -2417,6 +2417,32 @@ function Participants({ hackathon, hackathons, selectedId, setSelectedId }) {
   const [error, setError] = useState("");
   const [showSheets, setShowSheets] = useState(false);
   const [board, setBoard] = useState(null);
+  const [query, setQuery] = useState("");
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? items.filter((p) =>
+        [
+          p.name,
+          p.user_name,
+          p.email,
+          p.campus_code_id,
+          p.campusCodeId,
+          p.team_name,
+          p.team?.name,
+        ]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q))
+      )
+    : items;
+  const teamCount = new Set(
+    items
+      .filter((p) => p.team_name || p.team?.name)
+      .map((p) => p.team_name || p.team?.name)
+  ).size;
+  const withoutTeam = items.filter(
+    (p) => !(p.team_name || p.team?.name)
+  ).length;
 
   const openSheets = async () => {
     setShowSheets(true);
@@ -2446,12 +2472,21 @@ function Participants({ hackathon, hackathons, selectedId, setSelectedId }) {
         <>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
           <button className="primary-btn small" onClick={openSheets}>View in Sheets</button>
-          <span className="hack-meta">{items.length} students</span>
+          <span className="hack-meta">{items.length} students · {teamCount} teams · {withoutTeam} without a team</span>
         </div>
+        <div style={{ marginBottom: 12 }}>
+          <input
+            className="org-input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name, email, CC ID or team…"
+          />
+        </div>
+        {filtered.length ? (
         <div className="table-wrap">
           <table>
             <thead><tr><th>Name</th><th>Email</th><th>Campus ID</th><th>Team</th></tr></thead>
-            <tbody>{items.map((p, i) => (
+            <tbody>{filtered.map((p, i) => (
               <tr key={p.id || p.user_id || i}>
                 <td><b>{p.name || p.user_name || "—"}</b></td>
                 <td>{p.email || "—"}</td>
@@ -2461,6 +2496,9 @@ function Participants({ hackathon, hackathons, selectedId, setSelectedId }) {
             ))}</tbody>
           </table>
         </div>
+        ) : (
+          <Empty text="No participants match your search." />
+        )}
         </>
       ) : <Empty text="No participants registered for this hackathon." />}
     </Panel>
@@ -2474,6 +2512,21 @@ function Teams({ hackathon, hackathons, selectedId, setSelectedId }) {
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamError, setTeamError] = useState("");
+  const [query, setQuery] = useState("");
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? items.filter((t) =>
+        [
+          t.name,
+          ...(Array.isArray(t.members)
+            ? t.members.flatMap((m) => [m.name, m.user_name, m.email])
+            : []),
+        ]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q))
+      )
+    : items;
 
   useEffect(() => {
     if (!hackathon) {
@@ -2536,11 +2589,19 @@ function Teams({ hackathon, hackathons, selectedId, setSelectedId }) {
         }
       >
         {error && <div className="form-error">{error}</div>}
+        <div style={{ marginBottom: 12 }}>
+          <input
+            className="org-input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by team name or member…"
+          />
+        </div>
         {loading ? (
           <Loading />
-        ) : items.length ? (
+        ) : filtered.length ? (
           <div className="team-grid organizer-team-grid">
-            {items.map((t, i) => (
+            {filtered.map((t, i) => (
               <button
                 type="button"
                 className="team-card organizer-team-card"
@@ -2561,7 +2622,7 @@ function Teams({ hackathon, hackathons, selectedId, setSelectedId }) {
             ))}
           </div>
         ) : (
-          <Empty text="No teams found." />
+          <Empty text={q ? "No teams match your search." : "No teams found."} />
         )}
       </Panel>
 
@@ -2635,6 +2696,7 @@ function Teams({ hackathon, hackathons, selectedId, setSelectedId }) {
                           <div>
                             <b>{member.name || member.user_name || "Member"}</b>
                             <p>{member.email || member.user_email || "Email not available"}</p>
+                            <p>{member.campus_code_id || member.campusCodeId || "—"}</p>
                           </div>
                           <span>
                             {String(member.role || "MEMBER").toUpperCase()}

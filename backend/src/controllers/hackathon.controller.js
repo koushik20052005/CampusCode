@@ -513,7 +513,24 @@ export async function getHackathonParticipants(req, res) {
         hp.joined_at,
         u.name,
         u.email,
-        u.avatar_url
+        u.avatar_url,
+        u.campus_code_id,
+        (
+          SELECT t.id
+          FROM team_members tm
+          JOIN teams t ON t.id = tm.team_id
+          WHERE tm.user_id = hp.user_id
+            AND t.hackathon_id = hp.hackathon_id
+          LIMIT 1
+        ) AS team_id,
+        (
+          SELECT t.name
+          FROM team_members tm
+          JOIN teams t ON t.id = tm.team_id
+          WHERE tm.user_id = hp.user_id
+            AND t.hackathon_id = hp.hackathon_id
+          LIMIT 1
+        ) AS team_name
       FROM hackathon_participants hp
       INNER JOIN users u
         ON u.id = hp.user_id
@@ -582,6 +599,7 @@ export async function getHackathonTeams(req, res) {
               'user_id',u.id,
               'name',u.name,
               'email',u.email,
+              'campus_code_id',u.campus_code_id,
               'avatar_url',u.avatar_url,
               'role',tm.role,
               'joined_at',tm.joined_at
