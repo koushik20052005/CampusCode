@@ -2851,6 +2851,13 @@ function OrganizerSubmissions({
       return;
     }
 
+    const score = Number(reviewScore);
+
+    if (!Number.isFinite(score) || score < 0 || score > 100) {
+      setError("Please enter a score between 0 and 100.");
+      return;
+    }
+
     setReviewBusy(decision);
     setError("");
     setMessage("");
@@ -2863,8 +2870,16 @@ function OrganizerSubmissions({
 
       const body =
         roundNumber === 1
-          ? { decision, organizer_feedback: reviewFeedback.trim() }
-          : { decision, feedback: reviewFeedback.trim() };
+          ? {
+              decision,
+              organizer_feedback: reviewFeedback.trim(),
+              score,
+            }
+          : {
+              decision,
+              feedback: reviewFeedback.trim(),
+              score,
+            };
 
       await apiFetch(endpoint, {
         method: "PATCH",
@@ -2977,6 +2992,7 @@ function OrganizerSubmissions({
           )}
           <div className="submission-meta organizer-submission-meta">
             <span>AI score: <b>{aiScore ?? "Not analyzed"}</b></span>
+            <span>Organizer score: <b>{s.decision?.score != null ? `${s.decision.score} / 100` : "Not scored"}</b></span>
             <span>AI: <b>{(s.ai_analyzed_at || s.ai_score != null) ? "Analyzed" : "Pending"}</b></span>
             <span>GitHub: <b>{s.github_url ? "Provided" : "Missing"}</b></span>
             <span>Demo: <b>{s.demo_url ? "Provided" : "Not provided"}</b></span>
@@ -3049,6 +3065,7 @@ function OrganizerSubmissions({
           <div className="submission-meta organizer-submission-meta">
             <span>GitHub: <b>{s.github_url ? "Provided" : "Missing"}</b></span>
             <span>PDF: <b>{s.pdf_url || s.pdf_file_name || s.pdf_file_url || (typeof s.pdf === "string" ? s.pdf : s.pdf?.url) ? "Provided" : "Missing"}</b></span>
+            <span>Organizer score: <b>{s.organizer_decision?.score != null ? `${s.organizer_decision.score} / 100` : "Not scored"}</b></span>
             <span>Submitted: {dateText(s.submitted_at || s.created_at)}</span>
           </div>
           {s.ai_analysis && (
@@ -3846,28 +3863,26 @@ function OrganizerSubmissionModal({
         {/* REVIEW FORM */}
         <div className="organizer-review-form">
           <div className="organizer-review-form-grid">
-            {isRound3 && (
-              <Field
-                label="Score (0–100)"
-                required
-              >
-                <input
-                  className="org-input"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={reviewScore}
-                  onChange={(event) =>
-                    setReviewScore(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Enter score"
-                  disabled={!!reviewBusy}
-                />
-              </Field>
-            )}
+            <Field
+              label="Score (0–100)"
+              required
+            >
+              <input
+                className="org-input"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={reviewScore}
+                onChange={(event) =>
+                  setReviewScore(
+                    event.target.value
+                  )
+                }
+                placeholder="Enter score"
+                disabled={!!reviewBusy}
+              />
+            </Field>
 
             <Field
               label="Organizer feedback"

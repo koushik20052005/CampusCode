@@ -215,6 +215,7 @@ export async function getRound1Submissions(req, res) {
         d.id AS decision_id,
         d.decision,
         d.organizer_feedback,
+        d.score AS decision_score,
         d.decided_by,
         d.decided_at,
 
@@ -345,6 +346,11 @@ export async function getRound1Submissions(req, res) {
               id: submission.decision_id,
               decision: submission.decision,
               feedback: submission.organizer_feedback,
+              score:
+                submission.decision_score !== null &&
+                submission.decision_score !== undefined
+                  ? Number(submission.decision_score)
+                  : null,
               decided_by: submission.decided_by,
               decided_by_name: submission.decided_by_name,
               decided_at: submission.decided_at,
@@ -998,6 +1004,7 @@ export async function decideRound1(req, res) {
     const {
       decision,
       organizer_feedback,
+      score,
     } = req.body;
 
     /* -----------------------------------------------------
@@ -1025,6 +1032,24 @@ export async function decideRound1(req, res) {
         success: false,
         message:
           "Decision must be SELECTED or REJECTED",
+      });
+    }
+
+    // Organizer score for this round, out of 100 (same as R3).
+    const normalizedScore = Number(score);
+
+    if (
+      score === undefined ||
+      score === null ||
+      score === "" ||
+      !Number.isFinite(normalizedScore) ||
+      normalizedScore < 0 ||
+      normalizedScore > 100
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Please enter a score between 0 and 100",
       });
     }
 
@@ -1156,6 +1181,7 @@ export async function decideRound1(req, res) {
         decision,
         decided_by,
         organizer_feedback,
+        score,
         decided_at
       )
 
@@ -1166,6 +1192,7 @@ export async function decideRound1(req, res) {
         $4,
         $5,
         $6,
+        $7,
         NOW()
       )
 
@@ -1187,6 +1214,9 @@ export async function decideRound1(req, res) {
         organizer_feedback =
           EXCLUDED.organizer_feedback,
 
+        score =
+          EXCLUDED.score,
+
         decided_at =
           NOW()
 
@@ -1198,6 +1228,7 @@ export async function decideRound1(req, res) {
         decision,
         decided_by,
         organizer_feedback,
+        score,
         decided_at
       `,
       [
@@ -1216,6 +1247,8 @@ export async function decideRound1(req, res) {
               organizer_feedback
             ).trim()
           : null,
+
+        normalizedScore,
       ]
     );
 

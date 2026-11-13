@@ -574,14 +574,13 @@ export const getRound2Status = async (
     // round2_decisions uses:
     // decision
     // organizer_feedback
+    // score (organizer score, out of 100)
     // decided_by
     // decided_at
     //
     // We alias decided_by / decided_at
     // so the frontend can continue receiving:
     // reviewed_by / reviewed_at
-    //
-    // NO score column.
     // --------------------------------------------------------
 
     const decisionResult =
@@ -593,6 +592,7 @@ export const getRound2Status = async (
           team_id,
           decision,
           organizer_feedback,
+          score,
           decided_by AS reviewed_by,
           decided_at AS reviewed_at
         FROM round2_decisions
@@ -760,11 +760,11 @@ export const submitRound2 = async (
     // REQUIRED FIELDS
     // --------------------------------------------------------
 
-    if (!githubUrl || !demoUrl || !organizerNote) {
+    if (!pdfUrl) {
       return res.status(400).json({
         success: false,
         message:
-          "GitHub link, live demo link and note for the organizer are required.",
+          "PDF link is required.",
       });
     }
 
@@ -1118,10 +1118,10 @@ export const submitRound2 = async (
           hackathonId,
           team.id,
           studentId,
-          githubUrl,
-          demoUrl,
+          githubUrl || null,
+          demoUrl || null,
           pdfUrl || null,
-          organizerNote,
+          organizerNote || null,
           extractedText,
         ]
       );

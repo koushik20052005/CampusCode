@@ -473,6 +473,7 @@ export const getRound2Submissions =
             d.id AS decision_id,
             d.decision,
             d.organizer_feedback,
+            d.score AS decision_score,
             d.decided_by,
             d.decided_at
 
@@ -604,6 +605,16 @@ export const getRound2Submissions =
 
                     feedback:
                       row.organizer_feedback,
+
+                    score:
+                      row.decision_score !==
+                        null &&
+                      row.decision_score !==
+                        undefined
+                        ? Number(
+                            row.decision_score
+                          )
+                        : null,
 
                     decided_by:
                       row.decided_by,
@@ -1222,6 +1233,7 @@ export const decideRound2Submission =
       const {
         decision,
         feedback,
+        score,
       } = req.body;
 
       // --------------------------------------------------------
@@ -1257,6 +1269,27 @@ export const decideRound2Submission =
         "string"
           ? feedback.trim()
           : null;
+
+      // --------------------------------------------------------
+      // Validate score (organizer score, out of 100 — same as R3)
+      // --------------------------------------------------------
+
+      const normalizedScore = Number(score);
+
+      if (
+        score === undefined ||
+        score === null ||
+        score === "" ||
+        !Number.isFinite(normalizedScore) ||
+        normalizedScore < 0 ||
+        normalizedScore > 100
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Please enter a score between 0 and 100",
+        });
+      }
 
       // --------------------------------------------------------
       // Get submission
@@ -1469,14 +1502,16 @@ export const decideRound2Submission =
                 decision = $1,
                 decided_by = $2,
                 organizer_feedback = $3,
+                score = $4,
                 decided_at = NOW()
-              WHERE round2_submission_id = $4
+              WHERE round2_submission_id = $5
               RETURNING *
               `,
               [
                 normalizedDecision,
                 req.user.id,
                 organizerFeedback,
+                normalizedScore,
                 submission.id,
               ]
             );
@@ -1495,6 +1530,7 @@ export const decideRound2Submission =
                 decision,
                 decided_by,
                 organizer_feedback,
+                score,
                 decided_at
               )
               VALUES (
@@ -1504,6 +1540,7 @@ export const decideRound2Submission =
                 $4,
                 $5,
                 $6,
+                $7,
                 NOW()
               )
               RETURNING *
@@ -1515,6 +1552,7 @@ export const decideRound2Submission =
                 normalizedDecision,
                 req.user.id,
                 organizerFeedback,
+                normalizedScore,
               ]
             );
         }

@@ -231,6 +231,7 @@ export async function getRound1Status(req, res) {
           d.submission_id AS round1_submission_id,
           d.decision,
           d.organizer_feedback,
+          d.score,
           d.decided_by,
           d.decided_at
 
@@ -256,6 +257,7 @@ export async function getRound1Status(req, res) {
           round1_submission_id: row.round1_submission_id,
           decision: row.decision,
           organizer_feedback: row.organizer_feedback,
+          score: row.score,
           decided_by: row.decided_by,
           decided_at: row.decided_at,
         };
@@ -495,11 +497,11 @@ export async function submitRound1(req, res) {
     let cleanProblemStatement = null;
 
     if (isDemoRound) {
-      if (!cleanGithub || !cleanDemo || !cleanOrganizerNote) {
+      if (!cleanGithub || !cleanDemo) {
         return res.status(400).json({
           success: false,
           message:
-            "GitHub link, live demo link and note for the organizer are required",
+            "GitHub link and live demo link are required",
         });
       }
     } else {

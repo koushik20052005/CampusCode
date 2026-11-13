@@ -1,5 +1,29 @@
 import pool from "../config/db.js";
 
+// ============================================================
+// GOOGLE DRIVE URL VALIDATION
+// ============================================================
+
+const isGoogleDriveUrl = (url) => {
+  if (typeof url !== "string") {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url);
+
+    const hostname = parsed.hostname.toLowerCase();
+
+    return (
+      hostname === "drive.google.com" ||
+      hostname === "www.drive.google.com" ||
+      hostname === "docs.google.com"
+    );
+  } catch {
+    return false;
+  }
+};
+
 /* ============================================================
    HELPER — GET ROUND 3
 ============================================================ */
@@ -271,6 +295,8 @@ export const getRound3Status = async (
           github_url,
           demo_url,
           project_description,
+          organizer_note,
+          pdf_url,
           status,
           decision,
           score,
@@ -515,6 +541,8 @@ export const submitRound3 = async (
       github_url,
       demo_url,
       project_description,
+      organizer_note,
+      pdf_url,
     } = req.body;
 
     /* --------------------------------------------------------
@@ -567,40 +595,44 @@ export const submitRound3 = async (
        2. VALIDATE DEMO URL
     -------------------------------------------------------- */
 
-    let demoUrl = null;
-
     if (
-      demo_url &&
-      String(demo_url).trim()
+      !demo_url ||
+      !String(demo_url).trim()
     ) {
-      demoUrl =
-        String(demo_url).trim();
+      return res.status(400).json({
+        success: false,
+        message:
+          "Live demo URL is required",
+      });
+    }
 
-      try {
-        const parsedDemo =
-          new URL(demoUrl);
+    const demoUrl =
+      String(demo_url).trim();
 
-        if (
-          ![
-            "http:",
-            "https:",
-          ].includes(
-            parsedDemo.protocol
-          )
-        ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Demo URL must use HTTP or HTTPS",
-          });
-        }
-      } catch {
+    try {
+      const parsedDemo =
+        new URL(demoUrl);
+
+      if (
+        ![
+          "http:",
+          "https:",
+        ].includes(
+          parsedDemo.protocol
+        )
+      ) {
         return res.status(400).json({
           success: false,
           message:
-            "Invalid demo URL",
+            "Demo URL must use HTTP or HTTPS",
         });
       }
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid demo URL",
+      });
     }
 
     /* --------------------------------------------------------
@@ -637,6 +669,35 @@ export const submitRound3 = async (
         projectDescription =
           null;
       }
+    }
+
+    /* --------------------------------------------------------
+       3b. NOTE FOR ORGANIZER (OPTIONAL)
+    -------------------------------------------------------- */
+
+    const cleanOrganizerNote =
+      typeof organizer_note === "string"
+        ? organizer_note.trim()
+        : "";
+
+    /* --------------------------------------------------------
+       3c. PDF URL (OPTIONAL - GOOGLE DRIVE ONLY)
+    -------------------------------------------------------- */
+
+    const cleanPdfUrl =
+      typeof pdf_url === "string"
+        ? pdf_url.trim()
+        : "";
+
+    if (
+      cleanPdfUrl &&
+      !isGoogleDriveUrl(cleanPdfUrl)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Please provide a valid Google Drive PDF URL.",
+      });
     }
 
     /* --------------------------------------------------------
@@ -928,6 +989,8 @@ export const submitRound3 = async (
           github_url,
           demo_url,
           project_description,
+          organizer_note,
+          pdf_url,
           status,
           submitted_at,
           created_at,
@@ -940,6 +1003,8 @@ export const submitRound3 = async (
           $4,
           $5,
           $6,
+          $7,
+          $8,
           'SUBMITTED',
           NOW(),
           NOW(),
@@ -953,6 +1018,8 @@ export const submitRound3 = async (
           github_url,
           demo_url,
           project_description,
+          organizer_note,
+          pdf_url,
           status,
           submitted_at,
           created_at,
@@ -965,6 +1032,8 @@ export const submitRound3 = async (
           githubUrl,
           demoUrl,
           projectDescription,
+          cleanOrganizerNote || null,
+          cleanPdfUrl || null,
         ]
       );
 

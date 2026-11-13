@@ -28,15 +28,17 @@ export async function submitRound2(req, res) {
        VALIDATE GITHUB URL
     ----------------------------------------------------- */
 
+
+
     if (
-      !github_url ||
-      typeof github_url !== "string" ||
-      !github_url.trim()
+      !pdf_url ||
+      typeof pdf_url !== "string" ||
+      !pdf_url.trim()
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "GitHub repository URL is required",
+          "PDF link is required",
       });
     }
 
@@ -222,7 +224,7 @@ export async function submitRound2(req, res) {
           hackathonId,
           team.team_id,
           req.user.id,
-          github_url.trim(),
+          github_url?.trim() || null,
           pdf_url?.trim() || null,
         ]
       );
