@@ -2306,18 +2306,12 @@ export async function scheduleHackathonRounds(req, res) {
       );
     }
 
-    // v6.38 — shrinking the round count only removes rounds that
-    // were never activated (no submissions can exist for them);
-    // rounds that already ran are kept, never deleted.
-    await client.query(
-      `
-      DELETE FROM hackathon_rounds
-      WHERE hackathon_id = $1
-        AND round_number > $2
-        AND status = 'SCHEDULED'
-      `,
-      [id, normalizedRounds.length]
-    );
+    // v6.62 — NEVER delete rounds on save. A save sends only the
+    // rounds the page had loaded, so a save from a stale page
+    // (loaded before a round was added) deleted FirstCommit's
+    // Round 3 twice on 14 Nov 2026. Round-count changes need an
+    // explicit flow, not a save side effect; rounds beyond the
+    // saved list are simply left alone.
 
     const saved = await client.query(
       `

@@ -14,59 +14,57 @@
 -- the code never enforces start/end), so this changes no
 -- cutoff — it only shows students the right times.
 --
+-- REWRITTEN 14 Nov evening as plain SQL (no DO block):
+-- 032/033 first shipped with a DO $$ block — the only
+-- procedural block in the whole migrations folder — and
+-- Round 3 still did not appear after two pushes, while
+-- migration errors are swallowed at boot (server stays
+-- healthy), so a silently-failing DO block is the prime
+-- suspect. Plain statements like every other migration.
+--
 -- Idempotent: updates set the exact locked times, the insert
--- is ON CONFLICT DO NOTHING. If the FirstCommit hackathon
--- cannot be found, the block logs a notice and does nothing
--- (never throws, so later migrations still run).
+-- is ON CONFLICT DO NOTHING.
 -- Auto-applies at backend boot via runMigrations.
 -- ============================================================
 
-DO $$
-DECLARE
-  fc_id UUID;
-BEGIN
-  SELECT h.id INTO fc_id
-  FROM hackathons h
-  WHERE h.title ILIKE '%FirstCommit%'
-    AND EXISTS (
-      SELECT 1
-      FROM hackathon_rounds r
-      WHERE r.hackathon_id = h.id
-        AND r.round_number = 1
-        AND r.title ILIKE '%Idea Screening%'
-    )
-  LIMIT 1;
+-- R1 end: Sat 14 Nov 2026, 10:00 PM IST
+UPDATE hackathon_rounds
+SET end_at = '2026-11-14 22:00:00+05:30',
+    updated_at = NOW()
+WHERE round_number = 1
+  AND hackathon_id IN (
+    SELECT id FROM hackathons WHERE title ILIKE '%FirstCommit%'
+  );
 
-  IF fc_id IS NULL THEN
-    RAISE NOTICE '032: FirstCommit hackathon not found, skipping';
-    RETURN;
-  END IF;
+-- R2 end: Mon 16 Nov 2026, 10:01 AM IST
+UPDATE hackathon_rounds
+SET end_at = '2026-11-16 10:01:00+05:30',
+    updated_at = NOW()
+WHERE round_number = 2
+  AND hackathon_id IN (
+    SELECT id FROM hackathons WHERE title ILIKE '%FirstCommit%'
+  );
 
-  -- R1 end: Sat 14 Nov 2026, 10:00 PM IST
-  UPDATE hackathon_rounds
-  SET end_at = '2026-11-14 22:00:00+05:30',
-      updated_at = NOW()
-  WHERE hackathon_id = fc_id AND round_number = 1;
-
-  -- R2 end: Mon 16 Nov 2026, 10:01 AM IST
-  UPDATE hackathon_rounds
-  SET end_at = '2026-11-16 10:01:00+05:30',
-      updated_at = NOW()
-  WHERE hackathon_id = fc_id AND round_number = 2;
-
-  -- Round 3: Grand Finale, Mon 17 Nov 2026, 10:00 AM - 10:01 PM IST
-  INSERT INTO hackathon_rounds (
-    hackathon_id, round_number, title,
-    requirement, ai_usage_required, status,
-    start_at, end_at, show_timer, submission_type
+-- Round 3: Grand Finale, Mon 17 Nov 2026, 10:00 AM - 10:01 PM IST
+INSERT INTO hackathon_rounds (
+  hackathon_id, round_number, title,
+  requirement, ai_usage_required, status,
+  start_at, end_at, show_timer, submission_type
+)
+SELECT
+  h.id, 3, 'Round 3 — Grand Finale',
+  'Live finale: GitHub repo link + demo video link required; live demo 5 min + 2 min Q&A, winners announced 6:30 PM',
+  false, 'SCHEDULED',
+  '2026-11-17 10:00:00+05:30',
+  '2026-11-17 22:01:00+05:30',
+  true, 'demo'
+FROM hackathons h
+WHERE h.title ILIKE '%FirstCommit%'
+  AND EXISTS (
+    SELECT 1
+    FROM hackathon_rounds r
+    WHERE r.hackathon_id = h.id
+      AND r.round_number = 1
+      AND r.title ILIKE '%Idea Screening%'
   )
-  VALUES (
-    fc_id, 3, 'Round 3 — Grand Finale',
-    'Live finale: GitHub repo link + demo video link required; live demo 5 min + 2 min Q&A, winners announced 6:30 PM',
-    false, 'SCHEDULED',
-    '2026-11-17 10:00:00+05:30',
-    '2026-11-17 22:01:00+05:30',
-    true, 'demo'
-  )
-  ON CONFLICT (hackathon_id, round_number) DO NOTHING;
-END $$;
+ON CONFLICT (hackathon_id, round_number) DO NOTHING;
