@@ -321,6 +321,7 @@ export async function getRound1Status(req, res) {
         id: team.team_id,
         name: team.team_name,
         status: team.team_status,
+        leader_id: team.leader_id,
       },
 
       submission,
