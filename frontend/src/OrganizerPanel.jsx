@@ -2771,7 +2771,32 @@ function OrganizerSubmissions({
   const [reviewScore, setReviewScore] = useState("");
   const [reviewFeedback, setReviewFeedback] = useState("");
   const [reviewBusy, setReviewBusy] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [bulkProgress, setBulkProgress] = useState(null);
   const loadSeq = useRef(0);
+
+  // Search: filter the current round's submissions by team, submitter or text.
+  const searchText = searchQuery.trim().toLowerCase();
+  const visibleItems = !searchText
+    ? items
+    : items.filter((s) =>
+        [
+          s.team_name,
+          s.team?.name,
+          s.submitted_by_name,
+          s.submitted_by?.name,
+          s.team_id,
+          s.problem_statement,
+          s.project_description,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(searchText)
+      );
+  const pendingCount = items.filter(
+    (s) => !(s.ai_analyzed_at || s.ai_score != null)
+  ).length;
 
   const load = async (roundNumber = round) => {
     if (!hackathon?.id) {
@@ -2812,9 +2837,16 @@ function OrganizerSubmissions({
     setError("");
     setReviewBusy("");
     setSelectedSubmission(submission);
+    // The saved team score lives at different paths per round —
+    // R1: decision.score | R2: organizer_decision.score | R3: score.
+    // Reading only submission.score left the box empty on re-open.
+    const existingScore =
+      submission?.decision?.score ??
+      submission?.organizer_decision?.score ??
+      submission?.score;
     setReviewScore(
-      submission?.score !== null && submission?.score !== undefined
-        ? String(submission.score)
+      existingScore !== null && existingScore !== undefined
+        ? String(existingScore)
         : ""
     );
     // v6.3: feedback lives at different paths per round —
@@ -2862,6 +2894,46 @@ function OrganizerSubmissions({
     } finally {
       setBusy("");
     }
+  };
+
+  // Bulk AI analysis: run the per-submission analyze endpoint for every
+  // not-yet-analyzed submission in the current round, with live progress.
+  // R3 is manual-only, so this runs for Round 1 and Round 2 only.
+  const analyzeAll = async () => {
+    if (round === 3 || bulkProgress || busy) return;
+    const roundNumber = round;
+    const targets = visibleItems.filter(
+      (s) => !(s.ai_analyzed_at || s.ai_score != null)
+    );
+    if (!targets.length) {
+      setMessage("All visible submissions are already analyzed.");
+      return;
+    }
+    setError("");
+    setMessage("");
+    setBusy("ai-all");
+    setBulkProgress({ done: 0, total: targets.length, failed: 0 });
+    let failed = 0;
+    for (let i = 0; i < targets.length; i++) {
+      const s = targets[i];
+      const id = s.id || s.submission_id;
+      try {
+        const endpoint =
+          roundNumber === 1
+            ? `/organizer/round1/submissions/${id}/analyze`
+            : `/organizer/round2/submissions/${id}/analyze`;
+        await apiFetch(endpoint, { method: "POST" });
+      } catch (e) {
+        failed += 1;
+      }
+      setBulkProgress({ done: i + 1, total: targets.length, failed });
+    }
+    await load(roundNumber);
+    setBulkProgress(null);
+    setBusy("");
+    setMessage(
+      `AI analysis finished: ${targets.length - failed} analyzed, ${failed} failed.`
+    );
   };
 
   // v6.9: save feedback note without finalizing a decision
@@ -3041,23 +3113,8 @@ function OrganizerSubmissions({
             </div>
             <span>{decision || "SUBMITTED"}</span>
           </div>
-          {s.problem_statement ? (
-            <div className="organizer-submission-problem">
-              <label>PROBLEM STATEMENT</label>
-              <p>{s.problem_statement}</p>
-            </div>
-          ) : (
-            <div className="organizer-submission-problem">
-              <label>DEMO SUBMISSION</label>
-              <p>GitHub + live demo links — open the submission to review them.</p>
-            </div>
-          )}
           <div className="submission-meta organizer-submission-meta">
             <span>AI score: <b>{aiScore ?? "Not analyzed"}</b></span>
-            <span>Organizer score: <b>{s.decision?.score != null ? `${s.decision.score} / 100` : "Not scored"}</b></span>
-            <span>AI: <b>{(s.ai_analyzed_at || s.ai_score != null) ? "Analyzed" : "Pending"}</b></span>
-            <span>GitHub: <b>{s.github_url ? "Provided" : "Missing"}</b></span>
-            <span>Demo: <b>{s.demo_url ? "Provided" : "Not provided"}</b></span>
             <span>Submitted: {dateText(s.submitted_at || s.created_at)}</span>
           </div>
           {(s.ai?.novelty_score != null || s.ai?.impact_score != null) && (
@@ -3067,12 +3124,6 @@ function OrganizerSubmissions({
               <div><b>{s.ai?.innovation_score ?? "—"}</b><span>Innovation</span></div>
               <div><b>{s.ai?.technical_score ?? "—"}</b><span>Technical</span></div>
               <div><b>{s.ai?.impact_score ?? "—"}</b><span>Impact</span></div>
-            </div>
-          )}
-          {(s.decision?.feedback || s.organizer_feedback) && (
-            <div className="organizer-card-feedback">
-              <span>ORGANIZER FEEDBACK</span>
-              <p>{s.decision?.feedback || s.organizer_feedback}</p>
             </div>
           )}
           <div className="submission-actions organizer-submission-actions">
@@ -3123,11 +3174,8 @@ function OrganizerSubmissions({
             </div>
             <span>{decision || "SUBMITTED"}</span>
           </div>
-          <p>{s.description || s.project_description || "No project description provided."}</p>
           <div className="submission-meta organizer-submission-meta">
-            <span>GitHub: <b>{s.github_url ? "Provided" : "Missing"}</b></span>
-            <span>PDF: <b>{s.pdf_url || s.pdf_file_name || s.pdf_file_url || (typeof s.pdf === "string" ? s.pdf : s.pdf?.url) ? "Provided" : "Missing"}</b></span>
-            <span>Organizer score: <b>{s.organizer_decision?.score != null ? `${s.organizer_decision.score} / 100` : "Not scored"}</b></span>
+            <span>AI score: <b>{s.ai_analysis?.overall_score ?? "Not analyzed"}</b></span>
             <span>Submitted: {dateText(s.submitted_at || s.created_at)}</span>
           </div>
           {s.ai_analysis && (
@@ -3138,12 +3186,6 @@ function OrganizerSubmissions({
               <div><b>{s.ai_analysis.innovation_score ?? "—"}</b><span>Innovation</span></div>
               <div><b>{s.ai_analysis.technical_score ?? "—"}</b><span>Technical</span></div>
               <div><b>{s.ai_analysis.impact_score ?? "—"}</b><span>Impact</span></div>
-            </div>
-          )}
-          {(s.organizer_decision?.feedback || s.organizer_feedback) && (
-            <div className="organizer-card-feedback">
-              <span>ORGANIZER FEEDBACK</span>
-              <p>{s.organizer_decision?.feedback || s.organizer_feedback}</p>
             </div>
           )}
           <div className="submission-actions organizer-submission-actions">
@@ -3193,20 +3235,10 @@ function OrganizerSubmissions({
             </div>
             <span>{decision}</span>
           </div>
-          <p>{s.project_description || "No project description provided."}</p>
           <div className="submission-meta organizer-submission-meta">
-            <span>GitHub: <b>{s.github_url ? "Provided" : "Missing"}</b></span>
-            <span>Demo: <b>{s.demo_url ? "Provided" : "Not provided"}</b></span>
             <span>Score: <b>{s.score ?? "Not scored"}</b></span>
-            <span>Decision: <b>{s.decision || "Pending"}</b></span>
             <span>Submitted: {dateText(s.submitted_at || s.created_at)}</span>
           </div>
-          {s.organizer_feedback && (
-            <div className="organizer-card-feedback">
-              <span>ORGANIZER FEEDBACK</span>
-              <p>{s.organizer_feedback}</p>
-            </div>
-          )}
           <div className="submission-actions organizer-submission-actions">
             <span className="submission-open-hint">Manual review ↗</span>
           </div>
@@ -3247,12 +3279,38 @@ function OrganizerSubmissions({
           </div>
         )}
 
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+          <input
+            className="org-input"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by team, submitter or problem statement…"
+            style={{ flex: "1 1 260px" }}
+          />
+          {round < 3 && (
+            <button
+              type="button"
+              className="ai-analyze-btn"
+              disabled={!items.length || !!busy}
+              onClick={analyzeAll}
+            >
+              {bulkProgress ? <LoaderCircle size={13} className="spin" /> : <Sparkles size={13} />}
+              {bulkProgress
+                ? `Analyzing ${bulkProgress.done}/${bulkProgress.total}…`
+                : `Analyze All (${pendingCount} pending)`}
+            </button>
+          )}
+          {searchText && (
+            <span className="hack-meta">{visibleItems.length} of {items.length} submissions</span>
+          )}
+        </div>
+
         {loading ? (
           <Loading />
-        ) : items.length ? (
+        ) : visibleItems.length ? (
           <OrganizerListErrorBoundary key={`round-${round}`}>
             <div className="submission-list organizer-submission-list">
-              {items.map((s, i) =>
+              {visibleItems.map((s, i) =>
                 round === 1
                   ? renderRound1(s, i)
                   : round === 2
@@ -3262,7 +3320,7 @@ function OrganizerSubmissions({
             </div>
           </OrganizerListErrorBoundary>
         ) : (
-          <Empty text={`No Round ${round} submissions found for this hackathon.`} />
+          <Empty text={searchText ? "No submissions match your search." : `No Round ${round} submissions found for this hackathon.`} />
         )}
       </Panel>
 
@@ -3926,7 +3984,7 @@ function OrganizerSubmissionModal({
         <div className="organizer-review-form">
           <div className="organizer-review-form-grid">
             <Field
-              label="Score (0–100)"
+              label="Team score (0–100)"
               required
             >
               <input

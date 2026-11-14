@@ -3474,6 +3474,11 @@ function StudentRoundOnePage() {
   const [justSent, setJustSent] = useState(false);
   const [agreementAction, setAgreementAction] = useState("submit");
   const [leaderNote, setLeaderNote] = useState("");
+  // Local snapshot of a just-completed submit. The server status refresh
+  // can take a while on a cold backend, and until it lands the form stays
+  // visible with no submitted state — so the submitted view renders from
+  // this snapshot immediately, on every device.
+  const [localSubmitted, setLocalSubmitted] = useState(null);
 
   const loadStatus = async (id) => {
     if (!id) return;
@@ -3483,6 +3488,7 @@ function StudentRoundOnePage() {
       // Keep the complete response. The backend returns
       // hackathon, round1, team and submission as sibling fields.
       setData(result);
+      setLocalSubmitted(null);
       setStatement(result?.submission?.problem_statement || "");
       setGithub(result?.submission?.github_url || "");
       setDemo(result?.submission?.demo_url || "");
@@ -3498,12 +3504,13 @@ function StudentRoundOnePage() {
       setItems(list); if (list[0]) setSelected(String(list[0].hackathon_id || list[0].id));
     }).catch((err) => setError(err.message)).finally(() => setLoading(false));
   }, []);
-  useEffect(() => { setMessage(""); loadStatus(selected); }, [selected]);
+  useEffect(() => { setMessage(""); setLocalSubmitted(null); loadStatus(selected); }, [selected]);
 
   const hackathon = data?.hackathon || {};
   const round = data?.round || data?.round1 || {};
   const team = data?.team || null;
-  const submission = data?.submission || null;
+  // Prefer the just-submitted local snapshot over stale server data.
+  const submission = localSubmitted || data?.submission || null;
   const currentRound = Number(hackathon.current_round ?? round.current_round ?? data?.current_round ?? 0);
   const roundStatus = String(round.status || "").toUpperCase();
   const roundCompleted = isRoundCompleted(data, 1) || isCompletedStatus(roundStatus);
@@ -3515,6 +3522,7 @@ function StudentRoundOnePage() {
   const pendingApproval = submission?.status === "PENDING_APPROVAL";
   const draft = submission?.status === "DRAFT";
   const currentUserId = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").id || ""; } catch { return ""; } })();
+  const currentUserName = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").name || "You"; } catch { return "You"; } })();
   const isLeader = Boolean(team?.leader_id) && String(team.leader_id) === String(currentUserId);
   const canSubmit = accessible && Boolean(team) && !submitted && !pendingApproval && !saving;
   const submissionLabel = !submission ? "Not submitted" : submission.status === "PENDING_APPROVAL" ? "AWAITING LEADER APPROVAL" : submission.status === "DRAFT" ? "DRAFT — LEADER ASKED FOR CHANGES" : submission.status;
@@ -3540,13 +3548,34 @@ function StudentRoundOnePage() {
       : { problem_statement: statement.trim() };
     if (!isDemo && body.problem_statement.length < 20) return setError("Problem statement must contain at least 20 characters.");
     if (isDemo && !demoValid) return setError("GitHub link and live demo link are required.");
+    // Snapshot of what was just sent, so the submitted view shows instantly.
+    const snapshot = {
+      status: isLeader ? "SUBMITTED" : "PENDING_APPROVAL",
+      problem_statement: isDemo ? "" : statement.trim(),
+      github_url: github.trim() || null,
+      demo_url: demo.trim() || null,
+      pdf_url: pdf.trim() || null,
+      organizer_note: note.trim(),
+      submitted_at: new Date().toISOString(),
+      submitted_by_name: currentUserName,
+    };
     setSaving(true); setError(""); setMessage("");
     try {
       const result = await apiFetch(`/student/round1/hackathons/${selected}/submit`, { method: "POST", body: JSON.stringify(body) });
       setMessage(result?.message || (isLeader ? (isDemo ? "Round 1 demo submitted successfully." : "Round 1 idea submitted successfully.") : (isDemo ? "Round 1 demo sent to your team leader for approval." : "Round 1 idea sent to your team leader for approval.")));
-      setJustSent(true); setTimeout(() => setJustSent(false), 1800);
+      setLocalSubmitted(snapshot);
+      setJustSent(true); setTimeout(() => setJustSent(false), 4000);
       await loadStatus(selected);
-    } catch (err) { setError(err.message || `Failed to submit Round 1 ${isDemo ? "demo" : "idea"}`); }
+    } catch (err) {
+      // A second click after a slow refresh used to show only an error toast.
+      // If the server says it is already submitted, show the submitted state.
+      if (/already submitted/i.test(err.message || "")) {
+        setLocalSubmitted(snapshot);
+        await loadStatus(selected);
+      } else {
+        setError(err.message || `Failed to submit Round 1 ${isDemo ? "demo" : "idea"}`);
+      }
+    }
     finally { setSaving(false); }
   };
 
@@ -3564,13 +3593,31 @@ function StudentRoundOnePage() {
       : { problem_statement: statement.trim() };
     if (!isDemo && body.problem_statement.length < 20) return setError("Problem statement must contain at least 20 characters.");
     if (isDemo && !demoValid) return setError("GitHub link and live demo link are required.");
+    const snapshot = {
+      status: "SUBMITTED",
+      problem_statement: isDemo ? "" : statement.trim(),
+      github_url: github.trim() || null,
+      demo_url: demo.trim() || null,
+      pdf_url: pdf.trim() || null,
+      organizer_note: note.trim(),
+      submitted_at: new Date().toISOString(),
+      submitted_by_name: currentUserName,
+    };
     setSaving(true); setError(""); setMessage("");
     try {
       await apiFetch(`/student/round1/hackathons/${selected}/approve`, { method: "POST", body: JSON.stringify(body) });
       setMessage(isDemo ? "Round 1 demo approved and submitted." : "Round 1 idea approved and submitted.");
-      setJustSent(true); setTimeout(() => setJustSent(false), 1800);
+      setLocalSubmitted(snapshot);
+      setJustSent(true); setTimeout(() => setJustSent(false), 4000);
       await loadStatus(selected);
-    } catch (err) { setError(err.message || "Failed to approve Round 1 proposal"); }
+    } catch (err) {
+      if (/already submitted/i.test(err.message || "")) {
+        setLocalSubmitted(snapshot);
+        await loadStatus(selected);
+      } else {
+        setError(err.message || "Failed to approve Round 1 proposal");
+      }
+    }
     finally { setSaving(false); }
   };
 
