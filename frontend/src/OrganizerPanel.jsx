@@ -4375,7 +4375,9 @@ function RuleBot({ hackathons, selectedId, setSelectedId }) {
    v6 — CERTIFICATES (Module 8, organizer issue section)
    Theme picker offers the 3 quiz designs picked 2026-10-30, plus
    "Mint ReBuild" (2026-11-09) — Koushik's picked ReBuild '26
-   participation design. The v2 launch themes (sidebar,
+   participation design, plus "FirstCommit Participation"
+   (2026-11-15) — his picked FirstCommit '26 sample 1, rebuilt as
+   a real theme (purple bands, ribbon seal, QR). The v2 launch themes (sidebar,
    constellation, blueprint) are NOT listed here anymore — but they
    stay renderable in the backend, so certificates already issued
    with them still download unchanged.
@@ -4384,6 +4386,7 @@ function RuleBot({ hackathons, selectedId, setSelectedId }) {
 
 const CERT_DESIGNS = [
   { key: "participation", theme: "light-clean", name: "Participation" },
+  { key: "firstcommit-participation", theme: "firstcommit-partitipation", name: "FirstCommit Participation" },
   { key: "winner", theme: "classic-ivory", name: "Winner · 1st Place" },
   { key: "runnerup", theme: "minimal", name: "Runner-up · 2nd Place" },
   { key: "third", theme: "minimal", name: "3rd Place" },

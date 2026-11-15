@@ -39,7 +39,7 @@ const FONTS = {
   Serif: path.join(ASSETS, "fonts", "DejaVuSerif.ttf"),
 };
 
-export const CERT_THEMES = ["sidebar", "constellation", "blueprint", "light-clean", "minimal", "classic-ivory", "midnight-gold", "royal-purple", "ocean-blue", "emerald-classic", "rose-blush", "sunset-glow", "mono-grid", "forest-line", "crimson-award", "skyline-blue", "charcoal-lime", "teal-ribbon", "mint-rebuild"];
+export const CERT_THEMES = ["sidebar", "constellation", "blueprint", "light-clean", "minimal", "classic-ivory", "midnight-gold", "royal-purple", "ocean-blue", "emerald-classic", "rose-blush", "sunset-glow", "mono-grid", "forest-line", "crimson-award", "skyline-blue", "charcoal-lime", "teal-ribbon", "mint-rebuild", "firstcommit-partitipation"];
 
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
@@ -393,6 +393,7 @@ const THEME_DRAWERS = {
   "charcoal-lime": drawCharcoalLime,
   "teal-ribbon": drawTealRibbon,
   "mint-rebuild": drawMintRebuild,
+  "firstcommit-partitipation": drawFirstcommitParticipation,
 };
 
 /* ---------------- LIGHT CLEAN (quiz participation pick, 2026-10-30)
@@ -582,6 +583,127 @@ function drawSkylineBlue(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, {
 function drawCharcoalLime(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#262626", barLeft: "#a8e62e", frame: "#a8e62e", layout: "left", titleFont: "InterBlack", titleColor: "#f5f5f5", nameColor: "#a8e62e", subColor: "#aaaaaa", accent: "#a8e62e", qr: "right" }); }
 function drawTealRibbon(doc, W, H, d, qr) { drawSimpleTheme(doc, W, H, d, qr, { bg: "#0f5257", bandTop: "#ffffff", frame: "#ffffff", layout: "center", titleFont: "InterBlack", titleColor: "#ffffff", nameColor: "#a8e62e", subColor: "#9db8ba", accent: "#a8e62e", presented: "This certificate is proudly presented to", qr: "left" }); }
 
+/* ---------------- FIRSTCOMMIT PARTICIPATION (FirstCommit '26, 2026-11-15)
+   Koushik's picked sample 1, rebuilt as a real theme: white page,
+   purple diagonal bands top-right + bottom-left with lime edges,
+   purple outer + lime inner frame, tile-less CampusCode bars on top,
+   gold rosette seal with lime ribbon tails top-right, serif title,
+   TEAM / CAMPUSCODE ID / DATE details row (date appears once only),
+   real QR bottom-right, no signature lines anywhere. */
+function drawFirstcommitParticipation(doc, W, H, d, qr) {
+  const cx = W / 2;
+  const PURPLE = "#7665ff";
+  const LIME = "#a8e62e";
+  const NAVY = "#0e2a4a";
+  const NAVY_D = "#091c33";
+  const GOLD = "#c9a227";
+  const GOLD_D = "#a67c00";
+  const GREY = "#6e6e6c";
+  const GREY_D = "#464644";
+  doc.fillColor("#ffffff").rect(0, 0, W, H).fill();
+  // Diagonal corner bands in CampusCode purple, lime edge lines.
+  doc.fillColor(PURPLE);
+  doc.polygon([W - 332.7, 0], [W, 0], [W, 190.1]).fill();
+  doc.polygon([0, H - 190.1], [0, H], [332.7, H]).fill();
+  doc.strokeColor(LIME).lineWidth(2.7);
+  doc.moveTo(W - 332.7, 0).lineTo(W, 190.1).stroke();
+  doc.moveTo(0, H - 190.1).lineTo(332.7, H).stroke();
+  // Frame: purple outer, lime inner.
+  doc.strokeColor(PURPLE).lineWidth(1.4);
+  doc.rect(19.7, 19.7, W - 39.4, H - 39.4).stroke();
+  doc.strokeColor(LIME).lineWidth(0.7);
+  doc.rect(24.4, 24.4, W - 48.8, H - 48.8).stroke();
+  // Tile-less CampusCode bars, clear of the top frame.
+  doc.image(LOGO_BARS, cx - 30.5, 35, { width: 61, height: 51 });
+  // Gold rosette seal with lime ribbon tails, top-right on the band.
+  const scx = W - 101.8;
+  const scy = 101.8;
+  const sr = 35.6;
+  const rTop = scy + sr * 0.55;
+  const rBot = scy + sr * 1.25;
+  const rNotch = scy + sr * 1.02;
+  doc.fillColor(LIME);
+  doc.polygon(
+    [scx - 17.7, rTop], [scx - 2.7, rTop], [scx - 10.2, rBot],
+    [scx - 13.9, rNotch], [scx - 25.1, rBot],
+  ).fill();
+  doc.polygon(
+    [scx + 2.7, rTop], [scx + 17.7, rTop], [scx + 25.1, rBot],
+    [scx + 13.9, rNotch], [scx + 10.2, rBot],
+  ).fill();
+  const rosette = [];
+  for (let i = 0; i < 48; i++) {
+    const ang = (Math.PI * 2 * i) / 48;
+    const rr = i % 2 === 0 ? sr : sr * 0.86;
+    rosette.push([scx + rr * Math.cos(ang), scy + rr * Math.sin(ang)]);
+  }
+  doc.fillColor(GOLD).strokeColor(GOLD_D).lineWidth(1);
+  doc.polygon(...rosette).fillAndStroke();
+  doc.fillColor(GOLD).strokeColor(GOLD_D).lineWidth(1.4);
+  doc.circle(scx, scy, sr * 0.74).fillAndStroke();
+  doc.strokeColor("#ffffff").lineWidth(1);
+  doc.circle(scx, scy, sr * 0.6).stroke();
+  doc.font("Inter").fontSize(22).fillColor("#ffffff");
+  doc.text("\u2605", scx - sr, scy - 11, { width: sr * 2, align: "center" });
+  // Title block.
+  doc.font("SerifBold").fontSize(32).fillColor(NAVY);
+  doc.text("CERTIFICATE", 0, 98, { align: "center", characterSpacing: 4 });
+  doc.font("Serif").fontSize(15).fillColor(NAVY_D);
+  doc.text(d.title === "Certificate of Achievement" ? "OF ACHIEVEMENT" : "OF PARTICIPATION", 0, 136, { align: "center", characterSpacing: 4 });
+  doc.strokeColor(LIME).lineWidth(1.4);
+  doc.moveTo(cx - 44, 173).lineTo(cx + 44, 173).stroke();
+  doc.font("Inter").fontSize(11).fillColor(GREY);
+  doc.text("PROUDLY PRESENTED TO", 0, 197, { align: "center" });
+  doc.font("SerifBold").fontSize(40).fillColor(PURPLE);
+  doc.text(d.holderName, 0, 224, { align: "center" });
+  // Body line.
+  const action = d.placeLine
+    ? `This certificate is awarded to the above participant for winning the ${d.hackathonTitle}, organised by CampusCode.`
+    : `This certificate is awarded to the above participant for taking part in ${d.hackathonTitle}, organised by CampusCode.`;
+  doc.font("Serif").fontSize(13.5).fillColor(GREY_D);
+  doc.text(action, cx - 264.5, 292, { width: 529, align: "center" });
+  // Details row: TEAM / CAMPUSCODE ID / DATE, lime dots between.
+  const parts = [];
+  if (d.teamName) parts.push(["TEAM", d.teamName]);
+  if (d.campusCodeId) parts.push(["CAMPUSCODE ID", d.campusCodeId]);
+  parts.push(["DATE", d.eventDate]);
+  const gap = 26;
+  let total = 0;
+  const widths = parts.map(([lab, val]) => {
+    doc.font("InterBold").fontSize(10);
+    const lw = doc.widthOfString(lab + "  ");
+    doc.font("Inter").fontSize(11);
+    const vw = doc.widthOfString(val);
+    total += lw + vw;
+    return { lw, vw };
+  });
+  total += gap * (parts.length - 1);
+  let px = cx - total / 2;
+  parts.forEach(([lab, val], i) => {
+    doc.font("InterBold").fontSize(10).fillColor(GREY_D);
+    doc.text(lab + "  ", px, 370);
+    doc.font("Inter").fontSize(11).fillColor(GREY_D);
+    doc.text(val, px + widths[i].lw, 370);
+    px += widths[i].lw + widths[i].vw;
+    if (i < parts.length - 1) {
+      doc.fillColor(LIME).circle(px + gap / 2, 374, 2).fill();
+      px += gap;
+    }
+  });
+  if (d.placeLine) {
+    doc.font("InterBold").fontSize(13).fillColor(PURPLE);
+    doc.text(d.placeLine, 0, 396, { align: "center" });
+  }
+  // Real QR bottom-right with code + verify lines.
+  drawQr(doc, 625, 441, qr, 54, d.code, GREY_D);
+  // Footer, centred. With the Adaption pill on it sits in the thin gap
+  // between the pill (ends H-36) and the frame (starts H-24); without
+  // the pill it sits where the sample puts it.
+  doc.font("DMMono").fontSize(8).fillColor(GREY);
+  doc.text("CAMPUSCODE  \u00b7  campuscode.co.in", 0, d.partnerLogo ? H - 34 : H - 44, { align: "center" });
+}
+
+
 /* ---------------- MINT REBUILD (ReBuild '26 participation, 2026-11-09)
    Koushik's picked sample: soft pastel diagonal gradient (lavender ->
    mint -> peach), thin white rounded border, big bold CAMPUSCODE ·
@@ -718,7 +840,7 @@ function drawDiagonalTexture(doc, W, H, color) {
  * Render one certificate PDF.
  * cert: { holderName, college, hackathonTitle, teamName, track,
  *         eventDate (already formatted), code, type, place, theme,
- *         partnerLogo (boolean) }
+ *         partnerLogo (boolean), campusCodeId (string|null) }
  * Returns a Buffer with the PDF bytes.
  */
 export async function renderCertificatePdf(cert) {

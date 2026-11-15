@@ -789,6 +789,7 @@ export async function downloadCertificate(req, res) {
         c.issued_at,
         c.user_id,
         u.name AS holder_name,
+        u.campus_code_id AS campus_code_id,
         h.id AS hackathon_id,
         h.title AS hackathon_title,
         h.track,
@@ -848,6 +849,7 @@ export async function downloadCertificate(req, res) {
       theme: cert.theme,
       issuedAt: cert.issued_at,
       partnerLogo: !!cert.partner_logo,
+      campusCodeId: cert.campus_code_id || null,
     });
 
     res.setHeader("Content-Type", "application/pdf");
