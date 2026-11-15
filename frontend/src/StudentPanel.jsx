@@ -3833,7 +3833,9 @@ function StudentRoundTwoPage() {
     }
 
     /*
-     * GitHub, live demo, PDF and note are REQUIRED.
+     * Only the Google Drive PPT/PDF link is required.
+     * GitHub + live demo were removed from the R2 UI (v6.65);
+     * note for the organizer is optional.
      */
     if (!pdf.trim()) {
       return setError(
@@ -3899,7 +3901,7 @@ function StudentRoundTwoPage() {
       <PageHeading
         eyebrow="BUILD / ROUND 02"
         title="PROJECT SUBMISSION."
-        text="Submit your PDF when Round 2 is live. PDF link is required; GitHub, live demo and note are optional."
+        text="Submit your PPT or PDF when Round 2 is live. Upload it to Google Drive and paste the shareable link. Note for the organizer is optional. AI-made PDFs or PPTs are not acceptable."
       />
 
       {error && (
@@ -4036,8 +4038,9 @@ function StudentRoundTwoPage() {
               </h2>
 
               <p>
-                PDF link is required. GitHub, live demo and note are
-                optional.
+                Google Drive link (PPT or PDF) is required. Note for
+                the organizer is optional. AI-made PDFs or PPTs are
+                not acceptable.
               </p>
             </div>
 
@@ -4081,49 +4084,9 @@ function StudentRoundTwoPage() {
           ) : (
             <div className="student-round-form">
 
-              {/* OPTIONAL GITHUB */}
+              {/* REQUIRED DRIVE LINK (PPT or PDF) */}
               <label>
-                GITHUB REPOSITORY URL{" "}
-                <span>(OPTIONAL)</span>
-              </label>
-
-              <div className="student-input-icon">
-                <LinkIcon size={15} />
-
-                <input
-                  value={github}
-                  onChange={(e) =>
-                    setGithub(
-                      e.target.value
-                    )
-                  }
-                  placeholder="https://github.com/username/project"
-                />
-              </div>
-
-              {/* OPTIONAL LIVE DEMO */}
-              <label>
-                LIVE DEMO URL{" "}
-                <span>(OPTIONAL)</span>
-              </label>
-
-              <div className="student-input-icon">
-                <ExternalLink size={15} />
-
-                <input
-                  value={demo}
-                  onChange={(e) =>
-                    setDemo(
-                      e.target.value
-                    )
-                  }
-                  placeholder="https://your-project.vercel.app"
-                />
-              </div>
-
-              {/* REQUIRED PDF */}
-              <label>
-                GOOGLE DRIVE PDF URL{" "}
+                GOOGLE DRIVE PPT / PDF URL{" "}
                 <span className="student-required-mark">
                   *
                 </span>
