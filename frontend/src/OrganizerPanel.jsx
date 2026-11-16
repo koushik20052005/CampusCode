@@ -4407,6 +4407,8 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState("");
+  const [manualEmail, setManualEmail] = useState("");
+  const [manualCode, setManualCode] = useState("");
 
   /* v6.26 — quiz mode: no teams, no Round 1. Participation comes
      from submitted quiz attempts; winners are picked students. */
@@ -4467,6 +4469,40 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
       load();
     } catch (e) {
       setError(e.message || "Failed to issue participation certificates.");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const issueOne = async () => {
+    if (!hackathon) return;
+    if (!manualEmail.trim()) {
+      setError("Enter the student's email to issue one certificate.");
+      return;
+    }
+    setBusy("manual-one");
+    setError("");
+    setMessage("");
+    try {
+      const data = await apiFetch(`/certificates/hackathons/${hackathon.id}/issue-one`, {
+        method: "POST",
+        body: JSON.stringify({
+          email: manualEmail.trim(),
+          code: manualCode.trim() || undefined,
+          theme: themeForDesign(partDesign),
+          partnerLogo,
+        }),
+      });
+      setMessage(
+        data?.already_had
+          ? `${data?.user?.name || manualEmail} already had a participation certificate — code ${data?.code || "?"}.`
+          : `Issued one participation certificate for ${data?.user?.name || manualEmail} — code ${data?.code || "?"}.`
+      );
+      setManualEmail("");
+      setManualCode("");
+      load();
+    } catch (e) {
+      setError(e.message || "Failed to issue the certificate.");
     } finally {
       setBusy("");
     }
@@ -4595,6 +4631,29 @@ function Certificates({ hackathon, hackathons, selectedId, setSelectedId }) {
         <button className="outline-btn" disabled={busy !== "" || !hackathon || participationIssued === 0} onClick={deleteAllParticipation}>
           {busy === "delete-all" ? "DELETING…" : "DELETE ALL PARTICIPATION CERTIFICATES"}
         </button>
+      </div>
+
+      <div style={{ border: "1px solid #d8d8d1", borderRadius: 12, padding: 12, marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>Issue one participation certificate (manual)</div>
+        <p style={{ margin: "0 0 12px", fontSize: 14 }}>
+          For a student the bulk issue cannot reach — for example, no Round 1 submission on record. Uses the Participation design picked above. If the student already has one, this returns their existing code instead of duplicating.
+        </p>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
+          <label style={{ flex: "2 1 260px", fontSize: 14 }}>
+            Student email
+            <input className="org-input" value={manualEmail} onChange={(e) => setManualEmail(e.target.value)} placeholder="student@example.com" style={{ width: "100%", marginTop: 4 }} />
+          </label>
+          <label style={{ flex: "1 1 200px", fontSize: 14 }}>
+            Certificate code (optional)
+            <input className="org-input" value={manualCode} onChange={(e) => setManualCode(e.target.value)} placeholder="CC-CERT-XXXXXXXX" style={{ width: "100%", marginTop: 4 }} />
+          </label>
+          <button className="primary-btn" disabled={busy !== "" || !hackathon || !manualEmail.trim()} onClick={issueOne}>
+            {busy === "manual-one" ? "ISSUING…" : "ISSUE ONE CERTIFICATE"}
+          </button>
+        </div>
+        <p style={{ margin: "8px 0 0", fontSize: 13 }}>
+          Leave the code blank to generate one. To register a code from a manually rendered PDF, paste it here — the QR on that PDF will then verify.
+        </p>
       </div>
 
       {hackathon && !loading && (

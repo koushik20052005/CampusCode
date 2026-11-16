@@ -435,6 +435,175 @@ export async function issueParticipation(req, res) {
 
 
 /* =========================================================
+   ORGANIZER: ISSUE ONE PARTICIPATION CERTIFICATE (MANUAL)
+   POST /api/certificates/hackathons/:hackathonId/issue-one
+   Body: { email | campus_code_id, theme, code? }
+   For a student the bulk issue cannot reach (e.g. no Round 1
+   submission on record, so they are not in the eligible set).
+   Idempotent per student (UNIQUE hackathon + user + type):
+   re-issuing returns the existing code instead of duplicating.
+   A caller-supplied code is stored as given (uppercased) so a
+   manually rendered PDF's QR verifies; when no code is given,
+   one is generated. A code already used by another certificate
+   is rejected with 409.
+   Added 16 Nov 2026 (v6.67) — the manual-name issue Koushik
+   finalized for Thanmayee MS / Team Codegurls, FirstCommit '26.
+========================================================= */
+
+export async function issueOneParticipation(req, res) {
+  try {
+    const hackathon = await loadOwnedHackathon(req, res, req.params.hackathonId);
+    if (!hackathon) return;
+
+    const theme = validTheme(req.body?.theme);
+    const partnerLogo = req.body?.partnerLogo === true;
+    const email =
+      typeof req.body?.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : "";
+    const campusCodeId =
+      typeof req.body?.campus_code_id === "string"
+        ? req.body.campus_code_id.trim().toUpperCase()
+        : "";
+    let code =
+      typeof req.body?.code === "string"
+        ? req.body.code.trim().toUpperCase()
+        : "";
+
+    if (!email && !campusCodeId) {
+      return res.status(400).json({
+        success: false,
+        message: "Provide the student's email or CampusCode ID",
+      });
+    }
+
+    if (code && !/^CC-CERT-[A-Z0-9]{8}$/.test(code)) {
+      return res.status(400).json({
+        success: false,
+        message: "Code must look like CC-CERT-XXXXXXXX",
+      });
+    }
+
+    const userResult = await pool.query(
+      `
+      SELECT id, name, email, campus_code_id
+      FROM users
+      WHERE ${email ? "LOWER(email) = $1" : "UPPER(campus_code_id) = $1"}
+      LIMIT 1
+      `,
+      [email || campusCodeId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No student found with that email or CampusCode ID",
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    const teamResult = await pool.query(
+      `
+      SELECT t.id
+      FROM teams t
+      INNER JOIN team_members tm
+        ON tm.team_id = t.id
+      WHERE t.hackathon_id = $1
+        AND tm.user_id = $2
+      LIMIT 1
+      `,
+      [hackathon.id, user.id]
+    );
+    const teamId = teamResult.rows[0]?.id || null;
+
+    if (!code) {
+      const codes = await generateUniqueCodes(pool, 1);
+      code = codes[0];
+    } else {
+      const taken = await pool.query(
+        `
+        SELECT user_id
+        FROM certificates
+        WHERE code = $1
+        LIMIT 1
+        `,
+        [code]
+      );
+      if (
+        taken.rows.length > 0 &&
+        String(taken.rows[0].user_id) !== String(user.id)
+      ) {
+        return res.status(409).json({
+          success: false,
+          message: "That certificate code is already in use",
+        });
+      }
+    }
+
+    const inserted = await pool.query(
+      `
+      INSERT INTO certificates (
+        hackathon_id, team_id, user_id, type, theme, partner_logo, code
+      )
+      VALUES ($1, $2, $3, 'PARTICIPATION', $4, $5, $6)
+      ON CONFLICT (hackathon_id, user_id, type) DO NOTHING
+      RETURNING id
+      `,
+      [hackathon.id, teamId, user.id, theme, partnerLogo, code]
+    );
+
+    let alreadyHad = inserted.rows.length === 0;
+    let finalCode = code;
+    if (alreadyHad) {
+      const existing = await pool.query(
+        `
+        SELECT code
+        FROM certificates
+        WHERE hackathon_id = $1
+          AND user_id = $2
+          AND type = 'PARTICIPATION'
+        LIMIT 1
+        `,
+        [hackathon.id, user.id]
+      );
+      finalCode = existing.rows[0]?.code || code;
+    } else {
+      await notifyUsers(
+        pool,
+        [user.id],
+        "Your participation certificate is ready",
+        `Your certificate for "${hackathon.title}" is ready to download.`
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: alreadyHad
+        ? "Student already had a participation certificate"
+        : "Participation certificate issued",
+      already_had: alreadyHad,
+      code: finalCode,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        campus_code_id: user.campus_code_id,
+      },
+      team_id: teamId,
+      theme,
+    });
+  } catch (error) {
+    console.error("ISSUE ONE PARTICIPATION ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to issue participation certificate",
+    });
+  }
+}
+
+
+/* =========================================================
    ORGANIZER: LIST PARTICIPATION RECIPIENTS
    GET /api/certificates/hackathons/:hackathonId/participation-recipients
    Same eligibility as issuing — lets the organizer see who

@@ -5,6 +5,7 @@ import {
   listMyCertificates,
   listHackathonCertificates,
   issueParticipation,
+  issueOneParticipation,
   listParticipationRecipients,
   issueWinners,
   deleteCertificate,
@@ -78,6 +79,13 @@ router.post(
   requireAuth,
   requireRole("ORGANIZER", "ADMIN"),
   issueParticipation
+);
+
+router.post(
+  "/hackathons/:hackathonId/issue-one",
+  requireAuth,
+  requireRole("ORGANIZER", "ADMIN"),
+  issueOneParticipation
 );
 
 router.post(
