@@ -4605,24 +4605,12 @@ html, body, #root {
   letter-spacing: 0 !important;
 }
 
-/* If JSX uses plain text labels */
-.student-round-workspace .student-round-form > label:first-of-type::after {
-  content: "OPTIONAL";
-  color: #8a8a83;
-  font: 600 10px/1.4 Inter, system-ui, sans-serif;
-  letter-spacing: 0;
-  text-transform: none;
-  margin-left: 2px;
-}
-
-.student-round-workspace .student-round-form > label:nth-of-type(2)::after {
-  content: "REQUIRED";
-  color: #b04343;
-  font: 900 10px/1.4 Inter, system-ui, sans-serif;
-  letter-spacing: 0;
-  text-transform: none;
-  margin-left: 2px;
-}
+/* (Position-based ::after markers removed in v6.66: the old
+   first-label = OPTIONAL / second-label = REQUIRED rules were
+   written for the old 4-field R2 form and wrongly stamped
+   "REQUIRED" on the Note field after GitHub + Live Demo were
+   removed. Every label already carries its own marker in the
+   JSX — * for required, (OPTIONAL) for optional.) */
 
 /* Prevent duplicate markers if JSX already contains explicit marker */
 .student-round-workspace .student-round-form > label:has(.student-optional-mark)::after,
