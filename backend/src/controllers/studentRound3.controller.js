@@ -1,28 +1,10 @@
 import pool from "../config/db.js";
 
 // ============================================================
-// GOOGLE DRIVE URL VALIDATION
+// ROUND 3 LINKS — NO VALIDATION (FirstCommit R3, Koushik 16 Nov 2026)
+// Any link a team submits is accepted as-is: Drive folder,
+// PPT, video, GitHub, live demo — we do not check anything.
 // ============================================================
-
-const isGoogleDriveUrl = (url) => {
-  if (typeof url !== "string") {
-    return false;
-  }
-
-  try {
-    const parsed = new URL(url);
-
-    const hostname = parsed.hostname.toLowerCase();
-
-    return (
-      hostname === "drive.google.com" ||
-      hostname === "www.drive.google.com" ||
-      hostname === "docs.google.com"
-    );
-  } catch {
-    return false;
-  }
-};
 
 /* ============================================================
    HELPER — GET ROUND 3
@@ -546,94 +528,26 @@ export const submitRound3 = async (
     } = req.body;
 
     /* --------------------------------------------------------
-       1. VALIDATE GITHUB URL
+       1. GITHUB URL — OPTIONAL, ANY LINK ACCEPTED
+       (No checks: any string is stored as-is.)
     -------------------------------------------------------- */
-
-    if (
-      !github_url ||
-      !String(github_url).trim()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "GitHub repository URL is required",
-      });
-    }
 
     const githubUrl =
-      String(github_url).trim();
-
-    try {
-      const parsedGithub =
-        new URL(githubUrl);
-
-      const hostname =
-        parsedGithub.hostname
-          .toLowerCase();
-
-      if (
-        hostname !== "github.com" &&
-        !hostname.endsWith(
-          ".github.com"
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Please provide a valid GitHub repository URL",
-        });
-      }
-    } catch {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Invalid GitHub URL",
-      });
-    }
+      typeof github_url === "string" &&
+      github_url.trim()
+        ? github_url.trim()
+        : null;
 
     /* --------------------------------------------------------
-       2. VALIDATE DEMO URL
+       2. DEMO URL — OPTIONAL, ANY LINK ACCEPTED
+       (No checks: any string is stored as-is.)
     -------------------------------------------------------- */
 
-    if (
-      !demo_url ||
-      !String(demo_url).trim()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Live demo URL is required",
-      });
-    }
-
     const demoUrl =
-      String(demo_url).trim();
-
-    try {
-      const parsedDemo =
-        new URL(demoUrl);
-
-      if (
-        ![
-          "http:",
-          "https:",
-        ].includes(
-          parsedDemo.protocol
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Demo URL must use HTTP or HTTPS",
-        });
-      }
-    } catch {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Invalid demo URL",
-      });
-    }
+      typeof demo_url === "string" &&
+      demo_url.trim()
+        ? demo_url.trim()
+        : null;
 
     /* --------------------------------------------------------
        3. PROJECT DESCRIPTION
@@ -681,24 +595,14 @@ export const submitRound3 = async (
         : "";
 
     /* --------------------------------------------------------
-       3c. PDF URL (OPTIONAL - GOOGLE DRIVE ONLY)
+       3c. PDF / EXTRA LINK (OPTIONAL) — ANY LINK ACCEPTED
+       (No checks: Drive folder, PPT, video, anything.)
     -------------------------------------------------------- */
 
     const cleanPdfUrl =
-      typeof pdf_url === "string"
+      typeof pdf_url === "string" && pdf_url.trim()
         ? pdf_url.trim()
         : "";
-
-    if (
-      cleanPdfUrl &&
-      !isGoogleDriveUrl(cleanPdfUrl)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Please provide a valid Google Drive PDF URL.",
-      });
-    }
 
     /* --------------------------------------------------------
        4. GET HACKATHON
