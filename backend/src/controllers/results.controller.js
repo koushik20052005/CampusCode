@@ -369,7 +369,14 @@ export async function publishHackathonResults(req, res) {
       hackathonResult.rows[0];
 
     // --------------------------------------------------------
-    // Already completed
+    // Already published
+    //
+    // Completing Round 3 marks the hackathon COMPLETED, so
+    // COMPLETED must NOT be an error here: approving the
+    // result request already publishes the results, and
+    // calling publish again is a harmless no-op. (The old
+    // 409 made this endpoint unreachable: it demanded
+    // Round 3 completed while rejecting COMPLETED.)
     // --------------------------------------------------------
 
     if (
@@ -378,10 +385,22 @@ export async function publishHackathonResults(req, res) {
     ) {
       await client.query("ROLLBACK");
 
-      return res.status(409).json({
-        success: false,
+      return res.status(200).json({
+        success: true,
+
         message:
           "Results are already published",
+
+        published: true,
+
+        alreadyPublished: true,
+
+        hackathon: {
+          id: hackathon.id,
+          title: hackathon.title,
+          status: hackathon.status,
+          current_round: hackathon.current_round,
+        },
       });
     }
 

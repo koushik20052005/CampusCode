@@ -2521,8 +2521,43 @@ function ResultsPage() {
       );
 
       setSuccess(
-        `Result request ${action === "approve" ? "approved" : "rejected"}.`
+        action === "approve"
+          ? "Result request approved \u2014 results published."
+          : "Result request rejected."
       );
+
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const publish = async () => {
+    if (!selected) return;
+
+    setBusy("publish");
+    setError("");
+    setSuccess("");
+
+    try {
+      const data = await apiFetch(
+        `/results/hackathon/${selected}/publish`,
+        { method: "POST" }
+      );
+
+      setSuccess(
+        data?.alreadyPublished
+          ? "Results are already published for this hackathon."
+          : "Results published."
+      );
+
+      const refreshed = await apiFetch(
+        `/results/hackathon/${selected}`
+      );
+
+      setResults(unwrap(refreshed, ["results", "data"]));
 
       await load();
     } catch (e) {
@@ -2669,6 +2704,20 @@ function ResultsPage() {
                 ))}
               </select>
             </div>
+
+            <button
+              className="admin-refresh"
+              disabled={!selected || !!busy}
+              onClick={publish}
+              style={{ marginTop: 12 }}
+            >
+              {busy === "publish" ? (
+                <LoaderCircle className="spin" size={14} />
+              ) : (
+                <Trophy size={14} />
+              )}
+              {busy === "publish" ? "Publishing..." : "Publish results"}
+            </button>
 
             {results.length ? (
               <div className="admin-results-list">
