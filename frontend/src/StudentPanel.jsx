@@ -4288,15 +4288,17 @@ function StudentResultsPage() {
           {results.map((result, index) => {
             const decision = String(result.decision || result.status || "PUBLISHED").toLowerCase();
             const score = value(result.score, result.overall_score, "—");
+            const rank = result.rank ?? index + 1;
+            const isWinner = rank <= 3;
 
             return (
               <article
-                className={`student-result-card ${decision}`}
+                className={`student-result-card ${decision}${isWinner ? ` winner winner-${rank}` : ""}`}
                 key={result.submission_id || result.team_id || index}
               >
                 <div className="student-result-rank">
                   <span>RANK</span>
-                  <strong>#{result.rank ?? index + 1}</strong>
+                  <strong>#{rank}</strong>
                 </div>
 
                 <div className="student-result-main">
@@ -4306,17 +4308,17 @@ function StudentResultsPage() {
                       <h3>{value(result.team_name, result.team?.name, "Team")}</h3>
                       <p>{value(result.project_title, result.project?.title, "Project")}</p>
                     </div>
-                    <small className={`student-result-status ${decision}`}>
-                      {value(result.decision, result.status, "PUBLISHED")}
-                    </small>
+                    {isWinner ? (
+                      <small className={`student-winner-badge winner-${rank}`}>
+                        {rank === 1 ? "WINNER" : rank === 2 ? "2ND PLACE" : "3RD PLACE"}
+                      </small>
+                    ) : (
+                      <small className={`student-result-status ${decision}`}>
+                        {value(result.decision, result.status, "PUBLISHED")}
+                      </small>
+                    )}
                   </div>
 
-                  {(result.organizer_feedback || result.feedback) && (
-                    <div className="student-result-feedback">
-                      <span>ORGANIZER FEEDBACK</span>
-                      <p>{value(result.organizer_feedback, result.feedback)}</p>
-                    </div>
-                  )}
                 </div>
 
                 <div className="student-result-score">

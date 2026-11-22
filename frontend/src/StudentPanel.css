@@ -2608,6 +2608,61 @@ html, body, #root {
   background:#fcfcfa;
 }
 
+.student-result-card.winner{
+  margin:10px 0;
+  padding:22px 18px;
+  border:2px solid #e8b93c;
+  border-radius:14px;
+  background:linear-gradient(135deg,#fff8d6 0%,#fff 55%);
+}
+
+.student-result-card.winner-2{
+  border-color:#b9bec4;
+  background:linear-gradient(135deg,#f2f3f5 0%,#fff 55%);
+}
+
+.student-result-card.winner-3{
+  border-color:#d99a5b;
+  background:linear-gradient(135deg,#fdeedd 0%,#fff 55%);
+}
+
+.student-result-card.winner-1 .student-result-rank strong{
+  color:#b8860b;
+}
+
+.student-result-card.winner-2 .student-result-rank strong{
+  color:#6b7280;
+}
+
+.student-result-card.winner-3 .student-result-rank strong{
+  color:#b06a2e;
+}
+
+.student-winner-badge{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:25px;
+  padding:5px 10px;
+  border-radius:999px;
+  background:#e8b93c;
+  color:#231f00;
+  font:800 9px/1 Inter,sans-serif;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.student-winner-badge.winner-2{
+  background:#c9ced4;
+  color:#222;
+}
+
+.student-winner-badge.winner-3{
+  background:#e0a370;
+  color:#2a1a08;
+}
+
 .student-result-rank{
   display:flex;
   flex-direction:column;

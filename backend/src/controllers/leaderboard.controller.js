@@ -135,7 +135,6 @@ export async function getFinalLeaderboard(req, res) {
           r3.status AS submission_status,
           r3.decision,
           r3.score,
-          r3.organizer_feedback,
 
           r3.submitted_at,
           r3.reviewed_at,
@@ -279,8 +278,6 @@ export async function getFinalLeaderboard(req, res) {
             reviewed_at: row.reviewed_at,
           },
 
-          organizer_feedback:
-            row.organizer_feedback,
         };
       }
     );

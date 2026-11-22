@@ -94,7 +94,6 @@ export async function getHackathonResults(req, res) {
           r3.decision,
           r3.score,
 
-          r3.organizer_feedback,
 
           r3.reviewed_by,
           r3.reviewed_at,
@@ -194,11 +193,6 @@ export async function getHackathonResults(req, res) {
         score:
           Number(row.score || 0),
 
-        // FIX:
-        // Database column is organizer_feedback,
-        // not feedback.
-        feedback:
-          row.organizer_feedback,
 
         github_url:
           row.github_url,

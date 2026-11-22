@@ -130,7 +130,6 @@ export const getFinalLeaderboard = async (req, res) => {
         r3.score,
         r3.decision,
         r3.status,
-        r3.organizer_feedback,
         r3.submitted_at,
         r3.reviewed_at,
 
@@ -188,8 +187,6 @@ export const getFinalLeaderboard = async (req, res) => {
         decision: submission.decision,
         status: submission.status,
 
-        organizer_feedback:
-          submission.organizer_feedback,
 
         submitted_at: submission.submitted_at,
         reviewed_at: submission.reviewed_at,
