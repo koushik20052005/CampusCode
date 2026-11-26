@@ -2,7 +2,10 @@
    CERTIFICATES CONTROLLER — Module 8
    Participation: every member of a team with a SUBMITTED
    Round 1 submission (auto-submitted proposals count).
-   Winners: organizer picks up to 3 teams + places 1/2/3.
+   Winners: organizer picks up to 10 teams + places 1-10.
+   A winner entry may carry caller-provided codes
+   (members: [{ user_id, code }] for teams, code for quizzes)
+   so already-mailed certificates can be registered as-is.
    QUIZ EVENTS (v6.26): participation goes to every student
    with a SUBMITTED quiz attempt; winners are students picked
    by user_id + place (no teams exist for quizzes, team_id
@@ -79,6 +82,32 @@ async function loadOwnedHackathon(req, res, hackathonId) {
 
 function validTheme(theme) {
   return CERT_THEMES.includes(theme) ? theme : "sidebar";
+}
+
+const PROVIDED_CODE_RE = /^CC-CERT-[A-Z0-9]{8}$/;
+
+/* Caller-provided codes (e.g. certificates already mailed to winners):
+   validate the format, that they are unique in the request, and that
+   none is already in use. Returns an error string, or null when OK. */
+async function validateProvidedCodes(codes) {
+  const list = codes.filter(Boolean);
+  if (list.length !== codes.length) {
+    return "Each provided code must be a non-empty string";
+  }
+  if (list.some((c) => !PROVIDED_CODE_RE.test(c))) {
+    return "Provided codes must look like CC-CERT-XXXXXXXX";
+  }
+  if (new Set(list).size !== list.length) {
+    return "Provided codes must be unique";
+  }
+  const existing = await pool.query(
+    `SELECT code FROM certificates WHERE code = ANY($1)`,
+    [list]
+  );
+  if (existing.rows.length > 0) {
+    return `Code already in use: ${existing.rows[0].code}`;
+  }
+  return null;
 }
 
 /* Best-effort bulk notifications (never break issuance). */
@@ -637,8 +666,9 @@ export async function listParticipationRecipients(req, res) {
 /* =========================================================
    ORGANIZER: ISSUE WINNER CERTIFICATES
    POST /api/certificates/hackathons/:hackathonId/issue-winners
-   Body: { theme, winners: [{ team_id, place, theme? }] }
+   Body: { theme, winners: [{ team_id, place, theme?, members?: [{ user_id, code }] }] }
    A per-winner theme overrides the batch theme for that winner.
+   members with codes registers already-mailed certificates as-is.
 ========================================================= */
 
 export async function issueWinners(req, res) {
@@ -651,10 +681,10 @@ export async function issueWinners(req, res) {
     const themeFor = (w) => (w.theme ? validTheme(w.theme) : theme);
     const winners = Array.isArray(req.body?.winners) ? req.body.winners : [];
 
-    if (winners.length === 0 || winners.length > 3) {
+    if (winners.length === 0 || winners.length > 10) {
       return res.status(400).json({
         success: false,
-        message: "Provide 1 to 3 winners",
+        message: "Provide 1 to 10 winners",
       });
     }
 
@@ -662,11 +692,28 @@ export async function issueWinners(req, res) {
     const placeSet = new Set(places);
     if (
       placeSet.size !== places.length ||
-      places.some((p) => ![1, 2, 3].includes(p))
+      places.some((p) => !(p >= 1 && p <= 10))
     ) {
       return res.status(400).json({
         success: false,
-        message: "Places must be unique values from 1, 2, 3",
+        message: "Places must be unique values from 1 to 10",
+      });
+    }
+
+    /* Validate every caller-provided code up front, before any insert,
+       so a bad code never leaves half a batch registered. */
+    const providedCodes = winners.flatMap((w) =>
+      Array.isArray(w.members) && w.members.length > 0
+        ? w.members.map((m) => m.code)
+        : w.code
+          ? [w.code]
+          : []
+    );
+    const providedError = await validateProvidedCodes(providedCodes);
+    if (providedError) {
+      return res.status(400).json({
+        success: false,
+        message: providedError,
       });
     }
 
@@ -704,7 +751,9 @@ export async function issueWinners(req, res) {
 
             const insertedUserIds = [];
       for (const winner of winners) {
-        const codes = await generateUniqueCodes(pool, 1);
+        const code =
+          winner.code ||
+          (await generateUniqueCodes(pool, 1))[0];
         const inserted = await pool.query(
           `
           INSERT INTO certificates (
@@ -714,7 +763,7 @@ export async function issueWinners(req, res) {
           ON CONFLICT (hackathon_id, user_id, type) DO NOTHING
           RETURNING id
           `,
-          [hackathon.id, winner.user_id, winner.place, themeFor(winner), partnerLogo, codes[0]]
+          [hackathon.id, winner.user_id, winner.place, themeFor(winner), partnerLogo, code]
         );
         if (inserted.rows.length > 0) insertedUserIds.push(winner.user_id);
       }
@@ -765,8 +814,33 @@ export async function issueWinners(req, res) {
         `,
         [winner.team_id]
       );
-      const codes = await generateUniqueCodes(pool, members.rows.length);
-      for (let i = 0; i < members.rows.length; i++) {
+      const memberIds = members.rows.map((r) => String(r.user_id));
+      let rowsToInsert;
+      if (Array.isArray(winner.members) && winner.members.length > 0) {
+        /* Caller-provided member list with codes: only members of
+           this team may be listed, and every entry needs a code
+           (already validated up front). */
+        const outsider = winner.members.some(
+          (m) => !memberIds.includes(String(m.user_id))
+        );
+        if (outsider) {
+          return res.status(400).json({
+            success: false,
+            message: "A provided member does not belong to the team",
+          });
+        }
+        rowsToInsert = winner.members.map((m) => ({
+          user_id: m.user_id,
+          code: m.code,
+        }));
+      } else {
+        const codes = await generateUniqueCodes(pool, members.rows.length);
+        rowsToInsert = members.rows.map((r, i) => ({
+          user_id: r.user_id,
+          code: codes[i],
+        }));
+      }
+      for (const row of rowsToInsert) {
         const inserted = await pool.query(
           `
           INSERT INTO certificates (
@@ -779,15 +853,15 @@ export async function issueWinners(req, res) {
           [
             hackathon.id,
             winner.team_id,
-            members.rows[i].user_id,
+            row.user_id,
             winner.place,
             themeFor(winner),
             partnerLogo,
-            codes[i],
+            row.code,
           ]
         );
         if (inserted.rows.length > 0) {
-          insertedUserIds.push(members.rows[i].user_id);
+          insertedUserIds.push(row.user_id);
         }
       }
     }
